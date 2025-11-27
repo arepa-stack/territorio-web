@@ -11,29 +11,32 @@ const authService = {
     return await api.post('/auth/register', userData)
   },
 
-  // Logout
+  // Logout (Client-side only for now as backend is stateless)
   async logout() {
-    return await api.post('/auth/logout')
+    // return await api.post('/auth/logout')
+    return Promise.resolve()
   },
 
-  // Refresh token
+  // Refresh token (Not supported by backend yet)
   async refreshToken(refreshToken) {
-    return await api.post('/auth/refresh', { refreshToken })
+    // return await api.post('/auth/refresh', { refreshToken })
+    return Promise.reject(new Error('Refresh token not supported'))
   },
 
   // Get current user profile
   async getProfile() {
-    return await api.get('/auth/profile')
+    return await api.get('/users/me')
   },
 
   // Update profile
   async updateProfile(profileData) {
-    return await api.put('/auth/profile', profileData)
+    return await api.patch('/users/me', profileData)
   },
 
-  // Change password
+  // Change password (Not supported)
   async changePassword(passwordData) {
-    return await api.put('/auth/change-password', passwordData)
+    // return await api.put('/auth/change-password', passwordData)
+    return Promise.reject(new Error('Change password not supported'))
   },
 
   // Forgot password
@@ -46,34 +49,40 @@ const authService = {
     return await api.post('/auth/reset-password', resetData)
   },
 
-  // Verify email
+  // Verify email (Not supported)
   async verifyEmail(token) {
-    return await api.post('/auth/verify-email', { token })
+    // return await api.post('/auth/verify-email', { token })
+    return Promise.reject(new Error('Verify email not supported'))
   },
 
-  // Resend verification email
+  // Resend verification email (Not supported)
   async resendVerification() {
-    return await api.post('/auth/resend-verification')
+    // return await api.post('/auth/resend-verification')
+    return Promise.reject(new Error('Resend verification not supported'))
   },
 
-  // Validate token
+  // Validate token (Not supported)
   async validateToken() {
-    return await api.get('/auth/validate')
+    // return await api.get('/auth/validate')
+    return Promise.resolve({ data: { valid: true } }) // Mock for now
   },
 
-  // Get user permissions
+  // Get user permissions (Not supported)
   async getUserPermissions() {
-    return await api.get('/auth/permissions')
+    // return await api.get('/auth/permissions')
+    return Promise.resolve({ data: [] })
   },
 
-  // Update user preferences
+  // Update user preferences (Not supported)
   async updatePreferences(preferences) {
-    return await api.put('/auth/preferences', preferences)
+    // return await api.put('/auth/preferences', preferences)
+    return Promise.resolve({ data: {} })
   },
 
-  // Get user preferences
+  // Get user preferences (Not supported)
   async getPreferences() {
-    return await api.get('/auth/preferences')
+    // return await api.get('/auth/preferences')
+    return Promise.resolve({ data: {} })
   }
 }
 
