@@ -26,10 +26,10 @@ export const useAuthStore = defineStore('auth', () => {
       const { email, password } = credentials
       const response = await authService.login({ email, password })
 
-      if (response.data.token && response.data.user) {
-        token.value = response.data.token
+      if (response.data.access_token && response.data.user) {
+        token.value = response.data.access_token
         user.value = response.data.user
-        refreshToken.value = response.data.refreshToken
+        refreshToken.value = response.data.refresh_token
 
         // Save to localStorage
         localStorage.setItem('token', token.value)
@@ -67,10 +67,10 @@ export const useAuthStore = defineStore('auth', () => {
 
       const response = await authService.register(userData)
 
-      if (response.data.token && response.data.user) {
-        token.value = response.data.token
+      if (response.data.access_token && response.data.user) {
+        token.value = response.data.access_token
         user.value = response.data.user
-        refreshToken.value = response.data.refreshToken
+        refreshToken.value = response.data.refresh_token
 
         // Save to localStorage
         localStorage.setItem('token', token.value)
@@ -133,8 +133,12 @@ export const useAuthStore = defineStore('auth', () => {
 
       const response = await authService.refreshToken(refreshToken.value)
 
-      if (response.data.token) {
-        token.value = response.data.token
+      if (response.data.access_token) {
+        token.value = response.data.access_token
+        if (response.data.refresh_token) {
+          refreshToken.value = response.data.refresh_token
+          localStorage.setItem('refreshToken', refreshToken.value)
+        }
         localStorage.setItem('token', token.value)
         return true
       }

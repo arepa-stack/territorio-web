@@ -83,9 +83,9 @@ const playersService = {
   },
 
   // Get zone conflicts for player
-  async getZoneConflicts(playerId) {
-    // Backend endpoint: /players/zone-conflicts/check?playerId=...
-    return await api.get('/players/zone-conflicts/check', { params: { playerId } })
+  async getZoneConflicts(playerId, zoneId) {
+    // Backend endpoint: /players/zone-conflicts/check?playerId=...&zoneId=...
+    return await api.get('/players/zone-conflicts/check', { params: { playerId, zoneId } })
   },
 
   // --- Unsupported / Future Endpoints ---

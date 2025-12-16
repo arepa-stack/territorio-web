@@ -198,24 +198,32 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
+import teamsService from '@/services/teams'
 
+const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
 // State
 const activeTab = ref('roster')
 const showSettings = ref(false)
+const isLoading = ref(false)
 
-// Mock Data
-const team = ref({
-    id: 1,
-    name: 'Los Tigres',
-    tournament: 'Copa de Verano 2025',
-    maxPlayers: 12
-})
+// Data
+const team = ref({})
+const players = ref([])
+const teamStats = ref([
+    { label: 'Partidos Jugados', value: '0', icon: 'mdi-basketball', color: 'primary' },
+    { label: 'Victorias', value: '0', icon: 'mdi-trophy', color: 'success' },
+    { label: 'Derrotas', value: '0', icon: 'mdi-close-circle', color: 'error' },
+    { label: 'Racha Actual', value: '-', icon: 'mdi-fire', color: 'warning' }
+])
+const playerStats = ref([])
+const upcomingMatches = ref([])
+const documents = ref([])
 
 const playerHeaders = [
     { title: 'Jugador', key: 'player', sortable: true },
@@ -225,46 +233,36 @@ const playerHeaders = [
     { title: 'Acciones', key: 'actions', sortable: false, align: 'end' }
 ]
 
-const players = ref([
-    {
-        id: 1,
-        name: 'Juan Pérez',
-        ci: '12345678',
-        position: 'Escolta',
-        jerseyNumber: 23,
-        status: 'Activo'
-    },
-    {
-        id: 2,
-        name: 'Carlos Gómez',
-        ci: '87654321',
-        position: 'Base',
-        jerseyNumber: 10,
-        status: 'Activo'
-    }
-])
-
-const teamStats = [
-    { label: 'Partidos Jugados', value: '8', icon: 'mdi-basketball', color: 'primary' },
-    { label: 'Victorias', value: '6', icon: 'mdi-trophy', color: 'success' },
-    { label: 'Derrotas', value: '2', icon: 'mdi-close-circle', color: 'error' },
-    { label: 'Racha Actual', value: '3W', icon: 'mdi-fire', color: 'warning' }
-]
-
-const playerStats = [
-    { id: 1, name: 'Juan Pérez', gamesPlayed: 8, points: 18.5, rebounds: 5.2, assists: 3.1, efficiency: 21.4 }
-]
-
-const upcomingMatches = [
-    { id: 1, opponent: 'Águilas Doradas', date: '20 Nov 2025', venue: 'Cancha Central' }
-]
-
-const documents = [
-    { id: 1, name: 'Acta de Inscripción.pdf', date: '10 Nov 2025' }
-]
-
 // Methods
+const fetchTeamDetails = async () => {
+    try {
+        isLoading.value = true
+        const teamId = route.params.id
+        const response = await teamsService.getById(teamId)
+        team.value = response.data
+
+        // Fetch players
+        const playersResponse = await teamsService.getPlayers(teamId)
+        players.value = playersResponse.data.map(p => ({
+            id: p.id,
+            name: p.fullName,
+            ci: 'N/A', // Backend might not expose CI directly here
+            position: p.position,
+            jerseyNumber: p.jerseyNumber,
+            status: p.isActive ? 'Activo' : 'Inactivo'
+        }))
+
+    } catch (error) {
+        console.error('Error fetching team details:', error)
+        toast.error('Error al cargar los detalles del equipo')
+        router.push('/app/captain')
+    } finally {
+        isLoading.value = false
+    }
+}
+
 const getInitials = (name) => {
+    if (!name) return ''
     return name.split(' ').map(n => n[0]).join('').toUpperCase()
 }
 
@@ -277,16 +275,36 @@ const editTeam = () => {
 }
 
 const addPlayer = () => {
-    router.push('/app/captain/register-player')
+    // Pass team ID to registration view
+    router.push({
+        name: 'PlayerRegistration',
+        query: { teamId: team.value.id }
+    })
 }
 
 const editPlayer = (player) => {
     toast.info(`Editar ${player.name}`)
 }
 
-const removePlayer = (player) => {
-    toast.warning(`Eliminar ${player.name}`)
+const removePlayer = async (player) => {
+    if (!confirm(`¿Estás seguro de eliminar a ${player.name}?`)) return
+
+    try {
+        await teamsService.removePlayer(team.value.id, player.id)
+        toast.success('Jugador eliminado')
+        fetchTeamDetails() // Refresh list
+    } catch (error) {
+        console.error('Error removing player:', error)
+        toast.error('Error al eliminar jugador')
+    }
 }
+
+// Lifecycle
+onMounted(() => {
+    if (route.params.id) {
+        fetchTeamDetails()
+    }
+})
 </script>
 
 <style scoped>

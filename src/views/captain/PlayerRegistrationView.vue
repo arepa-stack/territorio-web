@@ -167,12 +167,18 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
+import playersService from '@/services/players'
+import teamsService from '@/services/teams'
 
+const route = useRoute()
+const router = useRouter()
 const toast = useToast()
 
 // State
+const teamId = ref(null)
 const searchCi = ref('')
 const searching = ref(false)
 const registering = ref(false)
@@ -184,11 +190,11 @@ const isNewPlayerFormValid = ref(false)
 const creatingPlayer = ref(false)
 
 const positions = [
-    'Base',
-    'Escolta',
-    'Alero',
-    'Ala-Pívot',
-    'Pívot'
+    'BASE',
+    'ESCOLTA',
+    'ALERO',
+    'ALA_PIVOT',
+    'PIVOT'
 ]
 
 const registration = reactive({
@@ -214,32 +220,56 @@ const searchPlayer = async () => {
         return
     }
 
-    searching.value = true
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Mock result
-    foundPlayer.value = {
-        id: 1,
-        name: 'Juan Pérez García',
-        ci: searchCi.value,
-        position: 'Escolta',
-        height: 185,
-        age: 24,
-        currentTeams: 0
-    }
-
-    // Check for zone conflicts (mock)
-    if (Math.random() > 0.7) {
-        zoneConflict.value = {
-            zone: 'Zona Norte',
-            team: 'Águilas Doradas'
-        }
-    } else {
+    try {
+        searching.value = true
         zoneConflict.value = null
-    }
+        foundPlayer.value = null
 
-    searching.value = false
+        // Use the captain specific search endpoint
+        const response = await playersService.captainSearchPlayer(teamId.value, searchCi.value)
+
+        if (response.data.isInThisTeam) {
+            toast.info('El jugador ya está en tu equipo')
+            return
+        }
+
+        const player = response.data.player
+        foundPlayer.value = {
+            id: player.id,
+            name: player.fullName,
+            ci: player.ci, // Assuming backend returns CI
+            position: player.player?.position || 'Sin posición',
+            height: player.player?.height || '-',
+            age: calculateAge(player.player?.birthDate),
+            currentTeams: 0 // Backend doesn't provide this yet
+        }
+
+        // Check for zone conflicts (if implemented in backend)
+        // const conflicts = await playersService.checkZoneConflicts(player.id, currentZoneId)
+        // if (conflicts.hasConflicts) ...
+
+    } catch (error) {
+        console.error('Error searching player:', error)
+        if (error.response?.status === 404) {
+            toast.info('Jugador no encontrado. Puedes crearlo.')
+        } else {
+            toast.error('Error al buscar jugador')
+        }
+    } finally {
+        searching.value = false
+    }
+}
+
+const calculateAge = (birthDate) => {
+    if (!birthDate) return '-'
+    const today = new Date()
+    const birth = new Date(birthDate)
+    let age = today.getFullYear() - birth.getFullYear()
+    const m = today.getMonth() - birth.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--
+    }
+    return age
 }
 
 const clearSearch = () => {
@@ -252,25 +282,98 @@ const clearSearch = () => {
 }
 
 const registerPlayer = async () => {
-    registering.value = true
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    if (!teamId.value) {
+        toast.error('No se ha seleccionado un equipo')
+        return
+    }
 
-    toast.success(`${foundPlayer.value.name} registrado exitosamente`)
-    clearSearch()
-    registering.value = false
+    try {
+        registering.value = true
+
+        await teamsService.addPlayer(teamId.value, {
+            userId: foundPlayer.value.id,
+            jerseyNumber: parseInt(registration.jerseyNumber),
+            position: registration.position
+        })
+
+        toast.success(`${foundPlayer.value.name} registrado exitosamente`)
+        clearSearch()
+
+        // Go back to team management
+        router.push(`/app/captain/team/${teamId.value}`)
+    } catch (error) {
+        console.error('Error registering player:', error)
+        toast.error(error.response?.data?.message || 'Error al registrar jugador')
+    } finally {
+        registering.value = false
+    }
 }
 
 const createNewPlayer = async () => {
-    creatingPlayer.value = true
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // This flow might need backend support for "Captain creates Player User"
+    // Currently backend supports creating player profile for existing user or admin creating user
+    // Assuming we have an endpoint or using the generic create
 
-    toast.success(`Jugador ${newPlayer.fullName} creado y registrado`)
-    showNewPlayerForm.value = false
-    creatingPlayer.value = false
+    try {
+        creatingPlayer.value = true
 
-    // Reset form
-    Object.keys(newPlayer).forEach(key => newPlayer[key] = null)
+        // For now, we might need to use a specific endpoint if it exists, 
+        // or this feature might be limited to Admins/Organizers.
+        // Let's assume we use the captainAddPlayer endpoint which takes CI and creates if not exists?
+        // Actually, looking at backend, captainAddPlayer takes CI but expects player to exist?
+        // Let's check players.controller.ts again.
+        // It says: "Primero buscar el jugador... si no existe throw Error"
+        // So Captains CANNOT create new users/players currently in the backend logic shown.
+
+        toast.warning('La creación de nuevos jugadores está reservada para Administradores por ahora.')
+        showNewPlayerForm.value = false
+
+        /* 
+        // If backend supported it:
+        await playersService.create({ ...newPlayer, teamId: teamId.value })
+        toast.success(`Jugador ${newPlayer.fullName} creado y registrado`)
+        showNewPlayerForm.value = false
+        router.push(`/app/captain/team/${teamId.value}`)
+        */
+
+    } catch (error) {
+        console.error('Error creating player:', error)
+        toast.error('Error al crear jugador')
+    } finally {
+        creatingPlayer.value = false
+    }
 }
+
+onMounted(async () => {
+    teamId.value = route.query.teamId
+
+    if (!teamId.value) {
+        // Fetch teams to auto-select or prompt
+        try {
+            const response = await teamsService.getMyTeams()
+            const teams = response.data
+
+            if (teams.length === 0) {
+                toast.warning('Debes crear un equipo primero')
+                router.push('/app/captain')
+            } else if (teams.length === 1) {
+                teamId.value = teams[0].id
+                // Update URL without reload
+                router.replace({ query: { ...route.query, teamId: teamId.value } })
+            } else {
+                // Multiple teams: For now, just pick the first one. 
+                // Ideally show a dialog, but this is an MVP fix.
+                teamId.value = teams[0].id
+                toast.info(`Seleccionado equipo: ${teams[0].name}`)
+                router.replace({ query: { ...route.query, teamId: teamId.value } })
+            }
+        } catch (error) {
+            console.error('Error fetching teams:', error)
+            toast.error('Error al cargar equipos')
+            router.push('/app/captain')
+        }
+    }
+})
 </script>
 
 <style scoped>

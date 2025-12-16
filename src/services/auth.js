@@ -17,10 +17,9 @@ const authService = {
     return Promise.resolve()
   },
 
-  // Refresh token (Not supported by backend yet)
+  // Refresh token
   async refreshToken(refreshToken) {
-    // return await api.post('/auth/refresh', { refreshToken })
-    return Promise.reject(new Error('Refresh token not supported'))
+    return await api.post('/auth/refresh', { refreshToken })
   },
 
   // Get current user profile
@@ -49,40 +48,34 @@ const authService = {
     return await api.post('/auth/reset-password', resetData)
   },
 
-  // Verify email (Not supported)
+  // Verify email
   async verifyEmail(token) {
-    // return await api.post('/auth/verify-email', { token })
-    return Promise.reject(new Error('Verify email not supported'))
+    return await api.post('/auth/verify-email', { token })
   },
 
-  // Resend verification email (Not supported)
-  async resendVerification() {
-    // return await api.post('/auth/resend-verification')
-    return Promise.reject(new Error('Resend verification not supported'))
+  // Resend verification email
+  async resendVerification(email) {
+    return await api.post('/auth/resend-verification', { email })
   },
 
-  // Validate token (Not supported)
-  async validateToken() {
-    // return await api.get('/auth/validate')
-    return Promise.resolve({ data: { valid: true } }) // Mock for now
+  // Validate token
+  async validateToken(token) {
+    return await api.post('/auth/validate-token', { token })
   },
 
-  // Get user permissions (Not supported)
+  // Get user permissions
   async getUserPermissions() {
-    // return await api.get('/auth/permissions')
-    return Promise.resolve({ data: [] })
+    return await api.get('/users/me/permissions')
   },
 
-  // Update user preferences (Not supported)
+  // Update user preferences
   async updatePreferences(preferences) {
-    // return await api.put('/auth/preferences', preferences)
-    return Promise.resolve({ data: {} })
+    return await api.patch('/users/me/preferences', preferences)
   },
 
-  // Get user preferences (Not supported)
+  // Get user preferences
   async getPreferences() {
-    // return await api.get('/auth/preferences')
-    return Promise.resolve({ data: {} })
+    return await api.get('/users/me/preferences')
   }
 }
 

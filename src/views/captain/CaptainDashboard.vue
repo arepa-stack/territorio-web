@@ -154,10 +154,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from 'vue-toastification'
+import teamsService from '@/services/teams'
 
 // Components
 import StatsCard from '@/components/common/StatsCard.vue'
@@ -167,84 +168,74 @@ const router = useRouter()
 const authStore = useAuthStore()
 const toast = useToast()
 
-// Mock Data
-const myTeams = ref([
-    {
-        id: 1,
-        name: 'Los Tigres',
-        category: 'Masculino',
-        status: 'ACTIVE',
-        tournament: 'Copa de Verano 2025',
-        playerCount: 8,
-        maxPlayers: 12,
-        nextMatch: '20 Nov - vs Águilas',
-        completionPercentage: 67,
-        image: 'https://cdn.vuetifyjs.com/images/cards/sunshine.jpg'
-    },
-    {
-        id: 2,
-        name: 'Dragones Rojos',
-        category: 'Mixto',
-        status: 'PENDING',
-        tournament: null,
-        playerCount: 5,
-        maxPlayers: 12,
-        nextMatch: null,
-        completionPercentage: 42,
-        image: 'https://cdn.vuetifyjs.com/images/cards/road.jpg'
-    }
-])
-
-const recentActivity = ref([
-    {
-        id: 1,
-        icon: 'mdi-account-plus',
-        title: 'Juan Pérez se unió al equipo',
-        team: 'Los Tigres',
-        date: '23 Nov 2025'
-    },
-    {
-        id: 2,
-        icon: 'mdi-trophy',
-        title: 'Victoria 85-72',
-        team: 'Los Tigres',
-        date: '20 Nov 2025'
-    }
-])
+// State
+const myTeams = ref([])
+const isLoading = ref(false)
+const recentActivity = ref([]) // TODO: Fetch real activity
 
 // Computed
 const captainStats = computed(() => [
     {
         label: 'Equipos Activos',
-        value: myTeams.value.filter(t => t.status === 'ACTIVE').length.toString(),
-        trend: 'up',
+        value: myTeams.value.length.toString(),
+        trend: 'neutral',
         icon: 'mdi-account-group',
         color: 'secondary'
     },
     {
         label: 'Total Jugadores',
-        value: myTeams.value.reduce((sum, t) => sum + t.playerCount, 0).toString(),
-        trend: 'up',
+        value: myTeams.value.reduce((sum, t) => sum + (t.playerCount || 0), 0).toString(),
+        trend: 'neutral',
         icon: 'mdi-account-multiple',
         color: 'primary'
     },
     {
         label: 'Partidos Programados',
-        value: '3',
+        value: '0', // TODO: Fetch from matches service
         trend: 'neutral',
         icon: 'mdi-calendar-check',
         color: 'success'
     },
     {
         label: 'Victorias',
-        value: '12',
-        trend: 'up',
+        value: '0', // TODO: Fetch stats
+        trend: 'neutral',
         icon: 'mdi-trophy',
         color: 'warning'
     }
 ])
 
 // Methods
+const fetchMyTeams = async () => {
+    try {
+        isLoading.value = true
+        const response = await teamsService.getMyTeams()
+        // Backend returns array of teams with playerCount.
+        myTeams.value = response.data.map(team => ({
+            ...team,
+            // playerCount is already in team object from backend
+            maxPlayers: 12, // Default or from tournament rules
+            status: 'ACTIVE', // Default for now
+            image: team.logoUrl || 'https://cdn.vuetifyjs.com/images/cards/basketball.jpg',
+            completionPercentage: calculateCompletion(team)
+        }))
+    } catch (error) {
+        console.error('Error fetching teams:', error)
+        toast.error('Error al cargar tus equipos')
+    } finally {
+        isLoading.value = false
+    }
+}
+
+const calculateCompletion = (team) => {
+    let score = 0
+    if (team.name) score += 20
+    if (team.players?.length >= 5) score += 40
+    if (team.logoUrl) score += 20
+    if (team.city) score += 20
+    return score
+}
+
 const getStatusColor = (status) => {
     const colors = {
         'ACTIVE': 'success',
@@ -276,8 +267,21 @@ const manageTeam = (team) => {
 }
 
 const navigateToRegistration = () => {
-    router.push('/app/captain/register-player')
+    if (myTeams.value.length === 0) {
+        toast.warning('Primero debes crear un equipo')
+        return
+    }
+    // If only one team, go directly. If multiple, maybe ask or go to first.
+    // For now, go to first team
+    router.push({
+        name: 'PlayerRegistration',
+        query: { teamId: myTeams.value[0].id }
+    })
 }
+
+onMounted(() => {
+    fetchMyTeams()
+})
 </script>
 
 <style scoped>

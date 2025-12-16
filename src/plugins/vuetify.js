@@ -3,46 +3,50 @@ import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 
-// Tema personalizado según diseño
+// Tema personalizado según diseño del landing
 const darkTheme = {
   dark: true,
   colors: {
-    primary: '#FF5F1F',      // Orange energético
-    secondary: '#007BFF',    // Azul confiable  
-    background: '#000000',   // Negro puro para OLED
-    surface: '#141414',      // Superficie oscura para cards
-    hover: '#1F1F1F',        // Estado hover
-    'on-background': '#E4E4E7',     // Texto principal
-    'on-surface': '#E4E4E7',       // Texto en superficie
-    'text-primary': '#E4E4E7',     // Texto principal
-    'text-secondary': '#A1A1AA',   // Texto secundario
-    'text-disabled': '#71717A',    // Texto deshabilitado
-    divider: '#27272A',      // Divisores
+    primary: '#FF6B00',      // Orange vibrante del landing
+    secondary: '#FF8C00',    // Orange claro para gradientes
+    accent: '#FFD700',       // Oro para acentos
+    background: '#0A0A0F',   // Negro profundo del landing
+    surface: '#1A1A1F',      // Superficie oscura para cards
+    hover: '#252530',        // Estado hover
+    'on-background': '#FFFFFF',     // Texto principal blanco
+    'on-surface': '#FFFFFF',        // Texto en superficie
+    'text-primary': '#FFFFFF',      // Texto principal
+    'text-secondary': 'rgba(255, 255, 255, 0.7)',   // Texto secundario
+    'text-disabled': 'rgba(255, 255, 255, 0.4)',    // Texto deshabilitado
+    divider: 'rgba(255, 255, 255, 0.1)',      // Divisores
     error: '#EF4444',        // Error (rojo)
     warning: '#F59E0B',      // Warning (amarillo)
     success: '#22C55E',      // Success (verde)
-    info: '#0EA5E9',         // Info (cyan)
+    info: '#00D9FF',         // Info (cyan del landing)
+    purple: '#9D00FF',       // Púrpura del landing
   }
 }
 
 const lightTheme = {
   dark: false,
   colors: {
-    primary: '#F97316',      // Orange más profundo
-    secondary: '#0063CC',    // Azul confiable
-    background: '#F8F9FA',   // Fondo claro
+    primary: '#FF6B00',      // Orange vibrante
+    secondary: '#FF8C00',    // Orange claro
+    accent: '#FFD700',       // Oro
+    background: '#FAFAFA',   // Fondo claro
     surface: '#FFFFFF',      // Superficie blanca
-    hover: '#F1F5F9',        // Estado hover
-    'on-background': '#18181B',     // Texto principal
-    'on-surface': '#18181B',       // Texto en superficie
-    'text-primary': '#18181B',     // Texto principal
-    'text-secondary': '#52525B',   // Texto secundario
-    'text-disabled': '#A1A1AA',    // Texto deshabilitado
-    divider: '#E4E4E7',      // Divisores
+    hover: '#F5F5F5',        // Estado hover
+    'on-background': '#0A0A0F',     // Texto principal oscuro
+    'on-surface': '#0A0A0F',        // Texto en superficie
+    'text-primary': '#0A0A0F',      // Texto principal
+    'text-secondary': 'rgba(10, 10, 15, 0.7)',   // Texto secundario
+    'text-disabled': 'rgba(10, 10, 15, 0.4)',    // Texto deshabilitado
+    divider: 'rgba(10, 10, 15, 0.1)',      // Divisores
     error: '#EF4444',        // Error
     warning: '#F59E0B',      // Warning
     success: '#22C55E',      // Success
-    info: '#0EA5E9',         // Info
+    info: '#00D9FF',         // Info
+    purple: '#9D00FF',       // Púrpura
   }
 }
 
@@ -87,7 +91,7 @@ export default createVuetify({
       density: 'comfortable'
     },
     VAutocomplete: {
-      variant: 'outlined', 
+      variant: 'outlined',
       density: 'comfortable'
     }
   },

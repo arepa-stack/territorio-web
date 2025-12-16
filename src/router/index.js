@@ -15,7 +15,11 @@ import PlayerDashboard from '@/views/player/PlayerDashboard.vue'
 const routes = [
   {
     path: '/',
-    redirect: '/auth/login'
+    name: 'Landing',
+    component: () => import('@/views/LandingPage.vue'),
+    meta: {
+      requiresAuth: false
+    }
   },
   {
     path: '/auth',
@@ -135,6 +139,16 @@ const routes = [
           requiresAuth: true,
           roles: ['TEAM_CAPTAIN'],
           title: 'Registrar Jugador'
+        }
+      },
+      {
+        path: 'organizer',
+        name: 'OrganizerDashboard',
+        component: () => import('@/views/organizer/OrganizerDashboard.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ORGANIZER'],
+          title: 'Panel de Organizador'
         }
       },
       {

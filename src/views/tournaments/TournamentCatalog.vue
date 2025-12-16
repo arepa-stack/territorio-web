@@ -156,10 +156,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
+import tournamentsService from '@/services/tournaments'
+import teamsService from '@/services/teams'
+import { useAuthStore } from '@/stores/auth'
 
 const toast = useToast()
+const authStore = useAuthStore()
 
 // State
 const filters = reactive({
@@ -174,6 +178,8 @@ const selectedTournament = ref(null)
 const selectedTeamId = ref(null)
 const creatingTeam = ref(false)
 const isTeamFormValid = ref(false)
+const isLoading = ref(false)
+const isRegistering = ref(false)
 
 const newTeam = reactive({
     name: '',
@@ -181,8 +187,10 @@ const newTeam = reactive({
     description: ''
 })
 
-// Mock Data
-const zones = ['Todas', 'Zona Norte', 'Zona Sur', 'Zona Este', 'Zona Oeste']
+// Data
+const tournaments = ref([])
+const myTeams = ref([])
+const zones = ['Todas', 'Zona Norte', 'Zona Sur', 'Zona Este', 'Zona Oeste'] // TODO: Fetch from API if dynamic
 const statusOptions = [
     { title: 'Todos', value: null },
     { title: 'Inscripciones Abiertas', value: 'OPEN' },
@@ -190,46 +198,48 @@ const statusOptions = [
     { title: 'Finalizado', value: 'FINISHED' }
 ]
 
-const tournaments = [
-    {
-        id: 1,
-        name: 'Copa de Verano 2025',
-        description: 'El torneo más grande de la temporada veraniega. Compite por el gran premio y el reconocimiento regional.',
-        zone: 'Zona Norte',
-        status: 'OPEN',
-        startDate: '01 Ene 2025',
-        endDate: '28 Feb 2025',
-        registeredTeams: 12,
-        maxTeams: 16,
-        image: 'https://cdn.vuetifyjs.com/images/cards/sunshine.jpg'
-    },
-    {
-        id: 2,
-        name: 'Liga Regional de Otoño',
-        description: 'Liga competitiva para equipos de alto rendimiento. Clasificatorio para el nacional.',
-        zone: 'Zona Sur',
-        status: 'IN_PROGRESS',
-        startDate: '15 Mar 2025',
-        endDate: '30 May 2025',
-        registeredTeams: 8,
-        maxTeams: 8,
-        image: 'https://cdn.vuetifyjs.com/images/cards/house.jpg'
-    }
-]
-
-const myTeams = ref([])
-
 // Computed
 const filteredTournaments = computed(() => {
-    return tournaments.filter(t => {
+    return tournaments.value.filter(t => {
         const matchesSearch = t.name.toLowerCase().includes(filters.search.toLowerCase())
-        const matchesZone = !filters.zone || filters.zone === 'Todas' || t.zone === filters.zone
+        const matchesZone = !filters.zone || filters.zone === 'Todas' || t.zone === filters.zone // Note: Backend might return zone object or ID
         const matchesStatus = !filters.status || t.status === filters.status
         return matchesSearch && matchesZone && matchesStatus
     })
 })
 
+const isCaptain = computed(() => authStore.user?.role === 'TEAM_CAPTAIN')
+
 // Methods
+const fetchTournaments = async () => {
+    try {
+        isLoading.value = true
+        const response = await tournamentsService.getAll({
+            status: filters.status || undefined,
+            // Add other filters as needed by backend
+        })
+        // Handle response structure { tournaments: [], total: 0 }
+        tournaments.value = response.data.tournaments || []
+    } catch (error) {
+        console.error('Error fetching tournaments:', error)
+        toast.error('Error al cargar los torneos')
+    } finally {
+        isLoading.value = false
+    }
+}
+
+const fetchMyTeams = async () => {
+    if (!isCaptain.value) return
+    
+    try {
+        const response = await teamsService.getMyTeams()
+        myTeams.value = response.data || []
+    } catch (error) {
+        console.error('Error fetching teams:', error)
+        // Don't show error if just empty or not authorized yet
+    }
+}
+
 const getStatusColor = (status) => {
     const colors = {
         'OPEN': 'success',
@@ -249,16 +259,24 @@ const getStatusText = (status) => {
 }
 
 const canRegister = (tournament) => {
-    return tournament.status === 'OPEN' && tournament.registeredTeams < tournament.maxTeams
+    return tournament.status === 'OPEN' && 
+           tournament.registeredTeams < tournament.maxTeams &&
+           isCaptain.value
 }
 
 const viewDetails = (tournament) => {
+    // Navigate to detail view (to be implemented)
     toast.info(`Ver detalles de ${tournament.name}`)
 }
 
 const openRegistration = (tournament) => {
+    if (!isCaptain.value) {
+        toast.warning('Solo los capitanes pueden inscribir equipos')
+        return
+    }
     selectedTournament.value = tournament
     showRegistrationDialog.value = true
+    fetchMyTeams() // Refresh teams list
 }
 
 const switchToCreateTeam = () => {
@@ -267,38 +285,71 @@ const switchToCreateTeam = () => {
 }
 
 const createTeam = async () => {
-    creatingTeam.value = true
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+        creatingTeam.value = true
+        const response = await teamsService.create({
+            name: newTeam.name,
+            category: newTeam.category.toUpperCase(), // Backend expects uppercase enum
+            description: newTeam.description,
+            city: 'Default City', // Required by backend DTO, add field to form later
+            foundedYear: new Date().getFullYear() // Required by backend DTO
+        })
 
-    const team = {
-        id: Date.now(),
-        name: newTeam.name,
-        category: newTeam.category
-    }
+        const createdTeam = response.data
+        myTeams.value.push(createdTeam)
+        toast.success(`Equipo "${createdTeam.name}" creado exitosamente`)
 
-    myTeams.value.push(team)
-    toast.success(`Equipo "${newTeam.name}" creado exitosamente`)
+        showCreateTeamDialog.value = false
+        
+        // Reset form
+        newTeam.name = ''
+        newTeam.description = ''
 
-    creatingTeam.value = false
-    showCreateTeamDialog.value = false
-
-    newTeam.name = ''
-    newTeam.description = ''
-
-    if (selectedTournament.value) {
-        selectedTeamId.value = team.id
-        showRegistrationDialog.value = true
+        // If we came from registration, go back to it
+        if (selectedTournament.value) {
+            selectedTeamId.value = createdTeam.id
+            showRegistrationDialog.value = true
+        }
+    } catch (error) {
+        console.error('Error creating team:', error)
+        toast.error(error.response?.data?.message || 'Error al crear el equipo')
+    } finally {
+        creatingTeam.value = false
     }
 }
 
 const confirmRegistration = async () => {
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    if (!selectedTeamId.value || !selectedTournament.value) return
 
-    toast.success(`Inscripción exitosa en ${selectedTournament.value.name}`)
-    showRegistrationDialog.value = false
-    selectedTournament.value = null
-    selectedTeamId.value = null
+    try {
+        isRegistering.value = true
+        await tournamentsService.registerTeam({
+            tournamentId: selectedTournament.value.id,
+            teamId: selectedTeamId.value
+        })
+
+        toast.success(`Inscripción exitosa en ${selectedTournament.value.name}`)
+        showRegistrationDialog.value = false
+        selectedTournament.value = null
+        selectedTeamId.value = null
+        
+        // Refresh list to update counts
+        fetchTournaments()
+    } catch (error) {
+        console.error('Error registering team:', error)
+        toast.error(error.response?.data?.message || 'Error al inscribir el equipo')
+    } finally {
+        isRegistering.value = false
+    }
 }
+
+// Lifecycle
+onMounted(() => {
+    fetchTournaments()
+    if (isCaptain.value) {
+        fetchMyTeams()
+    }
+})
 </script>
 
 <style scoped>
