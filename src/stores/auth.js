@@ -4,6 +4,13 @@ import authService from '@/services/auth'
 import { HOME_BY_ROLE } from '@/router/navigation'
 import router from '@/router'
 
+// ?redirect=/join/abc sends the user back after login/register (only same-site paths)
+const afterAuthPath = role => {
+  const redirect = router.currentRoute.value.query.redirect
+  const safe = typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+  return safe ? redirect : HOME_BY_ROLE[role] || '/'
+}
+
 export const useAuthStore = defineStore('auth', () => {
   // State
   const user = ref(null)
@@ -37,7 +44,7 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user', JSON.stringify(user.value))
         localStorage.setItem('refreshToken', refreshToken.value)
 
-        router.push(HOME_BY_ROLE[user.value.role] || '/')
+        router.push(afterAuthPath(user.value.role))
 
         return { success: true }
       }
@@ -69,7 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user', JSON.stringify(user.value))
         localStorage.setItem('refreshToken', refreshToken.value)
 
-        router.push(HOME_BY_ROLE[user.value.role] || '/')
+        router.push(afterAuthPath(user.value.role))
 
         return { success: true }
       }

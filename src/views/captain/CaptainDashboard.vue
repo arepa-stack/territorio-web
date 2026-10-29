@@ -97,19 +97,76 @@
         <SectionHeader title="Mis inscripciones" icon="how_to_reg" />
         <p v-if="!team.registrations?.length" class="m-0 text-body-md text-on-surface-variant">Tu equipo todavía no está inscrito en ningún torneo.</p>
         <div v-else class="grid gap-space-sm md:grid-cols-2">
-          <router-link
-            v-for="r in team.registrations"
-            :key="r.id"
-            :to="`/torneo/${r.tournament.id}`"
-            class="card flex flex-col gap-space-xs p-space-md text-on-surface no-underline hover:bg-surface-container-low"
-          >
-            <h3 class="m-0 font-title-sm text-title-sm">{{ r.tournament.name }}</h3>
+          <article v-for="r in team.registrations" :key="r.id" class="card flex flex-col gap-space-xs p-space-md">
+            <router-link :to="`/torneo/${r.tournament.id}`" class="text-on-surface no-underline hover:text-primary">
+              <h3 class="m-0 font-title-sm text-title-sm">{{ r.tournament.name }}</h3>
+            </router-link>
             <div class="flex flex-wrap gap-space-xs">
               <StatusChip :status="r.status" />
               <RosterChip v-if="team.roster" :roster="team.roster" />
               <StatusChip :status="r.tournament.status" />
             </div>
-          </router-link>
+            <!-- Registration payment: only for tournaments with a fee -->
+            <div v-if="r.tournament.entryFee > 0" class="mt-space-xs flex flex-wrap items-center justify-between gap-space-xs border-0 border-t border-solid border-outline-variant/40 pt-space-sm">
+              <div class="flex flex-col gap-1">
+                <StatusChip
+                  :status="r.payment?.status || 'UNPAID'"
+                  :label="r.payment ? PAYMENT_STATUS[r.payment.status] : `Pago pendiente · $${r.tournament.entryFee}`"
+                />
+                <span v-if="r.payment?.status === 'PENDING_REVIEW' && !r.payment.hasReceipt" class="text-body-sm text-on-surface-variant">Falta subir el comprobante</span>
+                <span v-if="r.payment?.status === 'REJECTED' && r.payment.reviewNote" class="text-body-sm text-error">{{ r.payment.reviewNote }}</span>
+              </div>
+              <button
+                v-if="r.payment?.status !== 'VERIFIED' && r.status !== 'REJECTED' && !['FINISHED', 'CANCELLED'].includes(r.tournament.status)"
+                type="button"
+                class="btn-primary"
+                @click="paymentDialog.open(r)"
+              >
+                <span class="icon">payments</span>
+                {{ !r.payment ? 'Pagar inscripción' : r.payment.status === 'REJECTED' ? 'Reenviar pago' : 'Ver / subir comprobante' }}
+              </button>
+            </div>
+          </article>
+        </div>
+        <PaymentDialog ref="paymentDialog" @changed="load" />
+      </section>
+
+      <!-- Invite links -->
+      <section>
+        <SectionHeader title="Invitar por link" icon="link" />
+        <p class="m-0 mb-space-sm text-body-sm text-on-surface-variant">
+          Comparte un link para que los jugadores se unan solos eligiendo dorsal y posición. Se aplican las mismas reglas del fichaje por cédula.
+        </p>
+        <form class="card mb-space-sm flex flex-col gap-space-sm p-space-md sm:flex-row sm:items-end" @submit.prevent="createInvite">
+          <div>
+            <label class="field-label" for="inv-days">Vence en</label>
+            <select id="inv-days" v-model.number="newInvite.expiresInDays" class="input">
+              <option v-for="d in [1, 3, 7, 14, 30]" :key="d" :value="d">{{ d }} día{{ d > 1 ? 's' : '' }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="inv-uses">Máx. usos (opcional)</label>
+            <input id="inv-uses" v-model.number="newInvite.maxUses" class="input font-mono" type="number" min="1" max="50" placeholder="Sin límite" />
+          </div>
+          <button type="submit" class="btn-secondary" :disabled="saving">
+            <span class="icon">add_link</span> Generar link
+          </button>
+        </form>
+        <p v-if="!invites.length" class="m-0 text-body-md text-on-surface-variant">No tienes links activos.</p>
+        <div class="flex flex-col gap-space-xs">
+          <article v-for="i in invites" :key="i.id" class="card flex flex-col gap-space-sm p-space-md sm:flex-row sm:items-center">
+            <div class="min-w-0 flex-1">
+              <p class="m-0 truncate font-stat-mono text-body-sm">{{ inviteUrl(i.token) }}</p>
+              <span class="text-body-sm text-on-surface-variant">
+                {{ i.uses }}{{ i.maxUses ? ` / ${i.maxUses}` : '' }} uso(s) · vence {{ formatDate(i.expiresAt) }}
+              </span>
+            </div>
+            <div class="flex gap-space-xs">
+              <button type="button" class="btn-ghost" aria-label="Copiar link" @click="copyInvite(i)"><span class="icon">content_copy</span></button>
+              <a class="btn-ghost" :href="whatsappUrl(i)" target="_blank" rel="noopener" aria-label="Compartir por WhatsApp"><span class="icon">share</span> WhatsApp</a>
+              <button type="button" class="btn-ghost text-error" aria-label="Revocar link" @click="revokeInvite(i)"><span class="icon">link_off</span></button>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -284,7 +341,10 @@ import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
 import matchesService from '@/services/matches'
-import { CATEGORIES, POSITIONS, toOptions } from '@/utils/labels'
+import invitesService, { inviteUrl } from '@/services/invites'
+import { CATEGORIES, PAYMENT_STATUS, POSITIONS, formatDate, toOptions } from '@/utils/labels'
+import { useConfirm } from '@/composables/useConfirm'
+import PaymentDialog from '@/components/tournament/PaymentDialog.vue'
 import MatchCard from '@/components/tournament/MatchCard.vue'
 import { handleApiError } from '@/services/api'
 import StatusChip from '@/components/ui/StatusChip.vue'
@@ -292,6 +352,7 @@ import RosterChip from '@/components/ui/RosterChip.vue'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
 
 const toast = useToast()
+const confirm = useConfirm()
 
 const categories = toOptions(CATEGORIES)
 const positionOptions = toOptions(POSITIONS)
@@ -335,6 +396,9 @@ const editingPlayer = ref(null)
 const playerForm = ref({ jerseyNumber: 0, position: 'BASE' })
 const newTeam = ref({ name: '', category: 'OPEN', city: '' })
 const newStaff = ref({ fullName: '', role: 'COACH' })
+const paymentDialog = ref(null)
+const invites = ref([])
+const newInvite = ref({ expiresInDays: 7, maxUses: null })
 
 const rosterLocked = computed(() =>
   Boolean(
@@ -364,6 +428,7 @@ const load = async () => {
         .map(pl => ({ ...pl, isCaptain: pl.isCaptain || (pl.userId && pl.userId === team.value.captain.id) }))
         .sort((a, b) => (b.isCaptain - a.isCaptain) || a.jerseyNumber - b.jerseyNumber)
       staff.value = s.data
+      invitesService.list(team.value.id).then(({ data }) => (invites.value = data)).catch(() => (invites.value = []))
       try {
         const { data } = await matchesService.getTeamUpcoming(team.value.id)
         upcoming.value = Array.isArray(data) ? data : data.matches || []
@@ -444,8 +509,51 @@ const savePlayer = async () => {
   editingPlayer.value = null
 }
 
-const removeStaff = s => confirm(`¿Quitar a ${s.fullName} del cuerpo técnico?`) && run(() => teamsService.removeStaff(team.value.id, s.id), `${s.fullName} quitado`)
-const removePlayer = p => confirm(`¿Quitar a ${p.fullName} del plantel?`) && run(() => teamsService.removePlayer(team.value.id, p.id), `${p.fullName} quitado del plantel`)
+const removeStaff = async s => {
+  if (!(await confirm({ title: 'Quitar del cuerpo técnico', message: `¿Quitar a ${s.fullName} del cuerpo técnico?`, confirmText: 'Quitar', danger: true }))) return
+  run(() => teamsService.removeStaff(team.value.id, s.id), `${s.fullName} quitado`)
+}
+const removePlayer = async p => {
+  if (!(await confirm({ title: 'Quitar del plantel', message: `¿Quitar a ${p.fullName} del plantel?`, confirmText: 'Quitar', danger: true }))) return
+  run(() => teamsService.removePlayer(team.value.id, p.id), `${p.fullName} quitado del plantel`)
+}
+
+const createInvite = async () => {
+  const { expiresInDays, maxUses } = newInvite.value
+  saving.value = true
+  try {
+    const { data } = await invitesService.create(team.value.id, { expiresInDays, ...(maxUses > 0 && { maxUses }) })
+    invites.value = [data, ...invites.value]
+    copyInvite(data)
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo generar el link'))
+  } finally {
+    saving.value = false
+  }
+}
+
+const copyInvite = async i => {
+  try {
+    await navigator.clipboard.writeText(inviteUrl(i.token))
+    toast.success('Link copiado')
+  } catch {
+    toast.info(inviteUrl(i.token))
+  }
+}
+
+const whatsappUrl = i =>
+  `https://wa.me/?text=${encodeURIComponent(`¡Únete a ${team.value.name} en Basketball MVP! Elige tu dorsal aquí: ${inviteUrl(i.token)}`)}`
+
+const revokeInvite = async i => {
+  if (!(await confirm({ title: 'Revocar link', message: 'Quien tenga este link ya no podrá unirse al equipo.', confirmText: 'Revocar', danger: true }))) return
+  try {
+    await invitesService.revoke(team.value.id, i.id)
+    invites.value = invites.value.filter(x => x.id !== i.id)
+    toast.success('Link revocado')
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo revocar el link'))
+  }
+}
 
 onMounted(load)
 </script>

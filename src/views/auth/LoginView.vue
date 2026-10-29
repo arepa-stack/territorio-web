@@ -57,7 +57,7 @@
 
     <p class="m-0 text-center text-body-md text-on-surface-variant">
       ¿No tienes cuenta?
-      <router-link to="/auth/register" class="font-bold text-primary no-underline hover:underline">Crear cuenta</router-link>
+      <router-link :to="{ path: '/auth/register', query: $route.query }" class="font-bold text-primary no-underline hover:underline">Crear cuenta</router-link>
     </p>
   </div>
 </template>

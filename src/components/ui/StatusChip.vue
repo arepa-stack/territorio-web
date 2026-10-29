@@ -34,13 +34,18 @@ const STATUS = {
   CANCELLED: { label: 'Cancelado', tone: 'red', icon: 'block' },
   // Match
   SCHEDULED: { label: 'Programado', tone: 'muted' },
-  SUSPENDED: { label: 'Suspendido', tone: 'amber', icon: 'pause_circle' }
+  SUSPENDED: { label: 'Suspendido', tone: 'amber', icon: 'pause_circle' },
+  // Registration payment (REJECTED shared above)
+  UNPAID: { label: 'Pago pendiente', tone: 'muted', icon: 'payments' },
+  PENDING_REVIEW: { label: 'Pendiente de verificación', tone: 'amber', pulse: true },
+  VERIFIED: { label: 'Verificado', tone: 'green', icon: 'verified' }
 }
 
-const props = defineProps({ status: { type: String, required: true } })
+// label overrides the default text (e.g. 'Pago rechazado' vs a rejected registration)
+const props = defineProps({ status: { type: String, required: true }, label: { type: String, default: '' } })
 
 const tone = computed(() => {
   const s = STATUS[props.status] || { label: props.status, tone: 'muted' }
-  return { ...s, classes: TONES[s.tone], dot: DOTS[s.tone] }
+  return { ...s, ...(props.label && { label: props.label }), classes: TONES[s.tone], dot: DOTS[s.tone] }
 })
 </script>

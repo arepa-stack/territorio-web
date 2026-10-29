@@ -60,6 +60,13 @@ const routes = [
     component: () => import('@/views/tournaments/PublicTournamentView.vue'),
     meta: { requiresAuth: false }
   },
+  {
+    // Team invite link shared by a captain (public preview, join needs a PLAYER session)
+    path: '/join/:token',
+    name: 'JoinTeam',
+    component: () => import('@/views/teams/JoinTeamView.vue'),
+    meta: { requiresAuth: false }
+  },
   // Link sent by the backend email: FRONTEND_URL/reset-password?token=...
   { path: '/reset-password', redirect: to => ({ path: '/auth/reset-password', query: to.query }) },
   {
@@ -252,7 +259,7 @@ router.beforeEach(async (to, from, next) => {
   // Check if route requires authentication
   if (to.matched.some(record => record.meta.requiresAuth)) {
     if (!authStore.isAuthenticated) {
-      next('/auth/login')
+      next({ path: '/auth/login', query: { redirect: to.fullPath } })
       return
     }
 

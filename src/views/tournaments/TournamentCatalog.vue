@@ -113,6 +113,7 @@
         </template>
       </article>
     </div>
+    <PaymentDialog ref="paymentDialog" />
   </div>
 </template>
 
@@ -126,6 +127,7 @@ import { useAuthStore } from '@/stores/auth'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
 import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
+import PaymentDialog from '@/components/tournament/PaymentDialog.vue'
 
 const toast = useToast()
 const authStore = useAuthStore()
@@ -152,6 +154,7 @@ const search = ref('')
 const status = ref('REGISTRATION')
 const confirming = ref(null)
 const registering = ref(false)
+const paymentDialog = ref(null)
 
 const categoryLabel = c => CATEGORIES[c] || c
 const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
@@ -200,6 +203,13 @@ const register = async t => {
     if (warn) toast.warning(warn)
     confirming.value = null
     await Promise.all([loadTournaments(), loadTeam()])
+    // Paid tournament: go straight to the payment flow (it can also be done later from the captain panel)
+    if (Number(t.entryFee) > 0) {
+      tournamentsService
+        .getById(t.id)
+        .then(({ data }) => paymentDialog.value.open({ id: res.data.id, tournament: data, payment: null }))
+        .catch(() => toast.info('Paga la inscripción desde tu panel de capitán'))
+    }
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo inscribir el equipo'))
   } finally {

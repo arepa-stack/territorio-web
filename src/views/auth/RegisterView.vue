@@ -96,7 +96,7 @@
 
     <p class="m-0 text-center text-body-md text-on-surface-variant">
       ¿Ya tienes cuenta?
-      <router-link to="/auth/login" class="font-bold text-primary no-underline hover:underline">Iniciar sesión</router-link>
+      <router-link :to="{ path: '/auth/login', query: $route.query }" class="font-bold text-primary no-underline hover:underline">Iniciar sesión</router-link>
     </p>
   </div>
 </template>

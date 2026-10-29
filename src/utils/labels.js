@@ -25,3 +25,30 @@ export const formatDate = d => (d ? new Date(d).toLocaleDateString('es-VE', { da
 
 export const formatDay = d =>
   d ? new Date(d).toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' }) : '-'
+
+export const PAYMENT_METHODS = {
+  PAGO_MOVIL: 'Pago Móvil',
+  TRANSFERENCIA: 'Transferencia'
+}
+
+export const PAYMENT_STATUS = {
+  PENDING_REVIEW: 'Pago pendiente de verificación',
+  VERIFIED: 'Pago verificado',
+  REJECTED: 'Pago rechazado'
+}
+
+// Organizer payment details form <-> API paymentInfo (a section is sent only if something was typed)
+export const emptyPaymentInfo = (info = {}) => ({
+  pagoMovil: { banco: '', telefono: '', cedula: '', ...info?.pagoMovil },
+  transferencia: { banco: '', cuenta: '', titular: '', rif: '', ...info?.transferencia }
+})
+
+export const paymentInfoPayload = form => {
+  const pick = section => {
+    const trimmed = Object.fromEntries(Object.entries(section).map(([k, v]) => [k, (v || '').trim()]))
+    return Object.values(trimmed).some(Boolean) ? trimmed : undefined
+  }
+  const pagoMovil = pick(form.pagoMovil)
+  const transferencia = pick(form.transferencia)
+  return pagoMovil || transferencia ? { pagoMovil, transferencia } : undefined
+}

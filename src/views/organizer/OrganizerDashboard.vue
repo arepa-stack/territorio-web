@@ -244,6 +244,15 @@
                         </div>
                     </section>
 
+                    <!-- Datos de cobro de la inscripción -->
+                    <section class="flex flex-col gap-space-md">
+                        <h3 class="label-tactical m-0 text-secondary">Datos de pago de la inscripción</h3>
+                        <p class="m-0 text-body-sm text-on-surface-variant">
+                            Los capitanes verán estos datos para pagar y reportar su pago. Llena al menos un método.
+                        </p>
+                        <PaymentInfoFields v-model="formData.paymentInfo" id-prefix="t-pay" />
+                    </section>
+
                     <!-- 4. Árbitros -->
                     <section class="flex flex-col gap-space-md">
                         <h3 class="label-tactical m-0 text-secondary">4 · Árbitros</h3>
@@ -286,12 +295,16 @@ import SectionHeader from '@/components/ui/SectionHeader.vue'
 import StatTile from '@/components/ui/StatTile.vue'
 import ChipSelect from '@/components/ui/ChipSelect.vue'
 import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
+import PaymentInfoFields from '@/components/tournament/PaymentInfoFields.vue'
+import { useConfirm } from '@/composables/useConfirm'
+import { emptyPaymentInfo, paymentInfoPayload } from '@/utils/labels'
 
 const authStore = useAuthStore()
 
 const router = useRouter()
 const route = useRoute()
 const toast = useToast()
+const confirm = useConfirm()
 
 // State
 const tournaments = ref([])
@@ -331,6 +344,7 @@ const formData = ref({
     quarterDuration: 10,
     rulesText: '',
     prizesText: '',
+    paymentInfo: emptyPaymentInfo(),
     zoneIds: [],
     venueIds: [],
     refereeIds: []
@@ -449,6 +463,7 @@ const createTournament = async (prefill = {}) => {
         quarterDuration: 10,
         rulesText: '',
         prizesText: '',
+        paymentInfo: emptyPaymentInfo(),
         zoneIds: [],
         venueIds: [],
         refereeIds: []
@@ -525,6 +540,7 @@ const saveTournament = async () => {
             quarterDuration: Number(formData.value.quarterDuration),
             rules: (formData.value.rulesText || '').split('\n').map(r => r.trim()).filter(Boolean),
             prizes: (formData.value.prizesText || '').split('\n').map(p => p.trim()).filter(Boolean),
+            paymentInfo: paymentInfoPayload(formData.value.paymentInfo),
             zoneIds: formData.value.zoneIds && formData.value.zoneIds.length > 0 ? formData.value.zoneIds : undefined,
             venueIds: formData.value.venueIds && formData.value.venueIds.length > 0 ? formData.value.venueIds : undefined,
             refereeIds: formData.value.refereeIds && formData.value.refereeIds.length > 0 ? formData.value.refereeIds : undefined,
@@ -548,7 +564,13 @@ const manageTournament = (tournament) => {
 }
 
 const deleteTournament = async (tournament) => {
-    if (!confirm(`¿Estás seguro de eliminar el torneo "${tournament.name}"?`)) return
+    const ok = await confirm({
+        title: 'Eliminar torneo',
+        message: `¿Seguro que quieres eliminar "${tournament.name}"? Esta acción no se puede deshacer.`,
+        confirmText: 'Eliminar',
+        danger: true
+    })
+    if (!ok) return
 
     try {
         await tournamentsService.delete(tournament.id)
