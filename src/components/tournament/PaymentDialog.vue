@@ -2,12 +2,12 @@
   <!-- Full screen on mobile, modal on desktop. Steps are a horizontal scroll-snap track (native swipe). -->
   <dialog
     ref="dialog"
-    class="m-0 h-[100dvh] max-h-none w-screen max-w-none overflow-hidden border-t-2 border-solid border-x-0 border-b-0 border-primary-container bg-surface-container p-0 text-on-surface backdrop:bg-[rgba(11,15,23,0.8)] md:m-auto md:h-[min(720px,90vh)] md:w-full md:max-w-xl md:rounded-lg"
+    class="m-0 h-[100dvh] max-h-none w-screen max-w-none overflow-clip border-t-2 border-solid border-x-0 border-b-0 border-primary-container bg-surface-container p-0 text-on-surface backdrop:bg-[rgba(11,15,23,0.8)] md:m-auto md:h-[min(720px,90vh)] md:w-full md:max-w-xl md:rounded-lg"
     aria-labelledby="pay-title"
     @click.self="dialog.close()"
     @close="onClose"
   >
-    <div v-if="reg" class="flex h-full flex-col">
+    <div v-if="reg" class="flex h-full flex-col overflow-clip">
       <header class="flex items-start justify-between gap-space-sm border-0 border-b border-solid border-outline-variant/40 px-space-lg py-space-md">
         <div class="min-w-0">
           <h2 id="pay-title" class="m-0 font-headline-md text-headline-md uppercase">Pagar inscripción</h2>
@@ -158,13 +158,15 @@
             Sube la captura o el PDF del pago (máx. 5MB) para que el organizador lo verifique más rápido.
           </p>
           <div class="grid grid-cols-2 gap-space-sm">
-            <label class="btn-secondary cursor-pointer">
+            <!-- relative + overflow-hidden keep the hidden input inside its button, so the focus
+                 returning from the file picker doesn't scroll the dialog off the step -->
+            <label class="btn-secondary relative cursor-pointer overflow-hidden">
               <span class="icon">photo_camera</span> Tomar foto
-              <input type="file" accept="image/*" capture="environment" class="sr-only" @change="pickFile" />
+              <input type="file" accept="image/*" capture="environment" class="sr-only" @change="pickFile" @cancel="resnap" />
             </label>
-            <label class="btn-secondary cursor-pointer">
+            <label class="btn-secondary relative cursor-pointer overflow-hidden">
               <span class="icon">upload_file</span> Elegir archivo
-              <input type="file" accept="image/*,application/pdf" class="sr-only" @change="pickFile" />
+              <input type="file" accept="image/*,application/pdf" class="sr-only" @change="pickFile" @cancel="resnap" />
             </label>
           </div>
           <div v-if="file" class="mt-space-md rounded-lg bg-surface-container-high p-space-sm">
@@ -294,10 +296,17 @@ const open = async registration => {
   await nextTick()
   dialog.value.showModal()
   // A pending report without receipt opens on the upload step
-  const start = payment.value?.status === 'PENDING_REVIEW' ? 2 : 0
-  step.value = start
-  track.value.scrollLeft = start * track.value.clientWidth
+  step.value = payment.value?.status === 'PENDING_REVIEW' ? 2 : 0
+  resnap()
 }
+
+// Puts the track exactly on the current step and undoes any scroll the browser applied to the dialog
+const resnap = () =>
+  requestAnimationFrame(() => {
+    dialog.value?.scrollTo(0, 0)
+    dialog.value?.firstElementChild?.scrollTo(0, 0)
+    if (track.value) track.value.scrollLeft = step.value * track.value.clientWidth
+  })
 
 const goTo = async i => {
   await nextTick()
@@ -354,6 +363,7 @@ const submitPayment = async () => {
 const pickFile = e => {
   const f = e.target.files[0]
   e.target.value = ''
+  resnap()
   if (!f) return
   if (f.size > MAX_FILE) return toast.error('El comprobante no puede pesar más de 5MB')
   if (!f.type.startsWith('image/') && f.type !== 'application/pdf') return toast.error('Solo imágenes o PDF')
