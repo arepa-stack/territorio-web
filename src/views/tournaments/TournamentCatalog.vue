@@ -196,6 +196,8 @@ const register = async t => {
     const res = await tournamentsService.registerTeam({ tournamentId: t.id, teamId: myTeam.value.id })
     const validated = res.data.roster?.status === 'VALIDATED'
     toast.success(`Inscrito en ${t.name}. Queda pendiente de aprobación${validated ? '' : ' y tu plantel aún no está validado'}.`)
+    const warn = res.data.warning || (res.data.warnings?.length ? res.data.warnings.join(' · ') : '')
+    if (warn) toast.warning(warn)
     confirming.value = null
     await Promise.all([loadTournaments(), loadTeam()])
   } catch (error) {

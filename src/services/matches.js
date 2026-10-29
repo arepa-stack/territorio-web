@@ -11,6 +11,16 @@ const matchesService = {
 
     async getStandings(tournamentId) {
         return await api.get(`/matches/tournaments/${tournamentId}/standings`)
+    },
+
+    async setAttendance(matchId, status) {
+        return await api.post(`/matches/${matchId}/attendance`, { status })
+    },
+
+    async getAttendance(matchId, teamId) {
+        return await api.get(`/matches/${matchId}/attendance`, {
+            params: teamId ? { teamId } : {}
+        })
     }
 }
 

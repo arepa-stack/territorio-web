@@ -21,19 +21,66 @@
 
     <section v-for="d in days" :key="d.key" class="flex flex-col gap-space-xs">
       <h2 class="label-tactical m-0 capitalize text-on-surface-variant">{{ formatDay(d.date) }}</h2>
-      <MatchCard v-for="m in d.matches" :key="m.id" :match="m" :mine="myTeamIn(m)?.team.id" />
+      <div v-for="m in d.matches" :key="m.id" class="flex flex-col gap-1">
+        <MatchCard :match="m" :mine="myTeamIn(m)?.team.id" />
+        <div
+          v-if="m.status === 'SCHEDULED'"
+          class="card flex flex-wrap items-center justify-between gap-space-xs bg-surface-container-low px-space-md py-space-xs"
+        >
+          <span class="label-tactical text-on-surface-variant">Tu asistencia:</span>
+          <div class="flex gap-space-xs">
+            <button
+              v-for="opt in attendanceOptions"
+              :key="opt.value"
+              type="button"
+              class="rounded px-space-sm py-1 text-body-sm transition-colors"
+              :class="
+                m.myAttendance === opt.value
+                  ? 'bg-primary-container font-semibold text-white'
+                  : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
+              "
+              :disabled="savingMatchId === m.id"
+              @click="markAttendance(m, opt.value)"
+            >{{ opt.label }}</button>
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useToast } from 'vue-toastification'
 import { usePlayerOverview } from '@/composables/usePlayerOverview'
 import { formatDay } from '@/utils/labels'
+import matchesService from '@/services/matches'
+import { handleApiError } from '@/services/api'
 import MatchCard from '@/components/tournament/MatchCard.vue'
 
+const toast = useToast()
 const { loading, load, teams, matches, myTeamIn } = usePlayerOverview()
 const teamFilter = ref('ALL')
+const savingMatchId = ref(null)
+
+const attendanceOptions = [
+  { value: 'GOING', label: 'Voy' },
+  { value: 'NOT_GOING', label: 'No voy' },
+  { value: 'MAYBE', label: 'Quizá' }
+]
+
+const markAttendance = async (match, status) => {
+  savingMatchId.value = match.id
+  try {
+    await matchesService.setAttendance(match.id, status)
+    match.myAttendance = status
+    toast.success('Asistencia actualizada')
+  } catch (e) {
+    toast.error(handleApiError(e, 'No se pudo guardar tu asistencia'))
+  } finally {
+    savingMatchId.value = null
+  }
+}
 
 const days = computed(() => {
   const list = matches.value.filter(

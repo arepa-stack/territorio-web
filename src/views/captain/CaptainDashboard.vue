@@ -118,7 +118,43 @@
         <SectionHeader title="Próximos partidos" icon="event" />
         <p v-if="!upcoming.length" class="m-0 text-body-md text-on-surface-variant">No hay partidos programados por ahora.</p>
         <div v-else class="flex flex-col gap-space-xs">
-          <MatchCard v-for="m in upcoming" :key="m.id" :match="m" :mine="team.id" />
+          <div v-for="m in upcoming" :key="m.id" class="flex flex-col gap-1">
+            <MatchCard :match="m" :mine="team.id" />
+            <details
+              v-if="attendanceByMatch[m.id]"
+              class="card bg-surface-container-low px-space-md py-space-xs"
+            >
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-space-sm text-body-sm text-on-surface-variant [&::-webkit-details-marker]:hidden">
+                <span class="font-stat-mono text-[12px] text-on-surface">
+                  {{ attendanceByMatch[m.id].summary.going }} van ·
+                  {{ attendanceByMatch[m.id].summary.notGoing }} no ·
+                  <template v-if="attendanceByMatch[m.id].summary.maybe > 0">
+                    {{ attendanceByMatch[m.id].summary.maybe }} quizá ·
+                  </template>
+                  {{ attendanceByMatch[m.id].summary.noResponse }} sin responder
+                </span>
+                <span class="label-tactical flex items-center gap-0.5 text-primary">
+                  <span class="icon text-[16px]">group</span> Ver lista
+                </span>
+              </summary>
+              <div class="mt-space-xs grid gap-1 border-t border-outline-variant/30 pt-space-xs sm:grid-cols-2">
+                <div
+                  v-for="pl in attendanceByMatch[m.id].players"
+                  :key="pl.playerId"
+                  class="flex items-center justify-between gap-space-xs rounded bg-surface-container px-space-sm py-1 text-body-sm"
+                >
+                  <span class="truncate">
+                    <strong v-if="pl.jerseyNumber != null" class="font-stat-mono">#{{ pl.jerseyNumber }}</strong>
+                    {{ pl.fullName }}
+                  </span>
+                  <span
+                    class="label-tactical text-[11px]"
+                    :class="attendanceBadgeClass(pl.status)"
+                  >{{ attendanceStatusLabel(pl.status) }}</span>
+                </div>
+              </div>
+            </details>
+          </div>
         </div>
       </section>
 
@@ -158,10 +194,33 @@
       <!-- Roster -->
       <section>
         <SectionHeader title="Nómina del plantel" icon="groups">
-          <router-link :to="{ path: '/app/captain/register-player', query: { teamId: team.id } }" class="btn-secondary">
-            <span class="icon">badge</span> Fichar por cédula
-          </router-link>
+          <div class="flex items-center gap-space-sm">
+            <span class="font-stat-mono text-stat-mono text-on-surface-variant">{{ players.length }} / {{ maxPlayers }} jugadores</span>
+            <button
+              v-if="rosterLocked || players.length >= maxPlayers"
+              type="button"
+              class="btn-secondary cursor-not-allowed opacity-50"
+              disabled
+            >
+              <span class="icon">badge</span> Fichar por cédula
+            </button>
+            <router-link
+              v-else
+              :to="{ path: '/app/captain/register-player', query: { teamId: team.id } }"
+              class="btn-secondary"
+            >
+              <span class="icon">badge</span> Fichar por cédula
+            </router-link>
+          </div>
         </SectionHeader>
+        <p
+          v-if="rosterLocked"
+          role="alert"
+          class="m-0 mb-space-sm flex items-center gap-space-xs rounded border border-solid border-error/50 bg-error/10 p-space-sm text-body-sm text-error"
+        >
+          <span class="icon text-[18px]">lock</span>
+          Plantel cerrado: tu equipo está compitiendo en un torneo en curso{{ team.roster?.lockedByTournament ? ` (${team.roster.lockedByTournament})` : '' }}. No puedes fichar ni quitar jugadores.
+        </p>
         <p class="m-0 mb-space-sm flex items-center gap-space-xs text-body-sm text-on-surface-variant">
           <span class="icon text-[18px] text-secondary">notifications</span>
           Un jugador puede estar en varios equipos y torneos, pero con un solo equipo por torneo.
@@ -188,7 +247,14 @@
             <button type="button" class="btn-ghost" :aria-label="`Editar a ${p.fullName}`" @click="startEditPlayer(p)">
               <span class="icon">edit</span>
             </button>
-            <button type="button" class="btn-ghost" :aria-label="`Quitar a ${p.fullName}`" @click="removePlayer(p)">
+            <button
+              type="button"
+              class="btn-ghost"
+              :class="{ 'cursor-not-allowed opacity-40': rosterLocked }"
+              :disabled="rosterLocked"
+              :aria-label="`Quitar a ${p.fullName}`"
+              @click="removePlayer(p)"
+            >
               <span class="icon">person_remove</span>
             </button>
           </article>
@@ -214,7 +280,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
 import matchesService from '@/services/matches'
@@ -241,12 +307,27 @@ const categoryLabel = v => categories.find(c => c.value === v)?.label || v
 const staffRoleLabel = v => staffRoles.find(r => r.value === v)?.label || v
 const positionLabel = v => POSITIONS[v] || v
 
+const ATTENDANCE_LABELS = {
+  GOING: 'Confirmado',
+  NOT_GOING: 'No va',
+  MAYBE: 'Quizá',
+  NO_RESPONSE: 'Sin respuesta'
+}
+const attendanceStatusLabel = s => ATTENDANCE_LABELS[s] || s
+const attendanceBadgeClass = s => {
+  if (s === 'GOING') return 'text-tertiary'
+  if (s === 'NOT_GOING') return 'text-error'
+  if (s === 'MAYBE') return 'text-secondary'
+  return 'text-on-surface-variant'
+}
+
 const loading = ref(true)
 const saving = ref(false)
 const team = ref(null)
 const players = ref([])
 const staff = ref([])
 const upcoming = ref([])
+const attendanceByMatch = ref({})
 const editDialog = ref(null)
 const editTeam = ref({ name: '', category: 'OPEN', city: '' })
 let logoFile = null
@@ -254,6 +335,22 @@ const editingPlayer = ref(null)
 const playerForm = ref({ jerseyNumber: 0, position: 'BASE' })
 const newTeam = ref({ name: '', category: 'OPEN', city: '' })
 const newStaff = ref({ fullName: '', role: 'COACH' })
+
+const rosterLocked = computed(() =>
+  Boolean(
+    team.value?.roster?.isLocked ||
+      team.value?.registrations?.some(r => r.status === 'APPROVED' && r.tournament?.status === 'IN_PROGRESS')
+  )
+)
+
+const maxPlayers = computed(() => {
+  if (team.value?.roster?.maxPlayers) return team.value.roster.maxPlayers
+  const activeLimits = (team.value?.registrations || [])
+    .filter(r => ['APPROVED', 'PENDING'].includes(r.status) && ['REGISTRATION', 'IN_PROGRESS'].includes(r.tournament?.status))
+    .map(r => r.tournament?.playersPerTeam)
+    .filter(n => typeof n === 'number' && n > 0)
+  return activeLimits.length ? Math.min(...activeLimits) : 15
+})
 
 const load = async () => {
   try {
@@ -270,8 +367,20 @@ const load = async () => {
       try {
         const { data } = await matchesService.getTeamUpcoming(team.value.id)
         upcoming.value = Array.isArray(data) ? data : data.matches || []
+        const entries = await Promise.all(
+          upcoming.value.map(async m => {
+            try {
+              const res = await matchesService.getAttendance(m.id, team.value.id)
+              return [m.id, res.data]
+            } catch {
+              return [m.id, null]
+            }
+          })
+        )
+        attendanceByMatch.value = Object.fromEntries(entries.filter(([, v]) => v))
       } catch {
         upcoming.value = []
+        attendanceByMatch.value = {}
       }
     }
   } catch (error) {

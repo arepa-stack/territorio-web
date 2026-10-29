@@ -14,13 +14,22 @@
     </div>
 
     <template v-else>
+      <p
+        v-if="rosterLocked"
+        role="alert"
+        class="m-0 flex items-center gap-space-sm rounded border border-solid border-error/50 bg-error/10 p-space-sm text-body-sm text-error"
+      >
+        <span class="icon">lock</span>
+        Plantel cerrado: tu equipo compite en un torneo en curso{{ team.roster?.lockedByTournament ? ` (${team.roster.lockedByTournament})` : '' }}. No puedes fichar ni quitar jugadores.
+      </p>
+
       <!-- Search -->
       <form class="card flex flex-col gap-space-sm p-space-md sm:flex-row sm:items-end" @submit.prevent="search">
         <div class="flex-1">
           <label class="field-label" for="ci-search">Cédula</label>
-          <input id="ci-search" v-model.trim="ci" class="input font-mono" placeholder="V-24891203" autocomplete="off" />
+          <input id="ci-search" v-model.trim="ci" class="input font-mono" placeholder="V-24891203" autocomplete="off" :disabled="rosterLocked" />
         </div>
-        <button type="submit" class="btn-primary" :disabled="!ci || busy"><span class="icon">search</span> Buscar</button>
+        <button type="submit" class="btn-primary" :disabled="!ci || busy || rosterLocked"><span class="icon">search</span> Buscar</button>
       </form>
       <p class="m-0 flex items-center gap-space-xs text-body-sm text-on-surface-variant">
         <span class="icon text-[18px] text-secondary">info</span>
@@ -59,8 +68,12 @@
             <label class="field-label" for="new-email">Email *</label>
             <input id="new-email" v-model.trim="newEmail" class="input" type="email" placeholder="para su cuenta en la liga" />
           </div>
+          <div>
+            <label class="field-label" for="new-birthdate">Fecha de nacimiento (opcional)</label>
+            <input id="new-birthdate" v-model="newBirthDate" class="input" type="date" />
+          </div>
           <JerseyPosition v-model:jersey="jersey" v-model:position="position" />
-          <button type="submit" class="btn-primary" :disabled="busy || !validSlot || !newName || !newEmail">Crear y agregar</button>
+          <button type="submit" class="btn-primary" :disabled="busy || rosterLocked || !validSlot || !newName || !newEmail">Crear y agregar</button>
         </form>
       </section>
 
@@ -92,9 +105,16 @@ const jersey = ref(null)
 const position = ref('BASE')
 const newName = ref('')
 const newEmail = ref('')
+const newBirthDate = ref('')
 const busy = ref(false)
 const error = ref('')
 
+const rosterLocked = computed(() =>
+  Boolean(
+    team.value?.roster?.isLocked ||
+      team.value?.registrations?.some(r => r.status === 'APPROVED' && r.tournament?.status === 'IN_PROGRESS')
+  )
+)
 const validSlot = computed(() => Number.isInteger(jersey.value) && jersey.value >= 0 && jersey.value <= 99 && !!position.value)
 const otherTeams = computed(() => (found.value?.players || []).map(p => p.team?.name).filter(Boolean).join(', '))
 
@@ -121,12 +141,15 @@ const search = async () => {
   }
 }
 
-const done = name => {
+const done = (name, data) => {
   toast.success(`${name} agregado a ${team.value.name}`)
+  const warn = data?.warning || (data?.warnings?.length ? data.warnings.join(' · ') : '')
+  if (warn) toast.warning(warn)
   ci.value = ''
   jersey.value = null
   newName.value = ''
   newEmail.value = ''
+  newBirthDate.value = ''
   resetResult()
 }
 
@@ -134,8 +157,8 @@ const addExisting = async () => {
   busy.value = true
   error.value = ''
   try {
-    await playersService.registerInTeam(team.value.id, { userId: found.value.id, jerseyNumber: jersey.value, position: position.value })
-    done(found.value.fullName)
+    const res = await playersService.registerInTeam(team.value.id, { userId: found.value.id, jerseyNumber: jersey.value, position: position.value })
+    done(found.value.fullName, res.data)
   } catch (e) {
     error.value = handleApiError(e, 'No se pudo agregar al jugador')
   } finally {
@@ -147,15 +170,16 @@ const createNew = async () => {
   busy.value = true
   error.value = ''
   try {
-    await playersService.create({
+    const res = await playersService.create({
       teamId: team.value.id,
       fullName: newName.value,
       ci: searchedCi.value,
       email: newEmail.value,
+      ...(newBirthDate.value ? { birthDate: newBirthDate.value } : {}),
       jerseyNumber: jersey.value,
       position: position.value
     })
-    done(newName.value)
+    done(newName.value, res.data)
   } catch (e) {
     error.value = handleApiError(e, 'No se pudo crear al jugador')
   } finally {

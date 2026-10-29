@@ -29,6 +29,55 @@
             <span class="icon">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
           </button>
 
+          <!-- Campana de notificaciones -->
+          <details v-if="authStore.isAuthenticated" ref="notifDetails" class="relative">
+            <summary
+              class="relative flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded text-on-surface-variant hover:text-primary [&::-webkit-details-marker]:hidden"
+              aria-label="Notificaciones"
+            >
+              <span class="icon">notifications</span>
+              <span
+                v-if="unreadCount > 0"
+                class="absolute right-1.5 top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary-container px-1 font-stat-mono text-[10px] font-bold text-white"
+              >{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
+            </summary>
+
+            <div
+              class="absolute right-0 top-12 z-50 w-80 max-w-[90vw] rounded-lg border border-outline-variant/50 bg-surface-container-high p-space-sm shadow-xl"
+            >
+              <div class="mb-space-xs flex items-center justify-between gap-space-xs px-space-xs">
+                <span class="label-tactical text-on-surface">Notificaciones</span>
+                <button
+                  v-if="unreadCount > 0"
+                  type="button"
+                  class="btn-ghost px-space-xs py-0.5 text-[11px]"
+                  @click="markAllNotificationsRead"
+                >Marcar todas leídas</button>
+              </div>
+
+              <p v-if="!notifications.length" class="m-0 px-space-xs py-space-md text-center text-body-sm text-on-surface-variant">
+                No tienes notificaciones.
+              </p>
+
+              <div v-else class="flex max-h-80 flex-col gap-1 overflow-y-auto">
+                <button
+                  v-for="n in notifications"
+                  :key="n.id"
+                  type="button"
+                  class="flex w-full flex-col gap-0.5 rounded p-space-sm text-left transition-colors hover:bg-surface-container-highest"
+                  :class="n.read ? 'opacity-70' : 'border-l-2 border-l-primary-container bg-surface-container'"
+                  @click="openNotification(n)"
+                >
+                  <div class="flex items-center justify-between gap-space-xs">
+                    <span class="font-title-sm text-[13px] text-on-surface">{{ n.title }}</span>
+                    <span v-if="!n.read" class="h-2 w-2 shrink-0 rounded-full bg-primary-container" />
+                  </div>
+                  <p class="m-0 text-body-sm text-on-surface-variant">{{ n.message }}</p>
+                </button>
+              </div>
+            </div>
+          </details>
+
           <div class="relative">
             <button
               type="button"
@@ -120,12 +169,13 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useAuthStore } from '@/stores/auth'
 import { useColorMode } from '@/composables/useColorMode'
 import { NAV_BY_ROLE, HOME_BY_ROLE, ROLE_LABEL } from '@/router/navigation'
+import notificationsService from '@/services/notifications'
 
 const route = useRoute()
 const router = useRouter()
@@ -134,6 +184,48 @@ const authStore = useAuthStore()
 const { isDark, toggle: toggleTheme } = useColorMode()
 
 const menuOpen = ref(false)
+const notifDetails = ref(null)
+const notifications = ref([])
+let notifTimer = null
+
+const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
+
+const loadNotifications = async () => {
+  if (!authStore.isAuthenticated) return
+  try {
+    const { data } = await notificationsService.getMyNotifications()
+    notifications.value = Array.isArray(data) ? data : []
+  } catch {
+    // Silenciar errores de polling en segundo plano
+  }
+}
+
+const openNotification = async n => {
+  if (!n.read) {
+    n.read = true
+    notificationsService.markAsRead(n.id).catch(() => {})
+  }
+  if (notifDetails.value) notifDetails.value.open = false
+  if (n.link) router.push(n.link)
+}
+
+const markAllNotificationsRead = async () => {
+  notifications.value.forEach(n => { n.read = true })
+  try {
+    await notificationsService.markAllAsRead()
+  } catch {
+    await loadNotifications()
+  }
+}
+
+onMounted(() => {
+  loadNotifications()
+  notifTimer = setInterval(loadNotifications, 60000)
+})
+
+onUnmounted(() => {
+  if (notifTimer) clearInterval(notifTimer)
+})
 
 const navItems = computed(() => NAV_BY_ROLE[authStore.userRole] || [])
 const homeRoute = computed(() => HOME_BY_ROLE[authStore.userRole] || '/')
