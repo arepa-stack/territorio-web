@@ -24,6 +24,10 @@
             <span class="icon text-[18px]">groups</span>
             <span class="font-stat-mono tabular">{{ registrations.length }}/{{ tournament.maxTeams }}</span> equipos
           </span>
+          <span class="flex items-center gap-space-xs">
+            <span class="icon text-[18px]">payments</span>
+            <span class="font-stat-mono tabular text-on-surface">{{ Number(tournament.entryFee) > 0 ? `$${tournament.entryFee}` : 'Gratis' }}</span>
+          </span>
         </div>
       </header>
 
@@ -51,10 +55,16 @@
           type="button"
           role="tab"
           :aria-selected="tab === t.value"
-          class="label-tactical cursor-pointer border-0 border-b-2 border-solid bg-transparent px-space-md py-space-sm text-[14px]"
+          class="label-tactical flex cursor-pointer items-center gap-1.5 border-0 border-b-2 border-solid bg-transparent px-space-md py-space-sm text-[14px]"
           :class="tab === t.value ? 'border-primary-container text-primary' : 'border-transparent text-on-surface-variant'"
           @click="tab = t.value"
-        >{{ t.label }}</button>
+        >
+          {{ t.label }}
+          <span
+            v-if="t.value === 'fixture' && pendingReschedulesCount > 0"
+            class="rounded-full bg-primary-container px-1.5 py-0.5 font-stat-mono text-[11px] text-white"
+          >{{ pendingReschedulesCount }}</span>
+        </button>
       </div>
 
       <!-- Registrations -->
@@ -124,6 +134,41 @@
           </button>
         </div>
 
+        <!-- Reschedule requests -->
+        <div v-if="rescheduleRequests.length" class="flex flex-col gap-space-sm">
+          <h2 class="label-tactical m-0 flex items-center gap-space-xs text-secondary">
+            <span class="icon text-[18px]">edit_calendar</span> Solicitudes de reprogramación ({{ rescheduleRequests.length }})
+          </h2>
+          <article
+            v-for="req in rescheduleRequests"
+            :key="req.id"
+            class="card flex flex-col gap-space-sm p-space-md md:flex-row md:items-center md:justify-between"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-space-xs">
+                <StatusChip :status="req.status" :label="RESCHEDULE_STATUS[req.status]" />
+                <span class="label-tactical text-on-surface-variant">J{{ req.match.round }}</span>
+                <span class="font-title-sm text-title-sm">{{ req.match.homeTeam.name }} vs {{ req.match.awayTeam.name }}</span>
+              </div>
+              <p class="m-0 mt-1 text-body-sm">
+                Solicita <strong>{{ req.team.name }}</strong> · Propuesta:
+                <strong class="font-stat-mono">{{ formatDate(req.proposedDate) }} · {{ req.proposedTime }}</strong>
+                <span class="text-on-surface-variant">(actual: {{ formatDate(req.match.matchDate) }} · {{ req.match.matchTime }})</span>
+              </p>
+              <p class="m-0 mt-0.5 text-body-sm text-on-surface-variant">Motivo: {{ req.reason }}</p>
+              <p v-if="req.responseNote" class="m-0 mt-0.5 text-body-sm text-secondary">Respuesta: {{ req.responseNote }}</p>
+            </div>
+            <div v-if="req.status === 'PENDING'" class="flex shrink-0 gap-space-sm">
+              <button type="button" class="btn-danger" :disabled="busy" @click="resolveReschedule(req, 'REJECTED')">
+                Rechazar
+              </button>
+              <button type="button" class="btn-primary" :disabled="busy" @click="resolveReschedule(req, 'APPROVED')">
+                <span class="icon">event_available</span> Aprobar
+              </button>
+            </div>
+          </article>
+        </div>
+
         <FixtureList :matches="matches" :link-for="m => `/app/organizer/match/${m.id}`" />
       </section>
 
@@ -147,7 +192,7 @@ import PaymentInfoFields from '@/components/tournament/PaymentInfoFields.vue'
 import paymentsService from '@/services/payments'
 import { handleApiError } from '@/services/api'
 import { useConfirm } from '@/composables/useConfirm'
-import { PAYMENT_METHODS, PAYMENT_STATUS, emptyPaymentInfo, paymentInfoPayload } from '@/utils/labels'
+import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload } from '@/utils/labels'
 
 const route = useRoute()
 const toast = useToast()
@@ -166,9 +211,11 @@ const tournament = ref(null)
 const registrations = ref([])
 const matches = ref([])
 const standings = ref([])
+const rescheduleRequests = ref([])
 const paymentInfoForm = ref(emptyPaymentInfo())
 
 const approved = computed(() => registrations.value.filter(r => r.status === 'APPROVED'))
+const pendingReschedulesCount = computed(() => rescheduleRequests.value.filter(r => r.status === 'PENDING').length)
 
 // Same rules the backend enforces in generateFixtures, shown before the click
 const fixtureBlocker = computed(() => {
@@ -183,11 +230,12 @@ const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 
 const load = async () => {
   try {
-    const [t, regs, ms, st] = await Promise.allSettled([
+    const [t, regs, ms, st, rr] = await Promise.allSettled([
       tournamentsService.getById(id),
       tournamentsService.getRegistrations(id),
       matchesService.getByTournament(id),
-      matchesService.getStandings(id)
+      matchesService.getStandings(id),
+      matchesService.getRescheduleRequests(id)
     ])
     if (t.status === 'rejected') throw t.reason
     tournament.value = t.value.data
@@ -195,8 +243,9 @@ const load = async () => {
     registrations.value = regs.status === 'fulfilled' ? regs.value.data : []
     matches.value = ms.status === 'fulfilled' ? ms.value.data.matches || [] : []
     standings.value = st.status === 'fulfilled' ? st.value.data.standings || [] : []
+    rescheduleRequests.value = rr.status === 'fulfilled' ? rr.value.data || [] : []
   } catch (error) {
-    toast.error(error.response?.data?.message || 'No se pudo cargar el torneo')
+    toast.error(handleApiError(error, 'No se pudo cargar el torneo'))
   } finally {
     loading.value = false
   }
@@ -209,7 +258,7 @@ const run = async (action, okMessage) => {
     toast.success(okMessage)
     await load()
   } catch (error) {
-    toast.error(error.response?.data?.message || 'No se pudo completar la acción')
+    toast.error(handleApiError(error, 'No se pudo completar la acción'))
   } finally {
     busy.value = false
   }
@@ -244,12 +293,30 @@ const reviewPayment = async (reg, status) => {
       : `El capitán de ${reg.team.name} será notificado y podrá reenviar el pago.`,
     confirmText: verified ? 'Verificar' : 'Rechazar',
     danger: !verified,
-    input: { label: verified ? 'Nota (opcional)' : 'Motivo del rechazo (opcional)', placeholder: verified ? '' : 'La referencia no aparece en el banco' }
+    inputLabel: verified ? 'Nota (opcional)' : 'Motivo del rechazo (opcional)'
   })
   if (note === false) return
   await run(
     () => paymentsService.review(reg.payment.id, { status, ...(note && { note }) }),
     `Pago de ${reg.team.name} ${verified ? 'verificado' : 'rechazado'}`
+  )
+}
+
+const resolveReschedule = async (req, status) => {
+  const approved = status === 'APPROVED'
+  const note = await confirm({
+    title: approved ? 'Aprobar reprogramación' : 'Rechazar reprogramación',
+    message: approved
+      ? `El partido ${req.match.homeTeam.name} vs ${req.match.awayTeam.name} pasará al ${formatDate(req.proposedDate)} a las ${req.proposedTime}.`
+      : `Se mantendrá la fecha y hora actuales del partido ${req.match.homeTeam.name} vs ${req.match.awayTeam.name}.`,
+    confirmText: approved ? 'Aprobar' : 'Rechazar',
+    danger: !approved,
+    inputLabel: approved ? 'Nota para los capitanes (opcional)' : 'Motivo del rechazo (opcional)'
+  })
+  if (note === false) return
+  await run(
+    () => matchesService.resolveRescheduleRequest(req.id, { status, ...(note && { responseNote: note }) }),
+    `Solicitud de reprogramación ${approved ? 'aprobada' : 'rechazada'}`
   )
 }
 

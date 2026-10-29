@@ -16,17 +16,47 @@
         <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-space-md text-center">
           <div>
             <span class="label-tactical text-on-surface-variant">Local</span>
-            <p class="m-0 font-headline-md text-headline-md uppercase">{{ match.homeTeam.name }}</p>
+            <p class="m-0 flex items-center justify-center gap-1.5 font-headline-md text-headline-md uppercase">
+              <span
+                v-if="match.homeTeam.homeColor"
+                class="inline-block h-3.5 w-3.5 shrink-0 rounded-full border border-solid border-outline-variant"
+                :style="{ backgroundColor: match.homeTeam.homeColor }"
+                :title="`Uniforme local: ${match.homeTeam.homeColor}`"
+              />
+              {{ match.homeTeam.name }}
+            </p>
             <p class="m-0 font-scoreboard-num text-[48px] leading-none tabular">{{ score.home }}</p>
           </div>
           <span class="font-scoreboard-num text-scoreboard-num text-on-surface-variant">:</span>
           <div>
             <span class="label-tactical text-on-surface-variant">Visitante</span>
-            <p class="m-0 font-headline-md text-headline-md uppercase">{{ match.awayTeam.name }}</p>
+            <p class="m-0 flex items-center justify-center gap-1.5 font-headline-md text-headline-md uppercase">
+              <span
+                v-if="awaySwatch"
+                class="inline-block h-3.5 w-3.5 shrink-0 rounded-full border border-solid border-outline-variant"
+                :style="{ backgroundColor: awaySwatch }"
+                :title="`Uniforme visitante: ${awaySwatch}`"
+              />
+              {{ match.awayTeam.name }}
+            </p>
             <p class="m-0 font-scoreboard-num text-[48px] leading-none tabular">{{ score.away }}</p>
           </div>
         </div>
         <p class="m-0 text-center text-body-sm text-on-surface-variant">{{ formatDate(match.matchDate) }} · {{ match.matchTime }} · {{ match.venue }}</p>
+        <p
+          v-if="clash && !finished"
+          class="m-0 flex items-center justify-center gap-space-xs rounded border border-solid border-secondary/40 bg-secondary/10 p-space-sm text-body-sm text-secondary"
+        >
+          <span class="icon text-[18px]">checkroom</span>
+          Ambos equipos tienen el mismo color principal ({{ match.homeTeam.homeColor }}). {{ match.awayTeam.name }} debe usar su uniforme alterno{{ match.awayTeam.awayColor ? ` (${match.awayTeam.awayColor})` : '' }}.
+        </p>
+        <p
+          v-if="match.status === 'FORFEIT'"
+          class="m-0 flex items-center justify-center gap-space-xs rounded border border-solid border-error/40 bg-error/10 p-space-sm text-body-sm text-error"
+        >
+          <span class="icon text-[18px]">event_busy</span>
+          Partido definido por W.O. (no presentación de {{ forfeitTeamName }}) · Resultado FIBA 20–0.
+        </p>
       </section>
 
       <template v-if="!finished">
@@ -83,9 +113,17 @@
           </div>
         </section>
 
-        <button type="button" class="btn-primary" :disabled="busy || !events.length" @click="finish">
-          <span class="icon">flag</span> Finalizar partido ({{ score.home }}–{{ score.away }})
-        </button>
+        <div class="flex flex-wrap gap-space-sm">
+          <button type="button" class="btn-primary flex-1" :disabled="busy || !events.length" @click="finish">
+            <span class="icon">flag</span> Finalizar partido ({{ score.home }}–{{ score.away }})
+          </button>
+          <button type="button" class="btn-secondary" :disabled="busy" @click="markForfeit(match.homeTeam)">
+            <span class="icon">event_busy</span> W.O. {{ match.homeTeam.name }}
+          </button>
+          <button type="button" class="btn-secondary" :disabled="busy" @click="markForfeit(match.awayTeam)">
+            <span class="icon">event_busy</span> W.O. {{ match.awayTeam.name }}
+          </button>
+        </div>
       </template>
 
       <!-- Play-by-play -->
@@ -110,13 +148,16 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import api, { handleApiError } from '@/services/api'
+import matchesService from '@/services/matches'
 import teamsService from '@/services/teams'
-import { formatDate } from '@/utils/labels'
+import { formatDate, hasUniformClash } from '@/utils/labels'
+import { useConfirm } from '@/composables/useConfirm'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
 
 const route = useRoute()
 const toast = useToast()
+const confirm = useConfirm()
 const id = route.params.id
 
 // Event types of the backend EventType enum
@@ -144,7 +185,15 @@ const busy = ref(false)
 const quarter = ref(1)
 const selected = ref(null)
 
-const finished = computed(() => match.value?.status === 'FINISHED')
+const finished = computed(() => ['FINISHED', 'FORFEIT'].includes(match.value?.status))
+const clash = computed(() => hasUniformClash(match.value?.homeTeam, match.value?.awayTeam))
+const awaySwatch = computed(() =>
+  clash.value ? match.value?.awayTeam?.awayColor || match.value?.awayTeam?.homeColor : match.value?.awayTeam?.homeColor || match.value?.awayTeam?.awayColor
+)
+const forfeitTeamName = computed(() => {
+  if (!match.value?.forfeitTeamId) return ''
+  return match.value.forfeitTeamId === match.value.homeTeam.id ? match.value.homeTeam.name : match.value.awayTeam.name
+})
 const sides = computed(() => [
   { key: 'home', team: match.value.homeTeam, players: homePlayers.value },
   { key: 'away', team: match.value.awayTeam, players: awayPlayers.value }
@@ -199,6 +248,28 @@ const finish = async () => {
     toast.success('Partido finalizado')
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo cerrar el partido'))
+  } finally {
+    busy.value = false
+  }
+}
+
+const markForfeit = async absentTeam => {
+  const rival = absentTeam.id === match.value.homeTeam.id ? match.value.awayTeam : match.value.homeTeam
+  const ok = await confirm({
+    title: 'Marcar W.O. (no presentación)',
+    message: `¿Confirmas que "${absentTeam.name}" no se presentó? Se otorgará victoria 20–0 a "${rival.name}" y 0 puntos de clasificación a "${absentTeam.name}".`,
+    confirmText: 'Marcar W.O.',
+    danger: true
+  })
+  if (!ok) return
+
+  busy.value = true
+  try {
+    const res = await matchesService.forfeit(id, absentTeam.id)
+    match.value = res.data
+    toast.success(`Partido marcado como W.O. por inasistencia de ${absentTeam.name}`)
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo marcar el W.O.'))
   } finally {
     busy.value = false
   }

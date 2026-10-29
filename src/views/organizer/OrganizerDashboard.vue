@@ -245,7 +245,7 @@
                     </section>
 
                     <!-- Datos de cobro de la inscripción -->
-                    <section class="flex flex-col gap-space-md">
+                    <section v-if="Number(formData.entryFee) > 0" class="flex flex-col gap-space-md">
                         <h3 class="label-tactical m-0 text-secondary">Datos de pago de la inscripción</h3>
                         <p class="m-0 text-body-sm text-on-surface-variant">
                             Los capitanes verán estos datos para pagar y reportar su pago. Llena al menos un método.
@@ -288,6 +288,7 @@ import tournamentsService from '@/services/tournaments'
 import zonesService from '@/services/zones'
 import venuesService from '@/services/venues'
 import usersService from '@/services/users'
+import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
@@ -393,7 +394,7 @@ const review = async (reg, decision) => {
         toast.success(`${reg.team.name}: inscripción ${decision === 'APPROVED' ? 'aprobada' : 'rechazada'}`)
         await fetchTournaments()
     } catch (error) {
-        toast.error(error.response?.data?.message || 'No se pudo procesar la inscripción')
+        toast.error(handleApiError(error, 'No se pudo procesar la inscripción'))
     } finally {
         reviewing.value = null
     }
@@ -408,7 +409,7 @@ const fetchTournaments = async () => {
         await loadPending()
     } catch (error) {
         console.error('Error fetching tournaments:', error)
-        toast.error('Error al cargar torneos')
+        toast.error(handleApiError(error, 'Error al cargar torneos'))
     } finally {
         isLoading.value = false
     }
@@ -442,7 +443,7 @@ const validateForm = () => {
     if (f.maxTeams < 4 || f.maxTeams > 32) return 'El máximo de equipos va de 4 a 32.'
     if (f.minTeams > f.maxTeams) return 'El mínimo de equipos no puede superar el máximo.'
     if (f.playersPerTeam < 5 || f.playersPerTeam > 15) return 'Los jugadores por equipo van de 5 a 15.'
-    if (!(f.entryFee > 0)) return 'El costo de inscripción debe ser mayor que 0.'
+    if (f.entryFee === '' || f.entryFee == null || Number(f.entryFee) < 0) return 'El costo de inscripción no puede ser negativo.'
     if (f.quarterDuration < 8 || f.quarterDuration > 12) return 'Los cuartos duran entre 8 y 12 minutos.'
     return ''
 }
@@ -540,7 +541,7 @@ const saveTournament = async () => {
             quarterDuration: Number(formData.value.quarterDuration),
             rules: (formData.value.rulesText || '').split('\n').map(r => r.trim()).filter(Boolean),
             prizes: (formData.value.prizesText || '').split('\n').map(p => p.trim()).filter(Boolean),
-            paymentInfo: paymentInfoPayload(formData.value.paymentInfo),
+            paymentInfo: Number(formData.value.entryFee) > 0 ? paymentInfoPayload(formData.value.paymentInfo) : undefined,
             zoneIds: formData.value.zoneIds && formData.value.zoneIds.length > 0 ? formData.value.zoneIds : undefined,
             venueIds: formData.value.venueIds && formData.value.venueIds.length > 0 ? formData.value.venueIds : undefined,
             refereeIds: formData.value.refereeIds && formData.value.refereeIds.length > 0 ? formData.value.refereeIds : undefined,
@@ -552,8 +553,7 @@ const saveTournament = async () => {
         await fetchTournaments()
     } catch (error) {
         console.error('Error creating tournament:', error)
-        const errorMsg = error.response?.data?.message || 'Error al crear torneo'
-        toast.error(Array.isArray(errorMsg) ? errorMsg.join(', ') : errorMsg)
+        toast.error(handleApiError(error, 'Error al crear torneo'))
     } finally {
         isSaving.value = false
     }
@@ -578,7 +578,7 @@ const deleteTournament = async (tournament) => {
         fetchTournaments()
     } catch (error) {
         console.error('Error deleting tournament:', error)
-        toast.error('Error al eliminar torneo')
+        toast.error(handleApiError(error, 'Error al eliminar torneo'))
     }
 }
 

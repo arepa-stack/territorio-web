@@ -24,7 +24,8 @@
               <span class="icon text-[18px]">calendar_month</span>{{ formatDate(tournament.startDate) }} – {{ formatDate(tournament.endDate) }}
             </span>
             <span class="flex items-center gap-space-xs">
-              <span class="icon text-[18px]">payments</span>Inscripción <span class="font-stat-mono text-on-surface">${{ tournament.entryFee }}</span>
+              <span class="icon text-[18px]">payments</span>Inscripción
+              <span class="font-stat-mono text-on-surface">{{ Number(tournament.entryFee) > 0 ? `$${tournament.entryFee}` : 'Gratis' }}</span>
             </span>
           </div>
           <div>

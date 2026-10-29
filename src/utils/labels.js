@@ -37,6 +37,27 @@ export const PAYMENT_STATUS = {
   REJECTED: 'Pago rechazado'
 }
 
+export const RESCHEDULE_STATUS = {
+  PENDING: 'Reprogramación pendiente',
+  APPROVED: 'Reprogramación aprobada',
+  REJECTED: 'Reprogramación rechazada'
+}
+
+export const SANCTION_TYPES = {
+  WARNING: 'Amonestación',
+  TECHNICAL_FOUL: 'Falta técnica',
+  SUSPENSION: 'Suspensión',
+  FINE: 'Multa',
+  EXPULSION: 'Expulsión',
+  PERMANENT_BAN: 'Expulsión definitiva'
+}
+
+export const hasUniformClash = (homeTeam, awayTeam) => {
+  const hc = homeTeam?.homeColor?.trim().toLowerCase()
+  const ac = awayTeam?.homeColor?.trim().toLowerCase()
+  return Boolean(hc && ac && hc === ac)
+}
+
 // Organizer payment details form <-> API paymentInfo (a section is sent only if something was typed)
 export const emptyPaymentInfo = (info = {}) => ({
   pagoMovil: { banco: '', telefono: '', cedula: '', ...info?.pagoMovil },

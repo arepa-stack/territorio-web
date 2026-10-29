@@ -69,7 +69,7 @@
           </span>
           <span class="flex items-center gap-space-xs">
             <span class="icon text-[18px]">payments</span>Inscripción
-            <span class="font-stat-mono tabular text-on-surface">${{ t.entryFee }}</span>
+            <span class="font-stat-mono tabular text-on-surface">{{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}</span>
           </span>
         </div>
 
@@ -90,8 +90,16 @@
           <div v-if="registrationOf(t)" class="flex flex-wrap items-center gap-space-xs">
             <span class="text-body-sm text-on-surface-variant">{{ myTeam.name }}:</span>
             <StatusChip :status="registrationOf(t).status" />
+            <button
+              v-if="registrationOf(t).status === 'REJECTED' && t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams && confirming !== t.id"
+              type="button"
+              class="btn-secondary"
+              @click="confirming = t.id"
+            >
+              <span class="icon">replay</span> Volver a inscribir
+            </button>
           </div>
-          <div v-else-if="confirming === t.id" class="flex flex-col gap-space-sm rounded-lg bg-surface-container-low p-space-md">
+          <div v-if="confirming === t.id" class="flex flex-col gap-space-sm rounded-lg bg-surface-container-low p-space-md">
             <p class="m-0 text-body-sm">Inscribir a <strong>{{ myTeam.name }}</strong>. Estado de tu plantel:</p>
             <RosterChip v-if="myTeam.roster" :roster="myTeam.roster" class="self-start" />
             <p v-if="myTeam.roster?.status === 'NOT_VALIDATED'" class="m-0 text-body-sm text-on-surface-variant">
@@ -103,7 +111,7 @@
             </div>
           </div>
           <button
-            v-else-if="t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams"
+            v-else-if="!registrationOf(t) && t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams"
             type="button"
             class="btn-primary"
             @click="confirming = t.id"

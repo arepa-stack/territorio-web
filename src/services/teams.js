@@ -107,6 +107,11 @@ const teamsService = {
     // Validate team for registration
     async validateForRegistration(teamId) {
         return await api.get(`/teams/${teamId}/validate`)
+    },
+
+    // Active sanctions and suspended players for next match
+    async getActiveSanctions(teamId) {
+        return await api.get(`/sanctions/team/${teamId}/active`)
     }
 }
 

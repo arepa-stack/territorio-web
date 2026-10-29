@@ -23,6 +23,22 @@
             <input id="team-city" v-model.trim="newTeam.city" class="input" placeholder="Caracas" />
           </div>
         </div>
+        <div class="grid gap-space-md sm:grid-cols-2">
+          <div>
+            <label class="field-label" for="team-home-color">Color uniforme local</label>
+            <div class="flex items-center gap-space-xs">
+              <input id="team-home-color" v-model="newTeam.homeColor" type="color" class="h-10 w-14 cursor-pointer rounded border border-solid border-outline-variant bg-transparent p-1" />
+              <span class="font-stat-mono text-body-sm text-on-surface-variant">{{ newTeam.homeColor }}</span>
+            </div>
+          </div>
+          <div>
+            <label class="field-label" for="team-away-color">Color uniforme alterno</label>
+            <div class="flex items-center gap-space-xs">
+              <input id="team-away-color" v-model="newTeam.awayColor" type="color" class="h-10 w-14 cursor-pointer rounded border border-solid border-outline-variant bg-transparent p-1" />
+              <span class="font-stat-mono text-body-sm text-on-surface-variant">{{ newTeam.awayColor }}</span>
+            </div>
+          </div>
+        </div>
         <button type="submit" class="btn-primary" :disabled="saving || !newTeam.name">Crear equipo</button>
       </form>
     </section>
@@ -38,7 +54,20 @@
           <div class="min-w-0 flex-1">
             <span class="label-tactical text-secondary">{{ categoryLabel(team.category) }}{{ team.city ? ' · ' + team.city : '' }}</span>
             <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase leading-none md:font-headline-lg md:text-headline-lg">{{ team.name }}</h1>
-            <p class="m-0 mt-1 text-body-sm text-on-surface-variant">Capitán: <strong class="text-on-surface">{{ team.captain.fullName }}</strong></p>
+            <div class="mt-1 flex flex-wrap items-center gap-space-md text-body-sm text-on-surface-variant">
+              <span>Capitán: <strong class="text-on-surface">{{ team.captain.fullName }}</strong></span>
+              <span v-if="team.homeColor || team.awayColor" class="flex items-center gap-space-xs">
+                <span class="icon text-[16px]">checkroom</span>
+                <span v-if="team.homeColor" class="inline-flex items-center gap-1">
+                  <span class="inline-block h-3.5 w-3.5 rounded-full border border-solid border-outline-variant" :style="{ backgroundColor: team.homeColor }" />
+                  Local
+                </span>
+                <span v-if="team.awayColor" class="inline-flex items-center gap-1">
+                  <span class="inline-block h-3.5 w-3.5 rounded-full border border-solid border-outline-variant" :style="{ backgroundColor: team.awayColor }" />
+                  Alterno
+                </span>
+              </span>
+            </div>
           </div>
           <button type="button" class="btn-secondary shrink-0" @click="openEdit">
             <span class="icon">edit</span> Editar equipo
@@ -72,6 +101,22 @@
               <input id="edit-city" v-model.trim="editTeam.city" class="input" />
             </div>
           </div>
+          <div class="grid gap-space-md sm:grid-cols-2">
+            <div>
+              <label class="field-label" for="edit-home-color">Uniforme local</label>
+              <div class="flex items-center gap-space-xs">
+                <input id="edit-home-color" v-model="editTeam.homeColor" type="color" class="h-10 w-14 cursor-pointer rounded border border-solid border-outline-variant bg-transparent p-1" />
+                <span class="font-stat-mono text-body-sm text-on-surface-variant">{{ editTeam.homeColor }}</span>
+              </div>
+            </div>
+            <div>
+              <label class="field-label" for="edit-away-color">Uniforme visitante / alterno</label>
+              <div class="flex items-center gap-space-xs">
+                <input id="edit-away-color" v-model="editTeam.awayColor" type="color" class="h-10 w-14 cursor-pointer rounded border border-solid border-outline-variant bg-transparent p-1" />
+                <span class="font-stat-mono text-body-sm text-on-surface-variant">{{ editTeam.awayColor }}</span>
+              </div>
+            </div>
+          </div>
           <div>
             <label class="field-label" for="edit-logo">Logo</label>
             <input id="edit-logo" type="file" accept="image/*" class="input" @change="e => (logoFile = e.target.files[0] || null)" />
@@ -101,13 +146,25 @@
             <router-link :to="`/torneo/${r.tournament.id}`" class="text-on-surface no-underline hover:text-primary">
               <h3 class="m-0 font-title-sm text-title-sm">{{ r.tournament.name }}</h3>
             </router-link>
-            <div class="flex flex-wrap gap-space-xs">
+            <div class="flex flex-wrap items-center gap-space-xs">
               <StatusChip :status="r.status" />
               <RosterChip v-if="team.roster" :roster="team.roster" />
               <StatusChip :status="r.tournament.status" />
+              <button
+                v-if="r.status === 'REJECTED' && r.tournament.status === 'REGISTRATION'"
+                type="button"
+                class="btn-secondary"
+                :disabled="saving"
+                @click="reRegister(r.tournament)"
+              >
+                <span class="icon">replay</span> Volver a inscribir
+              </button>
             </div>
-            <!-- Registration payment: only for tournaments with a fee -->
-            <div v-if="r.tournament.entryFee > 0" class="mt-space-xs flex flex-wrap items-center justify-between gap-space-xs border-0 border-t border-solid border-outline-variant/40 pt-space-sm">
+            <!-- Registration payment: only for tournaments with a fee and non-rejected registration -->
+            <div
+              v-if="Number(r.tournament.entryFee) > 0 && r.status !== 'REJECTED'"
+              class="mt-space-xs flex flex-wrap items-center justify-between gap-space-xs border-0 border-t border-solid border-outline-variant/40 pt-space-sm"
+            >
               <div class="flex flex-col gap-1">
                 <StatusChip
                   :status="r.payment?.status || 'UNPAID'"
@@ -117,7 +174,7 @@
                 <span v-if="r.payment?.status === 'REJECTED' && r.payment.reviewNote" class="text-body-sm text-error">{{ r.payment.reviewNote }}</span>
               </div>
               <button
-                v-if="r.payment?.status !== 'VERIFIED' && r.status !== 'REJECTED' && !['FINISHED', 'CANCELLED'].includes(r.tournament.status)"
+                v-if="r.payment?.status !== 'VERIFIED' && !['FINISHED', 'CANCELLED'].includes(r.tournament.status)"
                 type="button"
                 class="btn-primary"
                 @click="paymentDialog.open(r)"
@@ -174,9 +231,58 @@
       <section>
         <SectionHeader title="Próximos partidos" icon="event" />
         <p v-if="!upcoming.length" class="m-0 text-body-md text-on-surface-variant">No hay partidos programados por ahora.</p>
-        <div v-else class="flex flex-col gap-space-xs">
+        <div v-else class="flex flex-col gap-space-sm">
+          <!-- Warning if suspended players exist for upcoming match -->
+          <div
+            v-if="suspendedPlayersList.length"
+            role="alert"
+            class="flex items-start gap-space-xs rounded border border-solid border-secondary/50 bg-secondary/10 p-space-sm text-body-sm text-secondary"
+          >
+            <span class="icon text-[18px]">gavel</span>
+            <div>
+              <strong>Jugadores suspendidos para el próximo partido:</strong>
+              {{ suspendedPlayersList.map(p => `#${p.jerseyNumber} ${p.fullName}`).join(', ') }}.
+            </div>
+          </div>
+
           <div v-for="m in upcoming" :key="m.id" class="flex flex-col gap-1">
             <MatchCard :match="m" :mine="team.id" />
+
+            <!-- Away captain uniform clash warning -->
+            <div
+              v-if="m.awayTeamId === team.id && hasUniformClash(m.homeTeam, m.awayTeam)"
+              role="alert"
+              class="flex items-center gap-space-xs rounded border border-solid border-secondary/50 bg-secondary/10 px-space-md py-space-xs text-body-sm text-secondary"
+            >
+              <span class="icon text-[18px]">checkroom</span>
+              <span>
+                Ambos equipos usan el mismo color principal ({{ m.homeTeam.homeColor }}). Como visitante debes usar tu
+                <strong>uniforme alterno{{ team.awayColor ? ` (${team.awayColor})` : '' }}</strong>.
+              </span>
+            </div>
+
+            <!-- Reschedule request bar -->
+            <div class="card flex flex-wrap items-center justify-between gap-space-xs bg-surface-container-low px-space-md py-space-xs text-body-sm">
+              <div v-if="latestReschedule(m)" class="flex flex-wrap items-center gap-space-xs">
+                <StatusChip :status="latestReschedule(m).status" :label="RESCHEDULE_STATUS[latestReschedule(m).status]" />
+                <span class="text-on-surface-variant">
+                  Propuesta: <strong class="font-stat-mono text-on-surface">{{ formatDate(latestReschedule(m).proposedDate) }} · {{ latestReschedule(m).proposedTime }}</strong>
+                </span>
+                <span v-if="latestReschedule(m).responseNote" class="text-secondary">· {{ latestReschedule(m).responseNote }}</span>
+              </div>
+              <span v-else class="text-on-surface-variant">¿No pueden jugar en esta fecha u hora?</span>
+
+              <button
+                v-if="latestReschedule(m)?.status !== 'PENDING'"
+                type="button"
+                class="btn-ghost text-body-sm"
+                @click="openReschedule(m)"
+              >
+                <span class="icon text-[18px]">edit_calendar</span> Pedir reprogramación
+              </button>
+            </div>
+
+            <!-- Attendance list -->
             <details
               v-if="attendanceByMatch[m.id]"
               class="card bg-surface-container-low px-space-md py-space-xs"
@@ -200,12 +306,13 @@
                   :key="pl.playerId"
                   class="flex items-center justify-between gap-space-xs rounded bg-surface-container px-space-sm py-1 text-body-sm"
                 >
-                  <span class="truncate">
+                  <span class="flex min-w-0 items-center gap-space-xs truncate">
                     <strong v-if="pl.jerseyNumber != null" class="font-stat-mono">#{{ pl.jerseyNumber }}</strong>
-                    {{ pl.fullName }}
+                    <span class="truncate">{{ pl.fullName }}</span>
+                    <StatusChip v-if="isPlayerSuspended(pl.playerId)" status="SUSPENDED" label="Suspendido" />
                   </span>
                   <span
-                    class="label-tactical text-[11px]"
+                    class="label-tactical shrink-0 text-[11px]"
                     :class="attendanceBadgeClass(pl.status)"
                   >{{ attendanceStatusLabel(pl.status) }}</span>
                 </div>
@@ -213,6 +320,43 @@
             </details>
           </div>
         </div>
+
+        <!-- Reschedule dialog -->
+        <dialog ref="rescheduleDialog" class="card w-full max-w-md p-space-lg backdrop:bg-black/60">
+          <form class="flex flex-col gap-space-md" @submit.prevent="submitReschedule">
+            <h2 class="m-0 font-title-sm text-title-sm uppercase">Solicitar reprogramación</h2>
+            <p v-if="rescheduleTarget" class="m-0 text-body-sm text-on-surface-variant">
+              {{ rescheduleTarget.homeTeam.name }} vs {{ rescheduleTarget.awayTeam.name }} · J{{ rescheduleTarget.round }}
+            </p>
+            <div class="grid gap-space-md sm:grid-cols-2">
+              <div>
+                <label class="field-label" for="res-date">Nueva fecha *</label>
+                <input id="res-date" v-model="rescheduleForm.proposedDate" type="date" class="input font-mono" :min="minRescheduleDate" required />
+              </div>
+              <div>
+                <label class="field-label" for="res-time">Nueva hora *</label>
+                <input id="res-time" v-model="rescheduleForm.proposedTime" type="time" class="input font-mono" required />
+              </div>
+            </div>
+            <div>
+              <label class="field-label" for="res-reason">Motivo *</label>
+              <textarea
+                id="res-reason"
+                v-model.trim="rescheduleForm.reason"
+                class="input"
+                rows="3"
+                required
+                placeholder="Explica por qué solicitas cambiar la fecha u hora del partido…"
+              />
+            </div>
+            <div class="flex justify-end gap-space-sm">
+              <button type="button" class="btn-ghost" @click="rescheduleDialog.close()">Cancelar</button>
+              <button type="submit" class="btn-primary" :disabled="saving || !rescheduleForm.proposedDate || !rescheduleForm.proposedTime || !rescheduleForm.reason">
+                Enviar solicitud
+              </button>
+            </div>
+          </form>
+        </dialog>
       </section>
 
       <!-- Technical staff -->
@@ -295,11 +439,20 @@
               :class="p.isCaptain ? 'bg-primary-container text-white' : 'bg-surface-container-high text-on-surface'"
             >{{ p.jerseyNumber }}</span>
             <div class="min-w-0 flex-1">
-              <p class="m-0 flex items-center gap-space-xs truncate font-title-sm text-title-sm">
+              <p class="m-0 flex flex-wrap items-center gap-space-xs truncate font-title-sm text-title-sm">
                 {{ p.fullName }}
                 <span v-if="p.isCaptain" class="label-tactical rounded bg-secondary-container/30 px-1 text-secondary">Cap</span>
+                <StatusChip v-if="isPlayerSuspended(p.id)" status="SUSPENDED" label="Suspendido" />
               </p>
               <span class="label-tactical text-primary">{{ positionLabel(p.position) }}</span>
+              <p
+                v-for="s in playerSanctionsOf(p.id)"
+                :key="s.id"
+                class="m-0 mt-0.5 text-body-sm text-secondary"
+              >
+                {{ SANCTION_TYPES[s.sanctionType] || s.sanctionType }}: {{ s.reason }}
+                <span v-if="s.gamesSuspended"> ({{ s.gamesSuspended }} partido{{ s.gamesSuspended > 1 ? 's' : '' }})</span>
+              </p>
             </div>
             <button type="button" class="btn-ghost" :aria-label="`Editar a ${p.fullName}`" @click="startEditPlayer(p)">
               <span class="icon">edit</span>
@@ -340,9 +493,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
+import tournamentsService from '@/services/tournaments'
 import matchesService from '@/services/matches'
 import invitesService, { inviteUrl } from '@/services/invites'
-import { CATEGORIES, PAYMENT_STATUS, POSITIONS, formatDate, toOptions } from '@/utils/labels'
+import { CATEGORIES, PAYMENT_STATUS, POSITIONS, RESCHEDULE_STATUS, SANCTION_TYPES, formatDate, hasUniformClash, toOptions } from '@/utils/labels'
 import { useConfirm } from '@/composables/useConfirm'
 import PaymentDialog from '@/components/tournament/PaymentDialog.vue'
 import MatchCard from '@/components/tournament/MatchCard.vue'
@@ -389,16 +543,31 @@ const players = ref([])
 const staff = ref([])
 const upcoming = ref([])
 const attendanceByMatch = ref({})
+const activeSanctions = ref({ suspendedPlayerIds: [], sanctions: [] })
 const editDialog = ref(null)
-const editTeam = ref({ name: '', category: 'OPEN', city: '' })
+const editTeam = ref({ name: '', category: 'OPEN', city: '', homeColor: '#FF6B00', awayColor: '#FFFFFF' })
 let logoFile = null
 const editingPlayer = ref(null)
 const playerForm = ref({ jerseyNumber: 0, position: 'BASE' })
-const newTeam = ref({ name: '', category: 'OPEN', city: '' })
+const newTeam = ref({ name: '', category: 'OPEN', city: '', homeColor: '#FF6B00', awayColor: '#FFFFFF' })
 const newStaff = ref({ fullName: '', role: 'COACH' })
 const paymentDialog = ref(null)
 const invites = ref([])
 const newInvite = ref({ expiresInDays: 7, maxUses: null })
+
+const rescheduleDialog = ref(null)
+const rescheduleTarget = ref(null)
+const rescheduleForm = ref({ proposedDate: '', proposedTime: '19:00', reason: '' })
+const minRescheduleDate = computed(() => {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().split('T')[0]
+})
+
+const isPlayerSuspended = playerId => (activeSanctions.value.suspendedPlayerIds || []).includes(playerId)
+const playerSanctionsOf = playerId => (activeSanctions.value.sanctions || []).filter(s => s.playerId === playerId)
+const suspendedPlayersList = computed(() => players.value.filter(p => isPlayerSuspended(p.id)))
+const latestReschedule = m => m.rescheduleRequests?.[0] || null
 
 const rosterLocked = computed(() =>
   Boolean(
@@ -429,6 +598,10 @@ const load = async () => {
         .sort((a, b) => (b.isCaptain - a.isCaptain) || a.jerseyNumber - b.jerseyNumber)
       staff.value = s.data
       invitesService.list(team.value.id).then(({ data }) => (invites.value = data)).catch(() => (invites.value = []))
+      teamsService
+        .getActiveSanctions(team.value.id)
+        .then(({ data }) => (activeSanctions.value = data || { suspendedPlayerIds: [], sanctions: [] }))
+        .catch(() => (activeSanctions.value = { suspendedPlayerIds: [], sanctions: [] }))
       try {
         const { data } = await matchesService.getTeamUpcoming(team.value.id)
         upcoming.value = Array.isArray(data) ? data : data.matches || []
@@ -469,8 +642,21 @@ const run = async (action, okMessage) => {
 }
 
 const createTeam = () => {
-  const { name, category, city } = newTeam.value
-  return run(() => teamsService.create({ name, category, ...(city && { city }) }), 'Equipo creado')
+  const { name, category, city, homeColor, awayColor } = newTeam.value
+  return run(
+    () => teamsService.create({ name, category, ...(city && { city }), ...(homeColor && { homeColor }), ...(awayColor && { awayColor }) }),
+    'Equipo creado'
+  )
+}
+
+const reRegister = async tournament => {
+  const ok = await confirm({
+    title: 'Volver a inscribir equipo',
+    message: `¿Deseas volver a enviar la inscripción de "${team.value.name}" en "${tournament.name}"?`,
+    confirmText: 'Volver a inscribir'
+  })
+  if (!ok) return
+  await run(() => tournamentsService.registerTeam({ tournamentId: tournament.id, teamId: team.value.id }), `Reinscrito en ${tournament.name}`)
 }
 
 const addStaff = async () => {
@@ -479,16 +665,28 @@ const addStaff = async () => {
 }
 
 const openEdit = () => {
-  const { name, category, city } = team.value
-  editTeam.value = { name, category, city: city || '' }
+  const { name, category, city, homeColor, awayColor } = team.value
+  editTeam.value = {
+    name,
+    category,
+    city: city || '',
+    homeColor: homeColor?.startsWith('#') ? homeColor : '#FF6B00',
+    awayColor: awayColor?.startsWith('#') ? awayColor : '#FFFFFF'
+  }
   logoFile = null
   editDialog.value.showModal()
 }
 
 const saveTeam = async () => {
-  const { name, category, city } = editTeam.value
+  const { name, category, city, homeColor, awayColor } = editTeam.value
   await run(async () => {
-    await teamsService.update(team.value.id, { name, category, ...(city && { city }) })
+    await teamsService.update(team.value.id, {
+      name,
+      category,
+      ...(city && { city }),
+      ...(homeColor && { homeColor }),
+      ...(awayColor && { awayColor })
+    })
     if (logoFile) {
       const fd = new FormData()
       fd.append('logo', logoFile)
@@ -496,6 +694,26 @@ const saveTeam = async () => {
     }
   }, 'Equipo actualizado')
   editDialog.value?.close()
+}
+
+const openReschedule = m => {
+  rescheduleTarget.value = m
+  rescheduleForm.value = {
+    proposedDate: minRescheduleDate.value,
+    proposedTime: m.matchTime || '19:00',
+    reason: ''
+  }
+  rescheduleDialog.value.showModal()
+}
+
+const submitReschedule = async () => {
+  const m = rescheduleTarget.value
+  if (!m) return
+  await run(
+    () => matchesService.requestReschedule(m.id, rescheduleForm.value),
+    'Solicitud de reprogramación enviada al organizador'
+  )
+  rescheduleDialog.value?.close()
 }
 
 const startEditPlayer = p => {

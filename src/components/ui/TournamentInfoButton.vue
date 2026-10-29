@@ -20,7 +20,9 @@
         <span class="rounded bg-surface-container-high px-space-sm py-1">{{ t.playersPerTeam }} jug. / equipo</span>
         <span class="rounded bg-surface-container-high px-space-sm py-1">Cuartos de {{ t.quarterDuration }} min</span>
         <span class="rounded bg-surface-container-high px-space-sm py-1">Máx. {{ t.maxTeams }} equipos</span>
-        <span v-if="t.entryFee" class="rounded bg-surface-container-high px-space-sm py-1">Inscripción ${{ t.entryFee }}</span>
+        <span class="rounded bg-surface-container-high px-space-sm py-1">
+          Inscripción {{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}
+        </span>
       </div>
 
       <section>

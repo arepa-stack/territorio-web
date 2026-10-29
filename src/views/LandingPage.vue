@@ -40,7 +40,8 @@
                 <span class="icon text-[18px]">calendar_month</span>{{ formatDate(t.startDate) }} – {{ formatDate(t.endDate) }}
               </span>
               <span class="flex items-center gap-space-xs">
-                <span class="icon text-[18px]">payments</span>Inscripción <span class="font-stat-mono text-on-surface">${{ t.entryFee }}</span>
+                <span class="icon text-[18px]">payments</span>Inscripción
+                <span class="font-stat-mono text-on-surface">{{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}</span>
               </span>
             </div>
             <div>

@@ -160,7 +160,9 @@
                       </div>
                       <div class="shrink-0 text-right">
                         <span class="font-mono text-[22px] font-extrabold tabular">{{ m.teamScore }}<span class="font-normal text-on-surface-variant">–</span>{{ m.oppScore }}</span>
-                        <span class="block font-display text-[10px] font-bold uppercase" :class="m.result === 'W' ? 'text-tertiary' : 'text-error'">Final</span>
+                        <span class="block font-display text-[10px] font-bold uppercase" :class="m.forfeit || m.status === 'FORFEIT' ? 'text-error' : m.result === 'W' ? 'text-tertiary' : 'text-error'">
+                          {{ m.forfeit || m.status === 'FORFEIT' ? 'W.O.' : 'Final' }}
+                        </span>
                       </div>
                     </div>
 
@@ -197,10 +199,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
+import { handleApiError } from '@/services/api'
 import { CATEGORIES, formatDate } from '@/utils/labels'
 
 const route = useRoute()
+const toast = useToast()
 const history = ref(null)
 const loading = ref(true)
 const expanded = reactive({}) // tournamentId -> showing all games
@@ -238,8 +243,8 @@ const resultClass = m => (m.result === 'W'
 onMounted(async () => {
   try {
     history.value = (await teamsService.getHistory(route.params.id)).data
-  } catch {
-    // api interceptor already toasts
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo cargar el historial del equipo'))
   } finally {
     loading.value = false
   }

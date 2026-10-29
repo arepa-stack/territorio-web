@@ -21,6 +21,22 @@ const matchesService = {
         return await api.get(`/matches/${matchId}/attendance`, {
             params: teamId ? { teamId } : {}
         })
+    },
+
+    async requestReschedule(matchId, payload) {
+        return await api.post(`/matches/${matchId}/reschedule-requests`, payload)
+    },
+
+    async getRescheduleRequests(tournamentId) {
+        return await api.get(`/tournaments/${tournamentId}/reschedule-requests`)
+    },
+
+    async resolveRescheduleRequest(requestId, payload) {
+        return await api.patch(`/reschedule-requests/${requestId}`, payload)
+    },
+
+    async forfeit(matchId, forfeitTeamId) {
+        return await api.patch(`/matches/${matchId}/forfeit`, { forfeitTeamId })
     }
 }
 

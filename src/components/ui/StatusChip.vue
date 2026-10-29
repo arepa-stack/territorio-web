@@ -35,6 +35,7 @@ const STATUS = {
   // Match
   SCHEDULED: { label: 'Programado', tone: 'muted' },
   SUSPENDED: { label: 'Suspendido', tone: 'amber', icon: 'pause_circle' },
+  FORFEIT: { label: 'W.O.', tone: 'red', icon: 'event_busy' },
   // Registration payment (REJECTED shared above)
   UNPAID: { label: 'Pago pendiente', tone: 'muted', icon: 'payments' },
   PENDING_REVIEW: { label: 'Pendiente de verificación', tone: 'amber', pulse: true },

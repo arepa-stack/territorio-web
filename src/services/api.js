@@ -51,69 +51,48 @@ api.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
+    let globalToastMessage = ''
     
-    // Handle specific error codes
+    // Handle only global error codes here; components handle action-level errors (400, 404, 409, 422) via handleApiError
     if (error.response) {
-      const { status, data } = error.response
+      const { status } = error.response
       
-      switch (status) {
-        case 401:
-          // Unauthorized - token expired or invalid
-          const authStore = useAuthStore()
-          if (authStore.refreshToken && !originalRequest._retry) {
-            originalRequest._retry = true
-            
-            try {
-              // Try to refresh token
-              const refreshed = await authStore.refreshAccessToken()
-              if (refreshed) {
-                // Retry original request with new token
-                return api(originalRequest)
-              }
-            } catch (refreshError) {
-              console.error('Token refresh failed:', refreshError)
+      if (status === 401) {
+        // Unauthorized - token expired or invalid
+        const authStore = useAuthStore()
+        if (authStore.refreshToken && !originalRequest?._retry) {
+          originalRequest._retry = true
+          
+          try {
+            // Try to refresh token
+            const refreshed = await authStore.refreshAccessToken()
+            if (refreshed) {
+              // Retry original request with new token
+              return api(originalRequest)
             }
-            
-            // If refresh failed, logout user
-            await authStore.logout()
+          } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError)
           }
-          break
           
-        case 403:
-          toast.error('No tienes permisos para realizar esta acción')
-          break
-          
-        case 404:
-          toast.error('Recurso no encontrado')
-          break
-          
-        case 422:
-          // Validation errors
-          if (data.errors && Array.isArray(data.errors)) {
-            const errorMessages = data.errors.map(err => err.message || err.msg).join(', ')
-            toast.error(errorMessages)
-          } else {
-            toast.error(data.message || 'Error de validación')
-          }
-          break
-          
-        case 429:
-          toast.error('Demasiadas solicitudes. Por favor intenta más tarde.')
-          break
-          
-        case 500:
-          toast.error('Error del servidor. Por favor intenta más tarde.')
-          break
-          
-        default:
-          toast.error(data.message || 'Error inesperado del servidor')
+          // If refresh failed, logout user
+          await authStore.logout()
+        }
+      } else if (status === 403) {
+        globalToastMessage = 'No tienes permisos para realizar esta acción'
+      } else if (status === 429) {
+        globalToastMessage = 'Demasiadas solicitudes. Por favor intenta más tarde.'
+      } else if (status >= 500) {
+        globalToastMessage = 'Error del servidor. Por favor intenta más tarde.'
       }
     } else if (error.request) {
       // Network error
-      toast.error('Error de conexión. Verifica tu conexión a internet.')
-    } else {
-      // Something else happened
-      toast.error('Error inesperado')
+      globalToastMessage = 'Error de conexión. Verifica tu conexión a internet.'
+    }
+
+    if (globalToastMessage) {
+      setTimeout(() => {
+        if (!error._handled) toast.error(globalToastMessage)
+      }, 0)
     }
     
     return Promise.reject(error)
@@ -122,14 +101,17 @@ api.interceptors.response.use(
 
 // Helper functions for error handling
 export const handleApiError = (error, defaultMessage = 'Error inesperado') => {
-  if (error.response) {
+  if (error && typeof error === 'object') {
+    error._handled = true
+  }
+  if (error?.response) {
     // class-validator returns one message per invalid field
     const message = error.response.data?.message
     return Array.isArray(message) ? message.join(' · ') : message || defaultMessage
-  } else if (error.request) {
+  } else if (error?.request) {
     return 'Error de conexión'
   } else {
-    return error.message || defaultMessage
+    return error?.message || defaultMessage
   }
 }
 
