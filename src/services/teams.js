@@ -11,6 +11,11 @@ const teamsService = {
         return await api.get('/teams/my-teams')
     },
 
+    // Tournament history: record per tournament and each match with quarter scores
+    async getHistory(teamId) {
+        return await api.get(`/teams/${teamId}/history`)
+    },
+
     // Get team by ID
     async getById(id) {
         return await api.get(`/teams/${id}`)
@@ -64,6 +69,18 @@ const teamsService = {
     },
 
     // Get team players
+    async getStaff(teamId) {
+        return await api.get(`/teams/${teamId}/staff`)
+    },
+
+    async addStaff(teamId, staffData) {
+        return await api.post(`/teams/${teamId}/staff`, staffData)
+    },
+
+    async removeStaff(teamId, staffId) {
+        return await api.delete(`/teams/${teamId}/staff/${staffId}`)
+    },
+
     async getPlayers(teamId) {
         return await api.get(`/teams/${teamId}/players`)
     },

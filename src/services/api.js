@@ -123,89 +123,14 @@ api.interceptors.response.use(
 // Helper functions for error handling
 export const handleApiError = (error, defaultMessage = 'Error inesperado') => {
   if (error.response) {
-    return error.response.data?.message || defaultMessage
+    // class-validator returns one message per invalid field
+    const message = error.response.data?.message
+    return Array.isArray(message) ? message.join(' · ') : message || defaultMessage
   } else if (error.request) {
     return 'Error de conexión'
   } else {
     return error.message || defaultMessage
   }
-}
-
-export const isNetworkError = (error) => {
-  return !error.response && error.request
-}
-
-export const isValidationError = (error) => {
-  return error.response?.status === 422
-}
-
-export const isAuthError = (error) => {
-  return error.response?.status === 401
-}
-
-// Utility functions
-export const buildQueryString = (params) => {
-  const query = new URLSearchParams()
-  
-  Object.keys(params).forEach(key => {
-    const value = params[key]
-    if (value !== null && value !== undefined && value !== '') {
-      if (typeof value === 'object' && !Array.isArray(value)) {
-        // Handle nested objects
-        Object.keys(value).forEach(nestedKey => {
-          if (value[nestedKey] !== null && value[nestedKey] !== undefined) {
-            query.append(`${key}.${nestedKey}`, value[nestedKey])
-          }
-        })
-      } else if (Array.isArray(value)) {
-        // Handle arrays
-        value.forEach(item => {
-          query.append(key, item)
-        })
-      } else {
-        query.append(key, value)
-      }
-    }
-  })
-  
-  return query.toString()
-}
-
-// File upload helper
-export const uploadFile = async (file, endpoint, onProgress = null) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  
-  const config = {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  }
-  
-  if (onProgress) {
-    config.onUploadProgress = (progressEvent) => {
-      const percentCompleted = Math.round(
-        (progressEvent.loaded * 100) / progressEvent.total
-      )
-      onProgress(percentCompleted)
-    }
-  }
-  
-  return api.post(endpoint, formData, config)
-}
-
-// Download file helper
-export const downloadFile = async (url, filename) => {
-  const response = await api.get(url, { responseType: 'blob' })
-  const blob = new Blob([response.data])
-  const downloadUrl = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = downloadUrl
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(downloadUrl)
 }
 
 export default api

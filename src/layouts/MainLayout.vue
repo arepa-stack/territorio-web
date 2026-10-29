@@ -1,380 +1,161 @@
 <template>
-  <v-app>
-    <!-- Navigation Drawer -->
-    <v-navigation-drawer v-model="drawer" :rail="rail" permanent class="elevation-1">
-      <!-- Logo Section -->
-      <div class="pa-4">
-        <div class="d-flex align-center">
-          <v-avatar size="40" color="primary" class="mr-3">
-            <v-icon color="white">mdi-basketball</v-icon>
-          </v-avatar>
+  <div class="min-h-screen bg-surface text-on-surface font-body">
+    <!-- Top bar -->
+    <header
+      class="fixed inset-x-0 top-0 z-40 border-b border-outline-variant/40 bg-surface/90 backdrop-blur"
+      style="padding-top: env(safe-area-inset-top, 0px)"
+    >
+      <div class="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-space-sm px-gutter md:px-margin-md">
+        <router-link :to="homeRoute" class="flex min-w-0 items-center gap-space-sm no-underline">
+          <span class="icon icon-fill text-[28px] text-primary-container">sports_basketball</span>
+          <span class="flex flex-col leading-none">
+            <span class="whitespace-nowrap font-headline-md text-[20px] uppercase text-on-surface md:text-headline-md">Basketball MVP</span>
+            <span class="label-tactical mt-0.5 text-on-surface-variant">CCS Streetball</span>
+          </span>
+        </router-link>
 
-          <div v-if="!rail">
-            <h3 class="text-h6 font-weight-bold">Basketball</h3>
-            <p class="text-caption text-medium-emphasis">Tournament System</p>
+        <div class="flex items-center gap-space-xs">
+          <span
+            v-if="roleLabel"
+            class="label-tactical rounded bg-surface-container-high px-space-sm py-1 text-secondary"
+          >{{ roleLabel }}</span>
+
+          <button
+            type="button"
+            class="flex h-11 w-11 items-center justify-center rounded text-on-surface-variant hover:text-primary"
+            :aria-label="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+            @click="toggleTheme"
+          >
+            <span class="icon">{{ isDark ? 'light_mode' : 'dark_mode' }}</span>
+          </button>
+
+          <div class="relative">
+            <button
+              type="button"
+              class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-container font-label-tactical text-label-tactical text-white"
+              aria-haspopup="menu"
+              :aria-expanded="menuOpen"
+              aria-label="Menú de usuario"
+              @click="menuOpen = !menuOpen"
+            >{{ initials }}</button>
+
+            <div
+              v-if="menuOpen"
+              role="menu"
+              class="absolute right-0 top-12 w-56 rounded-lg border border-outline-variant/50 bg-surface-container-high p-space-xs shadow-xl"
+            >
+              <p class="truncate px-space-sm py-space-sm text-body-sm text-on-surface-variant">{{ authStore.userName }}</p>
+              <router-link
+                v-if="profileRoute"
+                :to="profileRoute"
+                role="menuitem"
+                class="flex items-center gap-space-sm rounded px-space-sm py-space-sm text-body-md text-on-surface no-underline hover:bg-surface-container-highest"
+                @click="menuOpen = false"
+              >
+                <span class="icon">person</span> Mi perfil
+              </router-link>
+              <button
+                type="button"
+                role="menuitem"
+                class="flex w-full items-center gap-space-sm rounded px-space-sm py-space-sm text-left text-body-md text-error hover:bg-surface-container-highest"
+                @click="handleLogout"
+              >
+                <span class="icon">logout</span> Cerrar sesión
+              </button>
+            </div>
           </div>
         </div>
       </div>
+    </header>
 
-      <v-divider />
+    <div class="mx-auto flex max-w-[1440px] pt-16">
+      <!-- Desktop side navigation -->
+      <nav
+        class="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col gap-space-xs border-r border-outline-variant/40 p-space-md md:flex"
+        aria-label="Navegación principal"
+      >
+        <router-link
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          class="flex items-center gap-space-md rounded px-space-md py-space-sm no-underline transition-colors"
+          :class="isActive(item) ? 'bg-primary-container/15 text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'"
+        >
+          <span class="icon" :class="{ 'icon-fill': isActive(item) }">{{ item.icon }}</span>
+          <span class="label-tactical text-[14px]">{{ item.label }}</span>
+        </router-link>
+      </nav>
 
-      <!-- User Profile Section -->
-      <div v-if="authStore.user && !rail" class="pa-4">
-        <v-card color="surface" class="pa-3" variant="outlined">
-          <div class="d-flex align-center">
-            <v-avatar size="32" color="primary" class="mr-3">
-              <v-icon color="white" size="18">
-                {{ getRoleIcon(authStore.user.role) }}
-              </v-icon>
-            </v-avatar>
-
-            <div class="flex-grow-1">
-              <p class="text-body-2 font-weight-medium">
-                {{ authStore.user.fullName }}
-              </p>
-              <p class="text-caption text-medium-emphasis">
-                {{ getRoleName(authStore.user.role) }}
-              </p>
-            </div>
-
-            <v-btn icon variant="text" size="small" @click="navigateToProfile">
-              <v-icon>mdi-account-edit</v-icon>
-            </v-btn>
-          </div>
-        </v-card>
-      </div>
-
-      <v-divider v-if="authStore.user && !rail" />
-
-      <!-- Navigation Menu -->
-      <v-list nav>
-        <v-list-item v-for="item in navigationItems" :key="item.name" :prepend-icon="item.icon" :title="item.title"
-          :to="item.to" :value="item.name" color="primary" rounded="xl" class="mb-1" />
-      </v-list>
-
-      <!-- Quick Actions -->
-      <template #append>
-        <div class="pa-4">
-          <v-btn v-if="!rail" block variant="outlined" prepend-icon="mdi-brightness-6" @click="toggleTheme">
-            {{ theme.global.current.value.dark ? 'Modo Claro' : 'Modo Oscuro' }}
-          </v-btn>
-
-          <v-btn v-else icon variant="outlined" @click="toggleTheme" class="mb-2">
-            <v-icon>mdi-brightness-6</v-icon>
-          </v-btn>
-
-          <v-btn block variant="outlined" color="error" prepend-icon="mdi-logout" @click="handleLogout" class="mt-2">
-            Cerrar Sesión
-          </v-btn>
-        </div>
-      </template>
-    </v-navigation-drawer>
-
-    <!-- App Bar -->
-    <v-app-bar elevation="0" class="app-bar" :order="0">
-      <v-app-bar-nav-icon @click="drawer = !drawer" />
-
-      <v-toolbar-title class="d-flex align-center">
-        <v-icon class="mr-2" color="primary">mdi-basketball</v-icon>
-        {{ getPageTitle() }}
-      </v-toolbar-title>
-
-      <v-spacer />
-
-      <!-- Theme Toggle (Mobile) -->
-      <v-btn v-if="$vuetify.display.smAndDown" icon variant="text" @click="toggleTheme">
-        <v-icon>{{ theme.global.current.value.dark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-      </v-btn>
-
-      <!-- User Menu -->
-      <v-menu>
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon variant="text">
-            <v-avatar size="32" color="primary">
-              <v-icon color="white" size="18">
-                {{ getRoleIcon(authStore.user?.role) }}
-              </v-icon>
-            </v-avatar>
-          </v-btn>
-        </template>
-
-        <v-list>
-          <v-list-item prepend-icon="mdi-account" title="Mi Perfil" @click="navigateToProfile" />
-          <v-list-item prepend-icon="mdi-cog" title="Configuración" @click="navigateToSettings" />
-          <v-divider />
-          <v-list-item prepend-icon="mdi-logout" title="Cerrar Sesión" @click="handleLogout" />
-        </v-list>
-      </v-menu>
-    </v-app-bar>
-
-    <!-- Main Content -->
-    <v-main class="main-content">
-      <v-container fluid class="pa-6">
-        <!-- Breadcrumbs -->
-        <v-breadcrumbs v-if="breadcrumbs.length > 1" :items="breadcrumbs" class="pa-0 mb-4">
-          <template #divider>
-            <v-icon icon="mdi-chevron-right" />
-          </template>
-        </v-breadcrumbs>
-
-        <!-- Router View with Transition -->
-        <router-view v-slot="{ Component, route }">
-          <transition :name="route.meta.transition || 'fade'" mode="out-in">
-            <div :key="route.path">
-              <component :is="Component" />
-            </div>
-          </transition>
+      <!-- Page -->
+      <main class="min-w-0 flex-1 px-gutter pb-28 pt-space-lg md:px-margin-md md:pb-margin-lg">
+        <router-view v-slot="{ Component }">
+          <component :is="Component" />
         </router-view>
-      </v-container>
-    </v-main>
+      </main>
+    </div>
 
-    <!-- Global Loading Overlay -->
-    <v-overlay v-model="isGlobalLoading" class="align-center justify-center" persistent>
-      <v-progress-circular indeterminate size="64" color="primary" />
-    </v-overlay>
-  </v-app>
+    <!-- Mobile bottom navigation -->
+    <nav
+      class="fixed inset-x-0 bottom-0 z-40 border-t border-outline-variant/40 bg-surface/95 backdrop-blur md:hidden"
+      style="padding-bottom: env(safe-area-inset-bottom, 0px)"
+      aria-label="Navegación principal"
+    >
+      <div class="flex h-16 items-stretch">
+        <router-link
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          class="flex flex-1 flex-col items-center justify-center gap-0.5 no-underline"
+          :class="isActive(item) ? 'text-primary' : 'text-on-surface-variant'"
+        >
+          <span class="icon" :class="{ 'icon-fill': isActive(item) }">{{ item.icon }}</span>
+          <span class="label-tactical text-[11px]">{{ item.label }}</span>
+        </router-link>
+      </div>
+    </nav>
+
+    <!-- Click outside closes the user menu -->
+    <div v-if="menuOpen" class="fixed inset-0 z-30" @click="menuOpen = false" />
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useTheme } from 'vuetify'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useAuthStore } from '@/stores/auth'
+import { useColorMode } from '@/composables/useColorMode'
+import { NAV_BY_ROLE, HOME_BY_ROLE, ROLE_LABEL } from '@/router/navigation'
 
-// Composables
-const router = useRouter()
 const route = useRoute()
-const theme = useTheme()
+const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
+const { isDark, toggle: toggleTheme } = useColorMode()
 
-// Reactive state
-const drawer = ref(true)
-const rail = ref(false)
+const menuOpen = ref(false)
 
-// Computed
-const isGlobalLoading = computed(() => {
-  // Check any loading states from stores
-  return false // You can extend this to check multiple stores
-})
+const navItems = computed(() => NAV_BY_ROLE[authStore.userRole] || [])
+const homeRoute = computed(() => HOME_BY_ROLE[authStore.userRole] || '/')
+const roleLabel = computed(() => ROLE_LABEL[authStore.userRole])
+const profileRoute = computed(() => (['PLAYER', 'TEAM_CAPTAIN'].includes(authStore.userRole) ?'/app/player/profile' : null))
+const initials = computed(() =>
+  (authStore.userName || '?')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('')
+)
 
-const breadcrumbs = computed(() => {
-  const matched = route.matched.filter(item => item.meta && item.meta.title)
-  const items = matched.map(item => ({
-    title: item.meta.title,
-    to: item.path,
-    disabled: route.path === item.path
-  }))
-
-  return items
-})
-
-const navigationItems = computed(() => {
-  const baseItems = [
-    {
-      name: 'dashboard',
-      title: 'Dashboard',
-      icon: 'mdi-view-dashboard',
-      to: getDashboardRoute(),
-      roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN']
-    }
-  ]
-
-  const roleSpecificItems = {
-    PLAYER: [
-      { name: 'profile', title: 'Mi Perfil', icon: 'mdi-account', to: '/app/player/profile' },
-      { name: 'stats', title: 'Estadísticas', icon: 'mdi-chart-line', to: '/app/player/stats' },
-      { name: 'teams', title: 'Mis Equipos', icon: 'mdi-account-group', to: '/app/player/teams' },
-      { name: 'schedule', title: 'Calendario', icon: 'mdi-calendar', to: '/app/player/schedule' }
-    ],
-    TEAM_CAPTAIN: [
-      // 'Mis Equipos' is covered by Dashboard
-      { name: 'register', title: 'Registrar Jugador', icon: 'mdi-account-plus', to: '/app/captain/register-player' }
-    ],
-    ORGANIZER: [
-      { name: 'dashboard', title: 'Panel Principal', icon: 'mdi-view-dashboard', to: '/app/organizer' },
-      // { name: 'tournaments', title: 'Torneos', icon: 'mdi-trophy', to: '/app/organizer/tournaments' },
-      // { name: 'zones', title: 'Zonas', icon: 'mdi-map', to: '/app/organizer/zones' },
-      // { name: 'venues', title: 'Canchas', icon: 'mdi-stadium', to: '/app/organizer/venues' },
-      // { name: 'analytics', title: 'Analíticas', icon: 'mdi-chart-pie', to: '/app/organizer/analytics' }
-    ],
-    ADMIN: [
-      { name: 'users', title: 'Usuarios', icon: 'mdi-account-multiple', to: '/app/admin/users' },
-      { name: 'reports', title: 'Reportes', icon: 'mdi-file-chart', to: '/app/admin/reports' },
-      { name: 'settings', title: 'Configuración', icon: 'mdi-cog', to: '/app/admin/settings' }
-    ]
-  }
-
-  const userRole = authStore.userRole
-  const specificItems = roleSpecificItems[userRole] || []
-
-  return [...baseItems, ...specificItems]
-})
-
-// Methods
-const toggleTheme = () => {
-  theme.global.name.value = theme.global.current.value.dark ? 'light' : 'dark'
-}
-
-const getDashboardRoute = () => {
-  const role = authStore.userRole
-  const routes = {
-    PLAYER: '/app/player',
-    TEAM_CAPTAIN: '/app/captain',
-    ORGANIZER: '/app/organizer',
-    ADMIN: '/app/admin'
-  }
-  return routes[role] || '/app/player'
-}
-
-const getRoleIcon = (role) => {
-  const icons = {
-    PLAYER: 'mdi-basketball',
-    TEAM_CAPTAIN: 'mdi-account-group',
-    ORGANIZER: 'mdi-trophy',
-    ADMIN: 'mdi-shield-account'
-  }
-  return icons[role] || 'mdi-account'
-}
-
-const getRoleName = (role) => {
-  const names = {
-    PLAYER: 'Jugador',
-    TEAM_CAPTAIN: 'Capitán',
-    ORGANIZER: 'Organizador',
-    ADMIN: 'Administrador'
-  }
-  return names[role] || 'Usuario'
-}
-
-const getPageTitle = () => {
-  const routeMeta = route.meta
-  if (routeMeta.title) {
-    return routeMeta.title
-  }
-  return 'Basketball Tournament System'
-}
-
-const navigateToProfile = () => {
-  router.push('/app/profile')
-}
-
-const navigateToSettings = () => {
-  router.push('/app/profile')
-}
+// A tab stays active on its sub-pages (e.g. /app/organizer/tournament/:id under /app/organizer)
+const isActive = item =>
+  item.exact ? route.path === item.to : route.path === item.to || route.path.startsWith(item.to + '/')
 
 const handleLogout = async () => {
-  try {
-    await authStore.logout()
-    toast.success('Sesión cerrada correctamente')
-  } catch (error) {
-    console.error('Error during logout:', error)
-    toast.error('Error al cerrar sesión')
-  }
+  menuOpen.value = false
+  await authStore.logout()
+  toast.success('Sesión cerrada')
+  router.push('/auth/login')
 }
-
-// Watch for rail mode changes
-watch(
-  () => rail.value,
-  (newVal) => {
-    // Auto-close drawer in mobile when rail is enabled
-    if (newVal && window.innerWidth < 1280) {
-      drawer.value = false
-    }
-  }
-)
-
-// Auto-close drawer on mobile
-watch(
-  () => window.innerWidth,
-  (width) => {
-    if (width < 1280 && !rail.value) {
-      drawer.value = false
-    } else if (width >= 1280) {
-      drawer.value = true
-    }
-  }
-)
 </script>
-
-<style scoped>
-.app-bar {
-  border-bottom: 1px solid rgb(var(--v-theme-divider)) !important;
-  backdrop-filter: blur(12px);
-  background-color: rgb(var(--v-theme-surface)) !important;
-}
-
-.main-content {
-  background: linear-gradient(135deg,
-      rgb(var(--v-theme-background)) 0%,
-      rgb(var(--v-theme-surface)) 100%);
-  min-height: 100vh;
-}
-
-/* Breadcrumbs styling */
-:deep(.v-breadcrumbs-item) {
-  color: rgb(var(--v-theme-text-secondary));
-}
-
-:deep(.v-breadcrumbs-item--disabled) {
-  color: rgb(var(--v-theme-text-primary));
-}
-
-/* Navigation styling */
-:deep(.v-navigation-drawer) {
-  border-right: 1px solid rgb(var(--v-theme-divider)) !important;
-}
-
-:deep(.v-list-item) {
-  margin: 0 8px;
-  border-radius: 12px !important;
-}
-
-:deep(.v-list-item--active) {
-  background: rgba(var(--v-theme-primary), 0.1) !important;
-}
-
-/* Transitions */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.slide-enter-active,
-.slide-leave-active {
-  transition: transform 0.3s ease;
-}
-
-.slide-enter-from {
-  transform: translateX(-100%);
-}
-
-.slide-leave-to {
-  transform: translateX(100%);
-}
-
-/* Custom scrollbar for navigation */
-:deep(.v-navigation-drawer__content) {
-  scrollbar-width: thin;
-  scrollbar-color: rgb(var(--v-theme-divider)) transparent;
-}
-
-:deep(.v-navigation-drawer__content)::-webkit-scrollbar {
-  width: 6px;
-}
-
-:deep(.v-navigation-drawer__content)::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-:deep(.v-navigation-drawer__content)::-webkit-scrollbar-thumb {
-  background-color: rgb(var(--v-theme-divider));
-  border-radius: 3px;
-}
-</style>

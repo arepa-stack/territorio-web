@@ -1,399 +1,173 @@
 <template>
-    <div class="player-registration">
-        <!-- Header -->
-        <div class="mb-6">
-            <h1 class="text-h4 font-weight-bold mb-2">Registrar Jugador</h1>
-            <p class="text-body-1 text-medium-emphasis">
-                Busca y agrega jugadores a tu equipo
-            </p>
-        </div>
+  <div class="mx-auto flex w-full max-w-2xl flex-col gap-space-lg">
+    <router-link to="/app/captain" class="btn-ghost self-start px-0"><span class="icon">arrow_back</span> Mi equipo</router-link>
 
-        <!-- Search Section -->
-        <v-card elevation="2" class="mb-6">
-            <v-card-title>Buscar Jugador</v-card-title>
-            <v-card-text>
-                <v-row>
-                    <v-col cols="12" md="6">
-                        <v-text-field v-model="searchCi" label="Cédula de Identidad"
-                            prepend-inner-icon="mdi-card-account-details" variant="outlined"
-                            hint="Ingresa la CI del jugador" persistent-hint @keyup.enter="searchPlayer" />
-                    </v-col>
-                    <v-col cols="12" md="6" class="d-flex align-center">
-                        <v-btn color="primary" prepend-icon="mdi-magnify" :loading="searching" @click="searchPlayer"
-                            class="mr-2">
-                            Buscar
-                        </v-btn>
-                        <v-btn variant="outlined" prepend-icon="mdi-account-plus" @click="showNewPlayerForm = true">
-                            Nuevo Jugador
-                        </v-btn>
-                    </v-col>
-                </v-row>
-            </v-card-text>
-        </v-card>
-
-        <!-- Search Result -->
-        <v-card v-if="foundPlayer" elevation="2" class="mb-6">
-            <v-card-title class="d-flex align-center bg-success-lighten">
-                <v-icon class="mr-2" color="success">mdi-check-circle</v-icon>
-                Jugador Encontrado
-            </v-card-title>
-            <v-card-text>
-                <v-row>
-                    <v-col cols="12" md="6">
-                        <v-list>
-                            <v-list-item>
-                                <v-list-item-title class="font-weight-bold">{{ foundPlayer.name }}</v-list-item-title>
-                                <v-list-item-subtitle>Nombre Completo</v-list-item-subtitle>
-                            </v-list-item>
-                            <v-list-item>
-                                <v-list-item-title>{{ foundPlayer.ci }}</v-list-item-title>
-                                <v-list-item-subtitle>CI</v-list-item-subtitle>
-                            </v-list-item>
-                            <v-list-item>
-                                <v-list-item-title>{{ foundPlayer.position }}</v-list-item-title>
-                                <v-list-item-subtitle>Posición</v-list-item-subtitle>
-                            </v-list-item>
-                        </v-list>
-                    </v-col>
-                    <v-col cols="12" md="6">
-                        <v-list>
-                            <v-list-item>
-                                <v-list-item-title>{{ foundPlayer.height }} cm</v-list-item-title>
-                                <v-list-item-subtitle>Altura</v-list-item-subtitle>
-                            </v-list-item>
-                            <v-list-item>
-                                <v-list-item-title>{{ foundPlayer.age }} años</v-list-item-title>
-                                <v-list-item-subtitle>Edad</v-list-item-subtitle>
-                            </v-list-item>
-                            <v-list-item>
-                                <v-list-item-title>{{ foundPlayer.currentTeams || 0 }} equipos</v-list-item-title>
-                                <v-list-item-subtitle>Equipos Activos</v-list-item-subtitle>
-                            </v-list-item>
-                        </v-list>
-                    </v-col>
-                </v-row>
-
-                <!-- Zone Conflict Warning -->
-                <v-alert v-if="zoneConflict" type="warning" variant="tonal" class="mt-4" prominent>
-                    <v-alert-title>Conflicto de Zona Detectado</v-alert-title>
-                    Este jugador ya está registrado en un equipo de la misma zona.
-                    <ul class="mt-2">
-                        <li>Zona actual: {{ zoneConflict.zone }}</li>
-                        <li>Equipo conflictivo: {{ zoneConflict.team }}</li>
-                    </ul>
-                </v-alert>
-
-                <!-- Registration Form -->
-                <v-divider class="my-4" />
-
-                <h3 class="text-h6 mb-3">Datos para el Equipo</h3>
-                <v-form ref="registrationForm" v-model="isFormValid">
-                    <v-row>
-                        <v-col cols="12" md="4">
-                            <v-text-field v-model="registration.jerseyNumber" label="Número de Dorsal" type="number"
-                                variant="outlined"
-                                :rules="[v => !!v || 'Requerido', v => v > 0 && v <= 99 || 'Entre 1-99']" />
-                        </v-col>
-                        <v-col cols="12" md="4">
-                            <v-select v-model="registration.position" :items="positions" label="Posición en el Equipo"
-                                variant="outlined" :rules="[v => !!v || 'Requerido']" />
-                        </v-col>
-                        <v-col cols="12" md="4">
-                            <v-select v-model="registration.category" :items="['Titular', 'Suplente']" label="Categoría"
-                                variant="outlined" />
-                        </v-col>
-                        <v-col cols="12">
-                            <v-textarea v-model="registration.notes" label="Notas (Opcional)" variant="outlined"
-                                rows="2" />
-                        </v-col>
-                    </v-row>
-                </v-form>
-            </v-card-text>
-            <v-card-actions>
-                <v-spacer />
-                <v-btn variant="text" @click="clearSearch">Cancelar</v-btn>
-                <v-btn color="success" :disabled="!isFormValid || zoneConflict" :loading="registering"
-                    @click="registerPlayer">
-                    Registrar en Equipo
-                </v-btn>
-            </v-card-actions>
-        </v-card>
-
-        <!-- New Player Dialog -->
-        <v-dialog v-model="showNewPlayerForm" max-width="700">
-            <v-card>
-                <v-card-title>Crear Nuevo Jugador</v-card-title>
-                <v-card-text>
-                    <v-form ref="newPlayerForm" v-model="isNewPlayerFormValid">
-                        <v-row>
-                            <v-col cols="12" md="6">
-                                <v-text-field v-model="newPlayer.ci" label="Cédula de Identidad" variant="outlined"
-                                    :rules="[v => !!v || 'Requerido']" />
-                            </v-col>
-                            <v-col cols="12" md="6">
-                                <v-text-field v-model="newPlayer.fullName" label="Nombre Completo" variant="outlined"
-                                    :rules="[v => !!v || 'Requerido']" />
-                            </v-col>
-                            <v-col cols="12" md="6">
-                                <v-text-field v-model="newPlayer.birthDate" label="Fecha de Nacimiento" type="date"
-                                    variant="outlined" :rules="[v => !!v || 'Requerido']" />
-                            </v-col>
-                            <v-col cols="12" md="6">
-                                <v-select v-model="newPlayer.position" :items="positions" label="Posición Principal"
-                                    variant="outlined" :rules="[v => !!v || 'Requerido']" />
-                            </v-col>
-                            <v-col cols="12" md="6">
-                                <v-text-field v-model="newPlayer.height" label="Altura (cm)" type="number"
-                                    variant="outlined" />
-                            </v-col>
-                            <v-col cols="12" md="6">
-                                <v-text-field v-model="newPlayer.weight" label="Peso (kg)" type="number"
-                                    variant="outlined" />
-                            </v-col>
-                        </v-row>
-                    </v-form>
-                </v-card-text>
-                <v-card-actions>
-                    <v-spacer />
-                    <v-btn variant="text" @click="showNewPlayerForm = false">Cancelar</v-btn>
-                    <v-btn color="primary" :disabled="!isNewPlayerFormValid" :loading="creatingPlayer"
-                        @click="createNewPlayer">
-                        Crear y Registrar
-                    </v-btn>
-                </v-card-actions>
-            </v-card>
-        </v-dialog>
+    <div>
+      <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Fichar por cédula</h1>
+      <p v-if="team" class="m-0 mt-1 text-body-md text-on-surface-variant">Agregando jugadores a <strong class="text-on-surface">{{ team.name }}</strong>.</p>
     </div>
+
+    <p v-if="loadingTeam" class="text-body-md text-on-surface-variant">Cargando tu equipo…</p>
+    <div v-else-if="!team" class="card flex flex-col gap-space-sm p-space-md">
+      <p class="m-0 text-body-md">Primero crea tu equipo.</p>
+      <router-link to="/app/captain" class="btn-primary self-start">Crear mi equipo</router-link>
+    </div>
+
+    <template v-else>
+      <!-- Search -->
+      <form class="card flex flex-col gap-space-sm p-space-md sm:flex-row sm:items-end" @submit.prevent="search">
+        <div class="flex-1">
+          <label class="field-label" for="ci-search">Cédula</label>
+          <input id="ci-search" v-model.trim="ci" class="input font-mono" placeholder="V-24891203" autocomplete="off" />
+        </div>
+        <button type="submit" class="btn-primary" :disabled="!ci || busy"><span class="icon">search</span> Buscar</button>
+      </form>
+      <p class="m-0 flex items-center gap-space-xs text-body-sm text-on-surface-variant">
+        <span class="icon text-[18px] text-secondary">info</span>
+        Un jugador puede estar en varios equipos y torneos, pero con un solo equipo por torneo.
+      </p>
+
+      <!-- Found: add the existing person -->
+      <section v-if="found" class="card flex flex-col gap-space-md border-l-4 border-l-tertiary p-space-md">
+        <div>
+          <span class="label-tactical text-tertiary">Jugador encontrado</span>
+          <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ found.fullName }}</h2>
+          <p class="m-0 font-stat-mono text-stat-mono text-on-surface-variant">{{ found.ci }}</p>
+          <p v-if="otherTeams" class="m-0 mt-1 text-body-sm text-on-surface-variant">Juega en: {{ otherTeams }}</p>
+        </div>
+        <p v-if="alreadyHere" class="m-0 text-body-md text-secondary">Ya está en tu equipo.</p>
+        <form v-else class="flex flex-col gap-space-md" @submit.prevent="addExisting">
+          <JerseyPosition v-model:jersey="jersey" v-model:position="position" />
+          <button type="submit" class="btn-primary" :disabled="busy || !validSlot">Agregar a {{ team.name }}</button>
+        </form>
+      </section>
+
+      <!-- Not found: create the person -->
+      <section v-if="notFound" class="card flex flex-col gap-space-md p-space-md">
+        <div>
+          <span class="label-tactical text-secondary">Cédula sin registrar</span>
+          <p class="m-0 text-body-md">
+            No hay nadie con la cédula <strong class="font-mono">{{ searchedCi }}</strong>. Créalo y queda en tu plantel.
+          </p>
+        </div>
+        <form class="flex flex-col gap-space-md" @submit.prevent="createNew">
+          <div>
+            <label class="field-label" for="new-name">Nombre completo *</label>
+            <input id="new-name" v-model.trim="newName" class="input" />
+          </div>
+          <div>
+            <label class="field-label" for="new-email">Email *</label>
+            <input id="new-email" v-model.trim="newEmail" class="input" type="email" placeholder="para su cuenta en la liga" />
+          </div>
+          <JerseyPosition v-model:jersey="jersey" v-model:position="position" />
+          <button type="submit" class="btn-primary" :disabled="busy || !validSlot || !newName || !newEmail">Crear y agregar</button>
+        </form>
+      </section>
+
+      <p v-if="error" role="alert" class="m-0 flex items-start gap-space-sm rounded border border-solid border-error/50 bg-error/10 p-space-sm text-body-sm text-error">
+        <span class="icon">error</span>{{ error }}
+      </p>
+    </template>
+  </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
-import playersService from '@/services/players'
 import teamsService from '@/services/teams'
+import playersService from '@/services/players'
+import { handleApiError } from '@/services/api'
+import JerseyPosition from '@/components/JerseyPosition.vue'
 
-const route = useRoute()
-const router = useRouter()
 const toast = useToast()
 
-// State
-const teamId = ref(null)
-const searchCi = ref('')
-const searching = ref(false)
-const registering = ref(false)
-const foundPlayer = ref(null)
-const zoneConflict = ref(null)
-const isFormValid = ref(false)
-const showNewPlayerForm = ref(false)
-const isNewPlayerFormValid = ref(false)
-const creatingPlayer = ref(false)
+const team = ref(null)
+const loadingTeam = ref(true)
+const ci = ref('')
+const searchedCi = ref('')
+const found = ref(null)
+const notFound = ref(false)
+const alreadyHere = ref(false)
+const jersey = ref(null)
+const position = ref('BASE')
+const newName = ref('')
+const newEmail = ref('')
+const busy = ref(false)
+const error = ref('')
 
-const positions = [
-    'BASE',
-    'ESCOLTA',
-    'ALERO',
-    'ALA_PIVOT',
-    'PIVOT'
-]
+const validSlot = computed(() => Number.isInteger(jersey.value) && jersey.value >= 0 && jersey.value <= 99 && !!position.value)
+const otherTeams = computed(() => (found.value?.players || []).map(p => p.team?.name).filter(Boolean).join(', '))
 
-const registration = reactive({
-    jerseyNumber: null,
-    position: null,
-    category: 'Titular',
-    notes: ''
-})
-
-const newPlayer = reactive({
-    ci: '',
-    fullName: '',
-    birthDate: '',
-    position: null,
-    height: null,
-    weight: null
-})
-
-// Methods
-const searchPlayer = async () => {
-    if (!searchCi.value) {
-        toast.warning('Ingresa una CI para buscar')
-        return
-    }
-
-    try {
-        searching.value = true
-        zoneConflict.value = null
-        foundPlayer.value = null
-
-        // Use the captain specific search endpoint
-        const response = await playersService.captainSearchPlayer(teamId.value, searchCi.value)
-
-        if (response.data.isInThisTeam) {
-            toast.info('El jugador ya está en tu equipo')
-            return
-        }
-
-        const player = response.data.player
-        foundPlayer.value = {
-            id: player.id,
-            name: player.fullName,
-            ci: player.ci, // Assuming backend returns CI
-            position: player.player?.position || 'Sin posición',
-            height: player.player?.height || '-',
-            age: calculateAge(player.player?.birthDate),
-            currentTeams: 0 // Backend doesn't provide this yet
-        }
-
-        // Check for zone conflicts (if implemented in backend)
-        // const conflicts = await playersService.checkZoneConflicts(player.id, currentZoneId)
-        // if (conflicts.hasConflicts) ...
-
-    } catch (error) {
-        console.error('Error searching player:', error)
-        if (error.response?.status === 404) {
-            toast.info('Jugador no encontrado. Puedes crearlo.')
-        } else {
-            toast.error('Error al buscar jugador')
-        }
-    } finally {
-        searching.value = false
-    }
+const resetResult = () => {
+  found.value = null
+  notFound.value = false
+  alreadyHere.value = false
+  error.value = ''
 }
 
-const calculateAge = (birthDate) => {
-    if (!birthDate) return '-'
-    const today = new Date()
-    const birth = new Date(birthDate)
-    let age = today.getFullYear() - birth.getFullYear()
-    const m = today.getMonth() - birth.getMonth()
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-        age--
-    }
-    return age
+const search = async () => {
+  resetResult()
+  busy.value = true
+  searchedCi.value = ci.value
+  try {
+    const res = await playersService.searchPlayerForTeam(team.value.id, { ci: ci.value })
+    found.value = res.data.player
+    alreadyHere.value = res.data.isInThisTeam
+  } catch (e) {
+    if (e.response?.status === 404) notFound.value = true
+    else error.value = handleApiError(e, 'No se pudo buscar la cédula')
+  } finally {
+    busy.value = false
+  }
 }
 
-const clearSearch = () => {
-    foundPlayer.value = null
-    searchCi.value = ''
-    zoneConflict.value = null
-    registration.jerseyNumber = null
-    registration.position = null
-    registration.notes = ''
+const done = name => {
+  toast.success(`${name} agregado a ${team.value.name}`)
+  ci.value = ''
+  jersey.value = null
+  newName.value = ''
+  newEmail.value = ''
+  resetResult()
 }
 
-const registerPlayer = async () => {
-    if (!teamId.value) {
-        toast.error('No se ha seleccionado un equipo')
-        return
-    }
-
-    try {
-        registering.value = true
-
-        await teamsService.addPlayer(teamId.value, {
-            userId: foundPlayer.value.id,
-            jerseyNumber: parseInt(registration.jerseyNumber),
-            position: registration.position
-        })
-
-        toast.success(`${foundPlayer.value.name} registrado exitosamente`)
-        clearSearch()
-
-        // Go back to team management
-        router.push(`/app/captain/team/${teamId.value}`)
-    } catch (error) {
-        console.error('Error registering player:', error)
-        toast.error(error.response?.data?.message || 'Error al registrar jugador')
-    } finally {
-        registering.value = false
-    }
+const addExisting = async () => {
+  busy.value = true
+  error.value = ''
+  try {
+    await playersService.registerInTeam(team.value.id, { userId: found.value.id, jerseyNumber: jersey.value, position: position.value })
+    done(found.value.fullName)
+  } catch (e) {
+    error.value = handleApiError(e, 'No se pudo agregar al jugador')
+  } finally {
+    busy.value = false
+  }
 }
 
-const createNewPlayer = async () => {
-    // This flow might need backend support for "Captain creates Player User"
-    // Currently backend supports creating player profile for existing user or admin creating user
-    // Assuming we have an endpoint or using the generic create
-
-    try {
-        creatingPlayer.value = true
-
-        // For now, we might need to use a specific endpoint if it exists, 
-        // or this feature might be limited to Admins/Organizers.
-        // Let's assume we use the captainAddPlayer endpoint which takes CI and creates if not exists?
-        // Actually, looking at backend, captainAddPlayer takes CI but expects player to exist?
-        // Let's check players.controller.ts again.
-        // It says: "Primero buscar el jugador... si no existe throw Error"
-        // So Captains CANNOT create new users/players currently in the backend logic shown.
-
-        toast.warning('La creación de nuevos jugadores está reservada para Administradores por ahora.')
-        showNewPlayerForm.value = false
-
-        /* 
-        // If backend supported it:
-        await playersService.create({ ...newPlayer, teamId: teamId.value })
-        toast.success(`Jugador ${newPlayer.fullName} creado y registrado`)
-        showNewPlayerForm.value = false
-        router.push(`/app/captain/team/${teamId.value}`)
-        */
-
-    } catch (error) {
-        console.error('Error creating player:', error)
-        toast.error('Error al crear jugador')
-    } finally {
-        creatingPlayer.value = false
-    }
+const createNew = async () => {
+  busy.value = true
+  error.value = ''
+  try {
+    await playersService.create({
+      teamId: team.value.id,
+      fullName: newName.value,
+      ci: searchedCi.value,
+      email: newEmail.value,
+      jerseyNumber: jersey.value,
+      position: position.value
+    })
+    done(newName.value)
+  } catch (e) {
+    error.value = handleApiError(e, 'No se pudo crear al jugador')
+  } finally {
+    busy.value = false
+  }
 }
 
 onMounted(async () => {
-    teamId.value = route.query.teamId
-
-    if (!teamId.value) {
-        // Fetch teams to auto-select or prompt
-        try {
-            const response = await teamsService.getMyTeams()
-            const teams = response.data
-
-            if (teams.length === 0) {
-                toast.warning('Debes crear un equipo primero')
-                router.push('/app/captain')
-            } else if (teams.length === 1) {
-                teamId.value = teams[0].id
-                // Update URL without reload
-                router.replace({ query: { ...route.query, teamId: teamId.value } })
-            } else {
-                // Multiple teams: For now, just pick the first one. 
-                // Ideally show a dialog, but this is an MVP fix.
-                teamId.value = teams[0].id
-                toast.info(`Seleccionado equipo: ${teams[0].name}`)
-                router.replace({ query: { ...route.query, teamId: teamId.value } })
-            }
-        } catch (error) {
-            console.error('Error fetching teams:', error)
-            toast.error('Error al cargar equipos')
-            router.push('/app/captain')
-        }
-    }
+  try {
+    team.value = (await teamsService.getMyTeams()).data[0] || null
+  } finally {
+    loadingTeam.value = false
+  }
 })
 </script>
-
-<style scoped>
-.player-registration {
-    animation: fadeInUp 0.6s ease-out;
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.bg-success-lighten {
-    background: rgba(var(--v-theme-success), 0.1);
-}
-</style>

@@ -1,368 +1,209 @@
 <template>
-    <div class="tournament-catalog">
-        <!-- Header -->
-        <div class="d-flex align-center justify-space-between mb-6">
-            <div>
-                <h1 class="text-h4 font-weight-bold mb-1">Torneos Disponibles</h1>
-                <p class="text-body-1 text-medium-emphasis">
-                    Explora torneos e inscribe a tu equipo para competir
-                </p>
-            </div>
+  <div class="flex flex-col gap-space-lg">
+    <div class="flex flex-col gap-space-md md:flex-row md:items-end md:justify-between">
+      <div>
+        <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Torneos</h1>
+        <p class="m-0 mt-1 text-body-md text-on-surface-variant">Torneos de la liga, con sus cupos y canchas.</p>
+      </div>
+      <router-link v-if="isOrganizer" to="/app/organizer" class="btn-secondary">
+        <span class="icon">dashboard</span> Gestionar mis torneos
+      </router-link>
+    </div>
 
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="showCreateTeamDialog = true">
-                Crear Nuevo Equipo
-            </v-btn>
+    <!-- Captain without a team -->
+    <div v-if="isCaptain && !loadingTeam && !myTeam" class="card flex flex-col gap-space-sm p-space-md md:flex-row md:items-center md:justify-between">
+      <p class="m-0 text-body-md">Para inscribirte primero crea tu equipo.</p>
+      <router-link to="/app/captain" class="btn-primary">Crear mi equipo</router-link>
+    </div>
+
+    <div class="flex flex-col gap-space-sm">
+      <div class="relative">
+        <label class="sr-only" for="tournament-search">Buscar torneo</label>
+        <span class="icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+        <input id="tournament-search" v-model="search" class="input pl-10" placeholder="Buscar por nombre o cancha" />
+      </div>
+      <div class="-mx-gutter flex gap-space-xs overflow-x-auto px-gutter pb-1 md:mx-0 md:px-0">
+        <button
+          v-for="f in statusFilters"
+          :key="f.value"
+          type="button"
+          class="filter-chip"
+          :aria-pressed="status === f.value"
+          @click="status = f.value"
+        >{{ f.label }} ({{ countStatus(f.value) }})</button>
+      </div>
+    </div>
+
+    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando torneos…</p>
+    <p v-else-if="!filtered.length" class="text-body-md text-on-surface-variant">No hay torneos con este filtro.</p>
+
+    <div class="grid gap-space-md md:grid-cols-2 xl:grid-cols-3">
+      <article v-for="t in filtered" :key="t.id" class="card group flex flex-col gap-space-md overflow-hidden p-space-md">
+        <!-- Cover: court photo bleeding to the card edges, title over a dark gradient -->
+        <div v-if="t.coverPhoto" class="relative -mx-space-md -mt-space-md h-48 overflow-hidden">
+          <img
+            :src="t.coverPhoto"
+            :alt="`Cancha de ${t.name}`"
+            loading="lazy"
+            class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-[rgba(11,15,23,0.95)] via-[rgba(11,15,23,0.35)] to-transparent" />
+          <StatusChip :status="t.status" class="absolute right-space-sm top-space-sm" />
+          <div class="absolute inset-x-0 bottom-0 px-space-md pb-space-sm">
+            <span class="label-tactical text-secondary">{{ categoryLabel(t.category) }}</span>
+            <h2 class="m-0 font-headline-md text-headline-md uppercase text-white">{{ t.name }}</h2>
+          </div>
+        </div>
+        <div v-else class="flex items-start justify-between gap-space-sm">
+          <div class="min-w-0">
+            <span class="label-tactical text-secondary">{{ categoryLabel(t.category) }}</span>
+            <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ t.name }}</h2>
+          </div>
+          <StatusChip :status="t.status" />
         </div>
 
-        <!-- Filters -->
-        <v-card class="mb-6" elevation="1">
-            <v-card-text>
-                <v-row>
-                    <v-col cols="12" sm="4">
-                        <v-text-field v-model="filters.search" prepend-inner-icon="mdi-magnify" label="Buscar torneo"
-                            hide-details density="compact" variant="outlined" />
-                    </v-col>
-                    <v-col cols="12" sm="4">
-                        <v-select v-model="filters.zone" :items="zones" label="Zona" hide-details density="compact"
-                            variant="outlined" prepend-inner-icon="mdi-map-marker" />
-                    </v-col>
-                    <v-col cols="12" sm="4">
-                        <v-select v-model="filters.status" :items="statusOptions" label="Estado" hide-details
-                            density="compact" variant="outlined" />
-                    </v-col>
-                </v-row>
-            </v-card-text>
-        </v-card>
+        <div class="flex flex-col gap-1 text-body-sm text-on-surface-variant">
+          <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ t.location }}</span>
+          <span class="flex items-center gap-space-xs">
+            <span class="icon text-[18px]">calendar_month</span>{{ formatDate(t.startDate) }} – {{ formatDate(t.endDate) }}
+          </span>
+          <span class="flex items-center gap-space-xs">
+            <span class="icon text-[18px]">payments</span>Inscripción
+            <span class="font-stat-mono tabular text-on-surface">${{ t.entryFee }}</span>
+          </span>
+        </div>
 
-        <!-- Tournaments Grid -->
-        <v-row>
-            <v-col v-for="tournament in filteredTournaments" :key="tournament.id" cols="12" md="6" lg="4">
-                <v-card elevation="2" class="h-100 d-flex flex-column">
-                    <v-img :src="tournament.image || 'https://cdn.vuetifyjs.com/images/cards/sunshine.jpg'" height="200"
-                        cover class="align-end">
-                        <v-card-title class="text-white bg-black-opacity">
-                            {{ tournament.name }}
-                        </v-card-title>
-                    </v-img>
+        <div>
+          <div class="mb-1 flex justify-between">
+            <span class="label-tactical text-on-surface-variant">Cupos</span>
+            <span class="font-stat-mono text-stat-mono tabular">{{ t.registeredTeams }}/{{ t.maxTeams }}</span>
+          </div>
+          <div class="h-1.5 overflow-hidden rounded-full bg-surface-container-highest">
+            <div class="h-full bg-secondary-container" :style="{ width: Math.min(100, (t.registeredTeams / t.maxTeams) * 100) + '%' }" />
+          </div>
+        </div>
 
-                    <v-card-text class="flex-grow-1 pt-4">
-                        <div class="d-flex align-center mb-2">
-                            <v-chip size="small" :color="getStatusColor(tournament.status)" class="mr-2">
-                                {{ getStatusText(tournament.status) }}
-                            </v-chip>
-                            <v-chip size="small" variant="outlined">
-                                {{ tournament.zone }}
-                            </v-chip>
-                        </div>
+        <TournamentInfoButton :tournament="t" class="self-start" />
 
-                        <p class="text-body-2 mb-4 line-clamp-3">
-                            {{ tournament.description }}
-                        </p>
-
-                        <v-list density="compact" class="bg-transparent">
-                            <v-list-item density="compact" prepend-icon="mdi-calendar">
-                                <v-list-item-title class="text-caption">
-                                    {{ tournament.startDate }} - {{ tournament.endDate }}
-                                </v-list-item-title>
-                            </v-list-item>
-                            <v-list-item density="compact" prepend-icon="mdi-account-group">
-                                <v-list-item-title class="text-caption">
-                                    {{ tournament.registeredTeams }}/{{ tournament.maxTeams }} Equipos
-                                </v-list-item-title>
-                            </v-list-item>
-                        </v-list>
-                    </v-card-text>
-
-                    <v-divider />
-
-                    <v-card-actions>
-                        <v-btn variant="text" color="primary" @click="viewDetails(tournament)">
-                            Ver Detalles
-                        </v-btn>
-                        <v-spacer />
-                        <v-btn variant="flat" color="primary" :disabled="!canRegister(tournament)"
-                            @click="openRegistration(tournament)">
-                            Inscribir Equipo
-                        </v-btn>
-                    </v-card-actions>
-                </v-card>
-            </v-col>
-        </v-row>
-
-        <!-- Create Team Dialog -->
-        <v-dialog v-model="showCreateTeamDialog" max-width="600">
-            <v-card>
-                <v-card-title>Crear Nuevo Equipo</v-card-title>
-                <v-card-text>
-                    <v-form ref="teamForm" v-model="isTeamFormValid">
-                        <v-text-field v-model="newTeam.name" label="Nombre del Equipo"
-                            :rules="[v => !!v || 'El nombre es requerido']" required variant="outlined" class="mb-2" />
-
-                        <v-select v-model="newTeam.category" :items="['Masculino', 'Femenino', 'Mixto']"
-                            label="Categoría" variant="outlined" class="mb-2" />
-
-                        <v-textarea v-model="newTeam.description" label="Descripción (Opcional)" variant="outlined"
-                            rows="3" />
-
-                        <v-alert type="info" variant="tonal" class="mt-2 text-caption">
-                            Al crear un equipo, te convertirás automáticamente en su <strong>Capitán</strong>.
-                        </v-alert>
-                    </v-form>
-                </v-card-text>
-                <v-card-actions>
-                    <v-spacer />
-                    <v-btn variant="text" @click="showCreateTeamDialog = false">Cancelar</v-btn>
-                    <v-btn color="primary" :loading="creatingTeam" :disabled="!isTeamFormValid" @click="createTeam">
-                        Crear Equipo
-                    </v-btn>
-                </v-card-actions>
-            </v-card>
-        </v-dialog>
-
-        <!-- Registration Dialog -->
-        <v-dialog v-model="showRegistrationDialog" max-width="500">
-            <v-card>
-                <v-card-title>Inscribir Equipo</v-card-title>
-                <v-card-subtitle>
-                    {{ selectedTournament?.name }}
-                </v-card-subtitle>
-
-                <v-card-text class="pt-4">
-                    <p class="mb-4">Selecciona el equipo que deseas inscribir:</p>
-
-                    <v-select v-model="selectedTeamId" :items="myTeams" item-title="name" item-value="id"
-                        label="Mis Equipos" variant="outlined" :rules="[v => !!v || 'Debes seleccionar un equipo']" />
-
-                    <div v-if="myTeams.length === 0" class="text-center mt-2">
-                        <p class="text-caption text-warning mb-2">
-                            No tienes equipos creados.
-                        </p>
-                        <v-btn size="small" variant="outlined" color="primary" @click="switchToCreateTeam">
-                            Crear Equipo Ahora
-                        </v-btn>
-                    </div>
-                </v-card-text>
-
-                <v-card-actions>
-                    <v-spacer />
-                    <v-btn variant="text" @click="showRegistrationDialog = false">Cancelar</v-btn>
-                    <v-btn color="success" :disabled="!selectedTeamId" @click="confirmRegistration">
-                        Confirmar Inscripción
-                    </v-btn>
-                </v-card-actions>
-            </v-card>
-        </v-dialog>
+        <!-- Captain actions -->
+        <template v-if="isCaptain && myTeam">
+          <div v-if="registrationOf(t)" class="flex flex-wrap items-center gap-space-xs">
+            <span class="text-body-sm text-on-surface-variant">{{ myTeam.name }}:</span>
+            <StatusChip :status="registrationOf(t).status" />
+          </div>
+          <div v-else-if="confirming === t.id" class="flex flex-col gap-space-sm rounded-lg bg-surface-container-low p-space-md">
+            <p class="m-0 text-body-sm">Inscribir a <strong>{{ myTeam.name }}</strong>. Estado de tu plantel:</p>
+            <RosterChip v-if="myTeam.roster" :roster="myTeam.roster" class="self-start" />
+            <p v-if="myTeam.roster?.status === 'NOT_VALIDATED'" class="m-0 text-body-sm text-on-surface-variant">
+              Puedes inscribirte igual; la inscripción se valida al llegar a 5 jugadores.
+            </p>
+            <div class="flex gap-space-sm">
+              <button type="button" class="btn-ghost flex-1" @click="confirming = null">Cancelar</button>
+              <button type="button" class="btn-primary flex-1" :disabled="registering" @click="register(t)">Confirmar</button>
+            </div>
+          </div>
+          <button
+            v-else-if="t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams"
+            type="button"
+            class="btn-primary"
+            @click="confirming = t.id"
+          >
+            <span class="icon">how_to_reg</span> Inscribir mi equipo
+          </button>
+        </template>
+      </article>
     </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
 import teamsService from '@/services/teams'
+import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import StatusChip from '@/components/ui/StatusChip.vue'
+import RosterChip from '@/components/ui/RosterChip.vue'
+import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
 
 const toast = useToast()
 const authStore = useAuthStore()
 
-// State
-const filters = reactive({
-    search: '',
-    zone: null,
-    status: 'OPEN'
-})
-
-const showCreateTeamDialog = ref(false)
-const showRegistrationDialog = ref(false)
-const selectedTournament = ref(null)
-const selectedTeamId = ref(null)
-const creatingTeam = ref(false)
-const isTeamFormValid = ref(false)
-const isLoading = ref(false)
-const isRegistering = ref(false)
-
-const newTeam = reactive({
-    name: '',
-    category: 'Masculino',
-    description: ''
-})
-
-// Data
-const tournaments = ref([])
-const myTeams = ref([])
-const zones = ['Todas', 'Zona Norte', 'Zona Sur', 'Zona Este', 'Zona Oeste'] // TODO: Fetch from API if dynamic
-const statusOptions = [
-    { title: 'Todos', value: null },
-    { title: 'Inscripciones Abiertas', value: 'OPEN' },
-    { title: 'En Progreso', value: 'IN_PROGRESS' },
-    { title: 'Finalizado', value: 'FINISHED' }
+const CATEGORIES = {
+  OPEN: 'Libre', SUB_13: 'Sub-13', SUB_15: 'Sub-15', SUB_17: 'Sub-17', SUB_19: 'Sub-19',
+  VETERANS: 'Veteranos +35', FEMALE: 'Femenina', MIXED: 'Mixta'
+}
+const statusFilters = [
+  { value: 'REGISTRATION', label: 'Inscripciones' },
+  { value: 'IN_PROGRESS', label: 'En curso' },
+  { value: 'FINISHED', label: 'Finalizados' },
+  { value: 'ALL', label: 'Todos' }
 ]
 
-// Computed
-const filteredTournaments = computed(() => {
-    return tournaments.value.filter(t => {
-        const matchesSearch = t.name.toLowerCase().includes(filters.search.toLowerCase())
-        const matchesZone = !filters.zone || filters.zone === 'Todas' || t.zone === filters.zone // Note: Backend might return zone object or ID
-        const matchesStatus = !filters.status || t.status === filters.status
-        return matchesSearch && matchesZone && matchesStatus
-    })
+const isCaptain = computed(() => authStore.userRole === 'TEAM_CAPTAIN')
+const isOrganizer = computed(() => authStore.userRole === 'ORGANIZER')
+
+const tournaments = ref([])
+const myTeam = ref(null)
+const loading = ref(true)
+const loadingTeam = ref(true)
+const search = ref('')
+const status = ref('REGISTRATION')
+const confirming = ref(null)
+const registering = ref(false)
+
+const categoryLabel = c => CATEGORIES[c] || c
+const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
+const countStatus = s => (s === 'ALL' ? tournaments.value.length : tournaments.value.filter(t => t.status === s).length)
+const registrationOf = t => myTeam.value?.registrations?.find(r => r.tournament.id === t.id)
+
+const filtered = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  return tournaments.value.filter(
+    t =>
+      (status.value === 'ALL' || t.status === status.value) &&
+      (!q || t.name.toLowerCase().includes(q) || t.location?.toLowerCase().includes(q))
+  )
 })
 
-const isCaptain = computed(() => authStore.user?.role === 'TEAM_CAPTAIN')
-
-// Methods
-const fetchTournaments = async () => {
-    try {
-        isLoading.value = true
-        const response = await tournamentsService.getAll({
-            status: filters.status || undefined,
-            // Add other filters as needed by backend
-        })
-        // Handle response structure { tournaments: [], total: 0 }
-        tournaments.value = response.data.tournaments || []
-    } catch (error) {
-        console.error('Error fetching tournaments:', error)
-        toast.error('Error al cargar los torneos')
-    } finally {
-        isLoading.value = false
-    }
+const loadTournaments = async () => {
+  try {
+    const res = await tournamentsService.getAll({ limit: 100 })
+    tournaments.value = res.data.tournaments || []
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudieron cargar los torneos'))
+  } finally {
+    loading.value = false
+  }
 }
 
-const fetchMyTeams = async () => {
-    if (!isCaptain.value) return
-    
-    try {
-        const response = await teamsService.getMyTeams()
-        myTeams.value = response.data || []
-    } catch (error) {
-        console.error('Error fetching teams:', error)
-        // Don't show error if just empty or not authorized yet
-    }
+const loadTeam = async () => {
+  if (!isCaptain.value) return (loadingTeam.value = false)
+  try {
+    const res = await teamsService.getMyTeams()
+    myTeam.value = res.data[0] || null
+  } catch {
+    myTeam.value = null
+  } finally {
+    loadingTeam.value = false
+  }
 }
 
-const getStatusColor = (status) => {
-    const colors = {
-        'OPEN': 'success',
-        'IN_PROGRESS': 'warning',
-        'FINISHED': 'grey'
-    }
-    return colors[status] || 'grey'
+const register = async t => {
+  registering.value = true
+  try {
+    const res = await tournamentsService.registerTeam({ tournamentId: t.id, teamId: myTeam.value.id })
+    const validated = res.data.roster?.status === 'VALIDATED'
+    toast.success(`Inscrito en ${t.name}. Queda pendiente de aprobación${validated ? '' : ' y tu plantel aún no está validado'}.`)
+    confirming.value = null
+    await Promise.all([loadTournaments(), loadTeam()])
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo inscribir el equipo'))
+  } finally {
+    registering.value = false
+  }
 }
 
-const getStatusText = (status) => {
-    const texts = {
-        'OPEN': 'Abierto',
-        'IN_PROGRESS': 'En Curso',
-        'FINISHED': 'Finalizado'
-    }
-    return texts[status] || status
-}
-
-const canRegister = (tournament) => {
-    return tournament.status === 'OPEN' && 
-           tournament.registeredTeams < tournament.maxTeams &&
-           isCaptain.value
-}
-
-const viewDetails = (tournament) => {
-    // Navigate to detail view (to be implemented)
-    toast.info(`Ver detalles de ${tournament.name}`)
-}
-
-const openRegistration = (tournament) => {
-    if (!isCaptain.value) {
-        toast.warning('Solo los capitanes pueden inscribir equipos')
-        return
-    }
-    selectedTournament.value = tournament
-    showRegistrationDialog.value = true
-    fetchMyTeams() // Refresh teams list
-}
-
-const switchToCreateTeam = () => {
-    showRegistrationDialog.value = false
-    showCreateTeamDialog.value = true
-}
-
-const createTeam = async () => {
-    try {
-        creatingTeam.value = true
-        const response = await teamsService.create({
-            name: newTeam.name,
-            category: newTeam.category.toUpperCase(), // Backend expects uppercase enum
-            description: newTeam.description,
-            city: 'Default City', // Required by backend DTO, add field to form later
-            foundedYear: new Date().getFullYear() // Required by backend DTO
-        })
-
-        const createdTeam = response.data
-        myTeams.value.push(createdTeam)
-        toast.success(`Equipo "${createdTeam.name}" creado exitosamente`)
-
-        showCreateTeamDialog.value = false
-        
-        // Reset form
-        newTeam.name = ''
-        newTeam.description = ''
-
-        // If we came from registration, go back to it
-        if (selectedTournament.value) {
-            selectedTeamId.value = createdTeam.id
-            showRegistrationDialog.value = true
-        }
-    } catch (error) {
-        console.error('Error creating team:', error)
-        toast.error(error.response?.data?.message || 'Error al crear el equipo')
-    } finally {
-        creatingTeam.value = false
-    }
-}
-
-const confirmRegistration = async () => {
-    if (!selectedTeamId.value || !selectedTournament.value) return
-
-    try {
-        isRegistering.value = true
-        await tournamentsService.registerTeam({
-            tournamentId: selectedTournament.value.id,
-            teamId: selectedTeamId.value
-        })
-
-        toast.success(`Inscripción exitosa en ${selectedTournament.value.name}`)
-        showRegistrationDialog.value = false
-        selectedTournament.value = null
-        selectedTeamId.value = null
-        
-        // Refresh list to update counts
-        fetchTournaments()
-    } catch (error) {
-        console.error('Error registering team:', error)
-        toast.error(error.response?.data?.message || 'Error al inscribir el equipo')
-    } finally {
-        isRegistering.value = false
-    }
-}
-
-// Lifecycle
-onMounted(() => {
-    fetchTournaments()
-    if (isCaptain.value) {
-        fetchMyTeams()
-    }
-})
+onMounted(() => Promise.all([loadTournaments(), loadTeam()]))
 </script>
-
-<style scoped>
-.bg-black-opacity {
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(2px);
-}
-
-.line-clamp-3 {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-</style>

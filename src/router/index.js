@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/stores/auth'
 import { createRouter, createWebHistory } from 'vue-router'
+import { HOME_BY_ROLE } from './navigation'
 
 // Layouts
 import AuthLayout from '@/layouts/AuthLayout.vue'
@@ -42,9 +43,25 @@ const routes = [
           requiresAuth: false,
           guestOnly: true
         }
+      },
+      {
+        // Without ?token asks for the email; with ?token sets the new password
+        path: 'forgot-password',
+        alias: 'reset-password',
+        name: 'ForgotPassword',
+        component: () => import('@/views/auth/ForgotPasswordView.vue'),
+        meta: { requiresAuth: false }
       }
     ]
   },
+  {
+    path: '/torneo/:id',
+    name: 'PublicTournament',
+    component: () => import('@/views/tournaments/PublicTournamentView.vue'),
+    meta: { requiresAuth: false }
+  },
+  // Link sent by the backend email: FRONTEND_URL/reset-password?token=...
+  { path: '/reset-password', redirect: to => ({ path: '/auth/reset-password', query: to.query }) },
   {
     path: '/app',
     component: MainLayout,
@@ -67,7 +84,7 @@ const routes = [
         component: () => import('@/views/player/PlayerProfile.vue'),
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN'],
           title: 'Mi Perfil'
         }
       },
@@ -107,8 +124,18 @@ const routes = [
         component: () => import('@/views/tournaments/TournamentCatalog.vue'),
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER', 'TEAM_CAPTAIN'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN', 'REFEREE', 'MODERATOR'],
           title: 'Catálogo de Torneos'
+        }
+      },
+      {
+        path: 'teams/:id/history',
+        name: 'TeamHistory',
+        component: () => import('@/views/teams/TeamHistoryView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN', 'REFEREE', 'MODERATOR'],
+          title: 'Historial del equipo'
         }
       },
       {
@@ -122,14 +149,9 @@ const routes = [
         }
       },
       {
+        // Team management lives in the captain home now (one team per captain)
         path: 'captain/team/:id',
-        name: 'TeamManagement',
-        component: () => import('@/views/captain/TeamManagementView.vue'),
-        meta: {
-          requiresAuth: true,
-          roles: ['TEAM_CAPTAIN'],
-          title: 'Gestión de Equipo'
-        }
+        redirect: '/app/captain'
       },
       {
         path: 'captain/register-player',
@@ -157,12 +179,58 @@ const routes = [
         component: () => import('@/views/zones/ZoneMapView.vue'),
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN', 'REFEREE', 'MODERATOR'],
           title: 'Mapa de Zonas'
+        }
+      },
+      {
+        path: 'organizer/tournament/:id',
+        name: 'TournamentManage',
+        component: () => import('@/views/organizer/TournamentManageView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ORGANIZER'],
+          title: 'Gestionar torneo'
+        }
+      },
+      {
+        path: 'organizer/match/:id',
+        name: 'MatchSheet',
+        component: () => import('@/views/organizer/MatchSheetView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ORGANIZER'],
+          title: 'Mesa técnica'
+        }
+      },
+      {
+        path: 'admin',
+        redirect: '/app/admin/users'
+      },
+      {
+        path: 'admin/users',
+        name: 'AdminUsers',
+        component: () => import('@/views/admin/AdminUsersView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ADMIN'],
+          title: 'Usuarios'
+        }
+      },
+      {
+        path: 'admin/zones',
+        name: 'AdminZones',
+        component: () => import('@/views/zones/ZoneMapView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['ADMIN'],
+          title: 'Zonas y Canchas'
         }
       }
     ]
-  }
+  },
+  // Unknown URLs go back to the landing instead of rendering a blank page
+  { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 
 const router = createRouter({
@@ -191,28 +259,14 @@ router.beforeEach(async (to, from, next) => {
     // Check role-based access
     if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role)) {
       // Redirect to appropriate dashboard based on user role
-      const dashboardRoutes = {
-        PLAYER: '/app/player',
-        TEAM_CAPTAIN: '/app/captain',
-        ORGANIZER: '/app/organizer',
-        ADMIN: '/app/admin'
-      }
-
-      next(dashboardRoutes[authStore.user.role] || '/app/player')
+      next(HOME_BY_ROLE[authStore.user.role] || '/')
       return
     }
   }
 
   // Redirect authenticated users away from auth pages
   if (to.matched.some(record => record.meta.guestOnly) && authStore.isAuthenticated) {
-    const dashboardRoutes = {
-      PLAYER: '/app/player',
-      TEAM_CAPTAIN: '/app/captain',
-      ORGANIZER: '/app/organizer',
-      ADMIN: '/app/admin'
-    }
-
-    next(dashboardRoutes[authStore.user.role] || '/app/player')
+    next(HOME_BY_ROLE[authStore.user.role] || '/')
     return
   }
 

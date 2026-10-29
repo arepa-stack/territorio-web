@@ -1,248 +1,91 @@
 <template>
-  <v-form ref="loginForm" v-model="isFormValid" @submit.prevent="handleLogin" class="login-form">
-    <div class="text-center mb-6">
-      <h2 class="text-h4 font-weight-bold mb-2">
-        Iniciar Sesión
-      </h2>
-      <p class="text-body-1 text-medium-emphasis">
-        Bienvenido de vuelta al sistema de torneos
+  <div class="flex flex-col gap-space-lg">
+    <div>
+      <h1 class="m-0 font-headline-lg text-headline-lg uppercase">Entrar a la cancha</h1>
+      <p class="m-0 mt-1 text-body-md text-on-surface-variant">Inicia sesión para seguir tus torneos.</p>
+    </div>
+
+    <form class="flex flex-col gap-space-md" novalidate @submit.prevent="handleLogin">
+      <div>
+        <label class="field-label" for="login-email">Email</label>
+        <input
+          id="login-email"
+          v-model.trim="form.email"
+          class="input"
+          type="email"
+          autocomplete="email"
+          placeholder="ejemplo@correo.com"
+          required
+        />
+      </div>
+
+      <div>
+        <div class="flex items-baseline justify-between">
+          <label class="field-label" for="login-password">Contraseña</label>
+          <router-link to="/auth/forgot-password" class="text-body-sm text-primary no-underline hover:underline">
+            ¿Olvidaste tu contraseña?
+          </router-link>
+        </div>
+        <div class="relative">
+          <input
+            id="login-password"
+            v-model="form.password"
+            class="input pr-12"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="current-password"
+            required
+          />
+          <button
+            type="button"
+            class="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center border-0 bg-transparent text-on-surface-variant"
+            :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            @click="showPassword = !showPassword"
+          >
+            <span class="icon">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <p v-if="error" role="alert" class="m-0 flex items-center gap-space-sm rounded border border-solid border-error/50 bg-error/10 p-space-sm text-body-sm text-error">
+        <span class="icon">error</span>{{ error }}
       </p>
-    </div>
 
-    <!-- Email Field -->
-    <v-text-field v-model="form.email" label="Correo Electrónico" type="email" prepend-inner-icon="mdi-email"
-      :rules="emailRules" :error-messages="errors.email" variant="outlined" density="comfortable" class="mb-3"
-      @input="clearError('email')" />
+      <button type="submit" class="btn-primary w-full" :disabled="authStore.isLoading">
+        {{ authStore.isLoading ? 'Entrando…' : 'Iniciar sesión' }}
+      </button>
+    </form>
 
-    <!-- Password Field -->
-    <v-text-field v-model="form.password" :label="'Contraseña'" :type="showPassword ? 'text' : 'password'"
-      prepend-inner-icon="mdi-lock" :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'" :rules="passwordRules"
-      :error-messages="errors.password" variant="outlined" density="comfortable" class="mb-2"
-      @click:append-inner="showPassword = !showPassword" @input="clearError('password')" @keyup.enter="handleLogin" />
-
-    <!-- Remember Me & Forgot Password -->
-    <div class="d-flex justify-space-between align-center mb-4">
-      <v-checkbox v-model="form.rememberMe" label="Recordarme" density="compact" hide-details color="primary" />
-
-      <v-btn variant="text" size="small" color="primary" @click="navigateToForgotPassword">
-        ¿Olvidaste tu contraseña?
-      </v-btn>
-    </div>
-
-    <!-- Login Button -->
-    <v-btn type="submit" block size="large" color="primary" :loading="authStore.isLoading" :disabled="!isFormValid"
-      class="mb-4" elevation="2">
-      <v-icon start>mdi-login</v-icon>
-      Iniciar Sesión
-    </v-btn>
-
-    <!-- Divider -->
-    <v-divider class="my-4">
-      <span class="text-body-2 text-medium-emphasis">o</span>
-    </v-divider>
-
-    <!-- Social Login (placeholder for future) -->
-    <div class="d-flex gap-2 mb-4">
-      <v-btn variant="outlined" block size="large" disabled class="flex-grow-1">
-        <v-icon start>mdi-google</v-icon>
-        Google
-      </v-btn>
-
-      <v-btn variant="outlined" block size="large" disabled class="flex-grow-1">
-        <v-icon start>mdi-facebook</v-icon>
-        Facebook
-      </v-btn>
-    </div>
-
-    <!-- Register Link -->
-    <div class="text-center">
-      <p class="text-body-2">
-        ¿No tienes una cuenta?
-        <v-btn variant="text" color="primary" @click="navigateToRegister" class="text-decoration-none">
-          Regístrate aquí
-        </v-btn>
-      </p>
-    </div>
-
-    <!-- Error Alert -->
-    <v-alert v-if="authStore.error" type="error" variant="tonal" class="mt-4" closable
-      @click:close="authStore.clearError">
-      {{ authStore.error }}
-    </v-alert>
-
-    <!-- Success Alert -->
-    <v-alert v-if="successMessage" type="success" variant="tonal" class="mt-4" closable
-      @click:close="successMessage = ''">
-      {{ successMessage }}
-    </v-alert>
-  </v-form>
+    <p class="m-0 text-center text-body-md text-on-surface-variant">
+      ¿No tienes cuenta?
+      <router-link to="/auth/register" class="font-bold text-primary no-underline hover:underline">Crear cuenta</router-link>
+    </p>
+  </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { reactive, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import { useAuthStore } from '@/stores/auth'
 
-// Composables
-const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
 
-// Reactive state
-const form = reactive({
-  email: '',
-  password: '',
-  rememberMe: false
-})
-
+const form = reactive({ email: '', password: '' })
 const showPassword = ref(false)
-const isFormValid = ref(false)
-const successMessage = ref('')
-const errors = reactive({
-  email: [],
-  password: [],
-  general: []
-})
+const error = ref('')
 
-// Validation rules
-const emailRules = [
-  v => !!v || 'El correo electrónico es requerido',
-  v => /.+@.+\..+/.test(v) || 'El correo electrónico debe ser válido'
-]
-
-const passwordRules = [
-  v => !!v || 'La contraseña es requerida',
-  v => v.length >= 6 || 'La contraseña debe tener al menos 6 caracteres'
-]
-
-// Methods
 const handleLogin = async () => {
-  if (!isFormValid.value) return
-
-  try {
-    const result = await authStore.login({
-      email: form.email,
-      password: form.password,
-      rememberMe: form.rememberMe
-    })
-
-    if (result.success) {
-      successMessage.value = '¡Inicio de sesión exitoso!'
-      toast.success('¡Bienvenido de vuelta!')
-
-      // Redirect will be handled by the store
-    } else {
-      toast.error(result.error || 'Error al iniciar sesión')
-    }
-  } catch (error) {
-    console.error('Login error:', error)
-    toast.error('Error inesperado. Por favor intenta nuevamente.')
+  error.value = ''
+  if (!form.email || !form.password) {
+    error.value = 'Escribe tu email y tu contraseña.'
+    return
   }
-}
-
-const clearError = (field) => {
-  if (errors[field]) {
-    errors[field] = []
-  }
-  if (errors.general) {
-    errors.general = []
-  }
-  authStore.clearError()
-}
-
-const navigateToRegister = () => {
-  router.push('/auth/register')
-}
-
-const navigateToForgotPassword = () => {
-  // Implement forgot password navigation
-  toast.info('Funcionalidad de recuperación de contraseña próximamente')
-}
-
-// Auto-focus email field on mount
-onMounted(async () => {
-  await nextTick()
-
-  // Clear any previous errors
-  authStore.clearError()
-
-  // Pre-fill email if available in localStorage (for remember me functionality)
-  const savedEmail = localStorage.getItem('savedEmail')
-  if (savedEmail && form.rememberMe) {
-    form.email = savedEmail
-  }
-})
-
-// Auto-save email when remember me is checked
-watch(() => form.rememberMe, (newVal) => {
-  if (newVal && form.email) {
-    localStorage.setItem('savedEmail', form.email)
+  const result = await authStore.login({ email: form.email, password: form.password })
+  if (result.success) {
+    toast.success('¡Bienvenido de vuelta!')
   } else {
-    localStorage.removeItem('savedEmail')
+    // The store already redirects on success; on failure the API message is shown here
+    error.value = result.error || 'Email o contraseña incorrectos'
   }
-})
+}
 </script>
-
-<style scoped>
-.login-form {
-  animation: slideInUp 0.6s ease-out;
-}
-
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Form enhancements */
-:deep(.v-text-field) {
-  margin-bottom: 8px;
-}
-
-:deep(.v-text-field .v-field) {
-  border-radius: 12px;
-}
-
-:deep(.v-btn--elevated) {
-  box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.3);
-}
-
-:deep(.v-btn--elevated:hover) {
-  box-shadow: 0 6px 16px rgba(var(--v-theme-primary), 0.4);
-  transform: translateY(-1px);
-}
-
-/* Focus states */
-:deep(.v-text-field:focus-within .v-field) {
-  border-color: rgb(var(--v-theme-primary));
-  box-shadow: 0 0 0 2px rgba(var(--v-theme-primary), 0.2);
-}
-
-/* Checkbox customization */
-:deep(.v-checkbox) {
-  margin: 0;
-}
-
-:deep(.v-checkbox .v-selection-control__input) {
-  color: rgb(var(--v-theme-primary));
-}
-
-/* Alert styling */
-:deep(.v-alert) {
-  border-radius: 12px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 600px) {
-  .login-form {
-    padding: 0 8px;
-  }
-}
-</style>

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import authService from '@/services/auth'
+import { HOME_BY_ROLE } from '@/router/navigation'
 import router from '@/router'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -36,16 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user', JSON.stringify(user.value))
         localStorage.setItem('refreshToken', refreshToken.value)
 
-        // Redirect based on role
-        const dashboardRoutes = {
-          PLAYER: '/app/player',
-          TEAM_CAPTAIN: '/app/captain',
-          ORGANIZER: '/app/organizer',
-          ADMIN: '/app/admin'
-        }
-
-        const dashboardRoute = dashboardRoutes[user.value.role] || '/app/player'
-        router.push(dashboardRoute)
+        router.push(HOME_BY_ROLE[user.value.role] || '/')
 
         return { success: true }
       }
@@ -77,16 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user', JSON.stringify(user.value))
         localStorage.setItem('refreshToken', refreshToken.value)
 
-        // Redirect based on role
-        const dashboardRoutes = {
-          PLAYER: '/app/player',
-          TEAM_CAPTAIN: '/app/captain',
-          ORGANIZER: '/app/organizer',
-          ADMIN: '/app/admin'
-        }
-
-        const dashboardRoute = dashboardRoutes[user.value.role] || '/app/player'
-        router.push(dashboardRoute)
+        router.push(HOME_BY_ROLE[user.value.role] || '/')
 
         return { success: true }
       }

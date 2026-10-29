@@ -1,325 +1,342 @@
 <template>
-    <div class="captain-dashboard">
-        <!-- Welcome Header -->
-        <div class="welcome-section mb-6">
-            <v-row>
-                <v-col cols="12" md="8">
-                    <div class="d-flex align-center">
-                        <v-avatar size="80" color="secondary" class="mr-4 elevation-4">
-                            <v-icon color="white" size="40">mdi-shield-account</v-icon>
-                        </v-avatar>
+  <div class="flex flex-col gap-space-xl">
+    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando tu equipo…</p>
 
-                        <div>
-                            <h1 class="text-h3 font-weight-bold mb-1">
-                                ¡Bienvenido, Capitán {{ authStore.userName }}! ⚡
-                            </h1>
-                            <p class="text-h6 text-medium-emphasis">
-                                Panel de gestión de equipos
-                            </p>
-                            <v-chip color="secondary" variant="tonal" size="small" class="mt-2">
-                                <v-icon start>mdi-account-group</v-icon>
-                                {{ myTeams.length }} equipo(s) bajo tu mando
-                            </v-chip>
-                        </div>
-                    </div>
-                </v-col>
-
-                <v-col cols="12" md="4" class="text-md-end">
-                    <div class="d-flex flex-column align-md-end gap-2">
-                        <v-btn variant="outlined" prepend-icon="mdi-plus" @click="createNewTeam">
-                            Crear Equipo
-                        </v-btn>
-                        <v-btn color="secondary" prepend-icon="mdi-account-multiple-plus"
-                            @click="navigateToRegistration">
-                            Registrar Jugadores
-                        </v-btn>
-                    </div>
-                </v-col>
-            </v-row>
+    <!-- No team yet: a captain manages exactly one team -->
+    <section v-else-if="!team" class="card mx-auto flex w-full max-w-xl flex-col gap-space-md p-space-lg">
+      <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase">Crea tu equipo</h1>
+      <p class="m-0 text-body-md text-on-surface-variant">Como capitán gestionas un equipo. Después le cargas el plantel y lo inscribes en torneos.</p>
+      <form class="flex flex-col gap-space-md" @submit.prevent="createTeam">
+        <div>
+          <label class="field-label" for="team-name">Nombre del equipo *</label>
+          <input id="team-name" v-model.trim="newTeam.name" class="input" required placeholder="Toros del Este" />
         </div>
+        <div class="grid gap-space-md sm:grid-cols-2">
+          <div>
+            <label class="field-label" for="team-category">Categoría</label>
+            <select id="team-category" v-model="newTeam.category" class="input">
+              <option v-for="c in categories" :key="c.value" :value="c.value">{{ c.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="team-city">Ciudad</label>
+            <input id="team-city" v-model.trim="newTeam.city" class="input" placeholder="Caracas" />
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" :disabled="saving || !newTeam.name">Crear equipo</button>
+      </form>
+    </section>
 
-        <!-- Quick Stats -->
-        <v-row class="mb-6">
-            <v-col v-for="stat in captainStats" :key="stat.label" cols="12" sm="6" md="3">
-                <StatsCard :title="stat.label" :value="stat.value" :trend="stat.trend" :icon="stat.icon"
-                    :color="stat.color" />
-            </v-col>
-        </v-row>
+    <template v-else>
+      <!-- Team hero -->
+      <section class="card relative overflow-hidden p-space-lg">
+        <div class="flex items-start gap-space-md">
+          <img v-if="team.logoUrl" :src="team.logoUrl" :alt="`Logo de ${team.name}`" class="h-16 w-16 shrink-0 rounded-lg object-cover" />
+          <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-primary-container font-headline-lg text-headline-lg text-white">
+            {{ team.name.charAt(0) }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <span class="label-tactical text-secondary">{{ categoryLabel(team.category) }}{{ team.city ? ' · ' + team.city : '' }}</span>
+            <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase leading-none md:font-headline-lg md:text-headline-lg">{{ team.name }}</h1>
+            <p class="m-0 mt-1 text-body-sm text-on-surface-variant">Capitán: <strong class="text-on-surface">{{ team.captain.fullName }}</strong></p>
+          </div>
+          <button type="button" class="btn-secondary shrink-0" @click="openEdit">
+            <span class="icon">edit</span> Editar equipo
+          </button>
+        </div>
+        <div class="mt-space-lg flex flex-col gap-space-xs rounded-lg bg-surface-container-low p-space-md">
+          <RosterChip v-if="team.roster" :roster="team.roster" class="self-start" />
+          <p class="m-0 flex items-center gap-space-xs text-body-sm text-on-surface-variant">
+            <span class="icon text-[18px] text-secondary">info</span>
+            Con 5 jugadores activos tu inscripción queda validada y puede entrar al fixture.
+          </p>
+        </div>
+      </section>
 
-        <!-- My Teams Grid -->
-        <v-row>
-            <v-col cols="12">
-                <h2 class="text-h5 font-weight-bold mb-4">Mis Equipos</h2>
-            </v-col>
+      <dialog ref="editDialog" class="card w-full max-w-md p-space-lg backdrop:bg-black/60">
+        <form class="flex flex-col gap-space-md" @submit.prevent="saveTeam">
+          <h2 class="m-0 font-title-sm text-title-sm uppercase">Editar equipo</h2>
+          <div>
+            <label class="field-label" for="edit-name">Nombre *</label>
+            <input id="edit-name" v-model.trim="editTeam.name" class="input" required />
+          </div>
+          <div class="grid gap-space-md sm:grid-cols-2">
+            <div>
+              <label class="field-label" for="edit-category">Categoría</label>
+              <select id="edit-category" v-model="editTeam.category" class="input">
+                <option v-for="c in categories" :key="c.value" :value="c.value">{{ c.label }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="edit-city">Ciudad</label>
+              <input id="edit-city" v-model.trim="editTeam.city" class="input" />
+            </div>
+          </div>
+          <div>
+            <label class="field-label" for="edit-logo">Logo</label>
+            <input id="edit-logo" type="file" accept="image/*" class="input" @change="e => (logoFile = e.target.files[0] || null)" />
+          </div>
+          <div class="flex justify-end gap-space-sm">
+            <button type="button" class="btn-ghost" @click="editDialog.close()">Cancelar</button>
+            <button type="submit" class="btn-primary" :disabled="saving || !editTeam.name">Guardar</button>
+          </div>
+        </form>
+      </dialog>
 
-            <v-col v-for="team in myTeams" :key="team.id" cols="12" md="6" lg="4">
-                <v-card elevation="2" class="h-100">
-                    <v-img :src="team.image || 'https://cdn.vuetifyjs.com/images/cards/basketball.jpg'" height="160"
-                        cover class="align-end">
-                        <v-card-title class="text-white bg-black-opacity">
-                            {{ team.name }}
-                        </v-card-title>
-                    </v-img>
+      <div class="grid gap-space-sm sm:grid-cols-2">
+        <router-link to="/app/tournaments" class="btn-primary">
+          <span class="icon icon-fill">emoji_events</span> Inscribir equipo en un torneo
+        </router-link>
+        <router-link :to="`/app/teams/${team.id}/history`" class="btn-secondary">
+          <span class="icon">history</span> Historial y récords
+        </router-link>
+      </div>
 
-                    <v-card-text>
-                        <div class="d-flex align-center mb-3">
-                            <v-chip size="small" :color="getStatusColor(team.status)" class="mr-2">
-                                {{ getStatusText(team.status) }}
-                            </v-chip>
-                            <v-chip size="small" variant="outlined">
-                                {{ team.category }}
-                            </v-chip>
-                        </div>
+      <!-- Registrations -->
+      <section>
+        <SectionHeader title="Mis inscripciones" icon="how_to_reg" />
+        <p v-if="!team.registrations?.length" class="m-0 text-body-md text-on-surface-variant">Tu equipo todavía no está inscrito en ningún torneo.</p>
+        <div v-else class="grid gap-space-sm md:grid-cols-2">
+          <router-link
+            v-for="r in team.registrations"
+            :key="r.id"
+            :to="`/torneo/${r.tournament.id}`"
+            class="card flex flex-col gap-space-xs p-space-md text-on-surface no-underline hover:bg-surface-container-low"
+          >
+            <h3 class="m-0 font-title-sm text-title-sm">{{ r.tournament.name }}</h3>
+            <div class="flex flex-wrap gap-space-xs">
+              <StatusChip :status="r.status" />
+              <RosterChip v-if="team.roster" :roster="team.roster" />
+              <StatusChip :status="r.tournament.status" />
+            </div>
+          </router-link>
+        </div>
+      </section>
 
-                        <v-list density="compact" class="bg-transparent">
-                            <v-list-item density="compact" prepend-icon="mdi-trophy">
-                                <v-list-item-title class="text-caption">
-                                    {{ team.tournament || 'Sin torneo asignado' }}
-                                </v-list-item-title>
-                            </v-list-item>
-                            <v-list-item density="compact" prepend-icon="mdi-account-group">
-                                <v-list-item-title class="text-caption">
-                                    {{ team.playerCount }}/{{ team.maxPlayers }} Jugadores
-                                </v-list-item-title>
-                            </v-list-item>
-                            <v-list-item density="compact" prepend-icon="mdi-calendar">
-                                <v-list-item-title class="text-caption">
-                                    {{ team.nextMatch || 'Sin partidos programados' }}
-                                </v-list-item-title>
-                            </v-list-item>
-                        </v-list>
+      <!-- Upcoming matches -->
+      <section>
+        <SectionHeader title="Próximos partidos" icon="event" />
+        <p v-if="!upcoming.length" class="m-0 text-body-md text-on-surface-variant">No hay partidos programados por ahora.</p>
+        <div v-else class="flex flex-col gap-space-xs">
+          <MatchCard v-for="m in upcoming" :key="m.id" :match="m" :mine="team.id" />
+        </div>
+      </section>
 
-                        <!-- Team Progress -->
-                        <div class="mt-3">
-                            <div class="d-flex justify-space-between text-caption mb-1">
-                                <span>Progreso del equipo</span>
-                                <span>{{ team.completionPercentage }}%</span>
-                            </div>
-                            <v-progress-linear :model-value="team.completionPercentage" color="secondary" height="6"
-                                rounded />
-                        </div>
-                    </v-card-text>
+      <!-- Technical staff -->
+      <section>
+        <SectionHeader title="Cuerpo técnico" icon="co_present">
+          <span class="font-stat-mono text-stat-mono text-on-surface-variant">{{ staff.length }} asignado(s)</span>
+        </SectionHeader>
+        <div class="flex flex-col gap-space-xs">
+          <article v-for="s in staff" :key="s.id" class="card flex items-center justify-between gap-space-sm p-space-md">
+            <div class="min-w-0">
+              <span class="label-tactical text-secondary">{{ staffRoleLabel(s.role) }}</span>
+              <p class="m-0 truncate font-title-sm text-title-sm">{{ s.fullName }}</p>
+            </div>
+            <button type="button" class="btn-ghost" :aria-label="`Quitar a ${s.fullName}`" @click="removeStaff(s)">
+              <span class="icon">close</span>
+            </button>
+          </article>
+          <form class="card flex flex-col gap-space-sm p-space-md sm:flex-row sm:items-end" @submit.prevent="addStaff">
+            <div class="flex-1">
+              <label class="field-label" for="staff-name">Nombre</label>
+              <input id="staff-name" v-model.trim="newStaff.fullName" class="input" placeholder="Roberto Sánchez" />
+            </div>
+            <div>
+              <label class="field-label" for="staff-role">Rol</label>
+              <select id="staff-role" v-model="newStaff.role" class="input">
+                <option v-for="r in staffRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-secondary" :disabled="!newStaff.fullName || saving">
+              <span class="icon">person_add</span> Agregar
+            </button>
+          </form>
+        </div>
+      </section>
 
-                    <v-divider />
-
-                    <v-card-actions>
-                        <v-btn variant="text" color="secondary" @click="viewTeamDetails(team)">
-                            Ver Detalles
-                        </v-btn>
-                        <v-spacer />
-                        <v-btn icon="mdi-cog" variant="text" @click="manageTeam(team)" />
-                    </v-card-actions>
-                </v-card>
-            </v-col>
-
-            <!-- Empty State -->
-            <v-col v-if="myTeams.length === 0" cols="12">
-                <v-card elevation="1" class="text-center pa-8">
-                    <v-icon size="64" color="grey-lighten-1" class="mb-4">
-                        mdi-account-group-outline
-                    </v-icon>
-                    <h3 class="text-h6 mb-2">No tienes equipos creados</h3>
-                    <p class="text-body-2 text-medium-emphasis mb-4">
-                        Crea tu primer equipo para empezar a competir
-                    </p>
-                    <v-btn color="secondary" prepend-icon="mdi-plus" @click="createNewTeam">
-                        Crear Mi Primer Equipo
-                    </v-btn>
-                </v-card>
-            </v-col>
-        </v-row>
-
-        <!-- Recent Activity -->
-        <v-row class="mt-6" v-if="recentActivity.length > 0">
-            <v-col cols="12">
-                <v-card elevation="2">
-                    <v-card-title class="d-flex align-center">
-                        <v-icon class="mr-2" color="info">mdi-clock-outline</v-icon>
-                        Actividad Reciente
-                    </v-card-title>
-
-                    <v-list>
-                        <v-list-item v-for="activity in recentActivity" :key="activity.id"
-                            :prepend-icon="activity.icon">
-                            <v-list-item-title>{{ activity.title }}</v-list-item-title>
-                            <v-list-item-subtitle>
-                                {{ activity.team }} • {{ activity.date }}
-                            </v-list-item-subtitle>
-                        </v-list-item>
-                    </v-list>
-                </v-card>
-            </v-col>
-        </v-row>
-    </div>
+      <!-- Roster -->
+      <section>
+        <SectionHeader title="Nómina del plantel" icon="groups">
+          <router-link :to="{ path: '/app/captain/register-player', query: { teamId: team.id } }" class="btn-secondary">
+            <span class="icon">badge</span> Fichar por cédula
+          </router-link>
+        </SectionHeader>
+        <p class="m-0 mb-space-sm flex items-center gap-space-xs text-body-sm text-on-surface-variant">
+          <span class="icon text-[18px] text-secondary">notifications</span>
+          Un jugador puede estar en varios equipos y torneos, pero con un solo equipo por torneo.
+        </p>
+        <p v-if="!players.length" class="m-0 text-body-md text-on-surface-variant">Todavía no hay jugadores. Ficha el primero por cédula.</p>
+        <div class="flex flex-col gap-space-xs">
+          <article
+            v-for="p in players"
+            :key="p.id"
+            class="card flex items-center gap-space-md p-space-md"
+            :class="{ 'border-l-4 border-l-primary-container': p.isCaptain }"
+          >
+            <span
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded font-scoreboard-num text-[26px] tabular"
+              :class="p.isCaptain ? 'bg-primary-container text-white' : 'bg-surface-container-high text-on-surface'"
+            >{{ p.jerseyNumber }}</span>
+            <div class="min-w-0 flex-1">
+              <p class="m-0 flex items-center gap-space-xs truncate font-title-sm text-title-sm">
+                {{ p.fullName }}
+                <span v-if="p.isCaptain" class="label-tactical rounded bg-secondary-container/30 px-1 text-secondary">Cap</span>
+              </p>
+              <span class="label-tactical text-primary">{{ positionLabel(p.position) }}</span>
+            </div>
+            <button type="button" class="btn-ghost" :aria-label="`Editar a ${p.fullName}`" @click="startEditPlayer(p)">
+              <span class="icon">edit</span>
+            </button>
+            <button type="button" class="btn-ghost" :aria-label="`Quitar a ${p.fullName}`" @click="removePlayer(p)">
+              <span class="icon">person_remove</span>
+            </button>
+          </article>
+          <form v-if="editingPlayer" class="card flex flex-col gap-space-sm border-l-4 border-l-secondary p-space-md sm:flex-row sm:items-end" @submit.prevent="savePlayer">
+            <p class="m-0 flex-1 font-title-sm text-title-sm">Editando a {{ editingPlayer.fullName }}</p>
+            <div>
+              <label class="field-label" for="pl-jersey">Dorsal</label>
+              <input id="pl-jersey" v-model.number="playerForm.jerseyNumber" class="input" type="number" min="0" max="99" required />
+            </div>
+            <div>
+              <label class="field-label" for="pl-pos">Posición</label>
+              <select id="pl-pos" v-model="playerForm.position" class="input">
+                <option v-for="o in positionOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+            <button type="submit" class="btn-primary" :disabled="saving">Guardar</button>
+            <button type="button" class="btn-ghost" @click="editingPlayer = null">Cancelar</button>
+          </form>
+        </div>
+      </section>
+    </template>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
+import matchesService from '@/services/matches'
+import { CATEGORIES, POSITIONS, toOptions } from '@/utils/labels'
+import MatchCard from '@/components/tournament/MatchCard.vue'
+import { handleApiError } from '@/services/api'
+import StatusChip from '@/components/ui/StatusChip.vue'
+import RosterChip from '@/components/ui/RosterChip.vue'
+import SectionHeader from '@/components/ui/SectionHeader.vue'
 
-// Components
-import StatsCard from '@/components/common/StatsCard.vue'
-
-// Composables
-const router = useRouter()
-const authStore = useAuthStore()
 const toast = useToast()
 
-// State
-const myTeams = ref([])
-const isLoading = ref(false)
-const recentActivity = ref([]) // TODO: Fetch real activity
+const categories = toOptions(CATEGORIES)
+const positionOptions = toOptions(POSITIONS)
+const staffRoles = [
+  { value: 'COACH', label: 'Entrenador' },
+  { value: 'ASSISTANT_COACH', label: 'Asistente' },
+  { value: 'PHYSIOTHERAPIST', label: 'Fisioterapeuta' },
+  { value: 'MANAGER', label: 'Delegado' },
+  { value: 'OTHER', label: 'Otro' }
+]
 
-// Computed
-const captainStats = computed(() => [
-    {
-        label: 'Equipos Activos',
-        value: myTeams.value.length.toString(),
-        trend: 'neutral',
-        icon: 'mdi-account-group',
-        color: 'secondary'
-    },
-    {
-        label: 'Total Jugadores',
-        value: myTeams.value.reduce((sum, t) => sum + (t.playerCount || 0), 0).toString(),
-        trend: 'neutral',
-        icon: 'mdi-account-multiple',
-        color: 'primary'
-    },
-    {
-        label: 'Partidos Programados',
-        value: '0', // TODO: Fetch from matches service
-        trend: 'neutral',
-        icon: 'mdi-calendar-check',
-        color: 'success'
-    },
-    {
-        label: 'Victorias',
-        value: '0', // TODO: Fetch stats
-        trend: 'neutral',
-        icon: 'mdi-trophy',
-        color: 'warning'
+const categoryLabel = v => categories.find(c => c.value === v)?.label || v
+const staffRoleLabel = v => staffRoles.find(r => r.value === v)?.label || v
+const positionLabel = v => POSITIONS[v] || v
+
+const loading = ref(true)
+const saving = ref(false)
+const team = ref(null)
+const players = ref([])
+const staff = ref([])
+const upcoming = ref([])
+const editDialog = ref(null)
+const editTeam = ref({ name: '', category: 'OPEN', city: '' })
+let logoFile = null
+const editingPlayer = ref(null)
+const playerForm = ref({ jerseyNumber: 0, position: 'BASE' })
+const newTeam = ref({ name: '', category: 'OPEN', city: '' })
+const newStaff = ref({ fullName: '', role: 'COACH' })
+
+const load = async () => {
+  try {
+    const { data } = await teamsService.getMyTeams()
+    team.value = data[0] || null
+    if (team.value) {
+      const [p, s] = await Promise.all([teamsService.getPlayers(team.value.id), teamsService.getStaff(team.value.id)])
+      // Captain first, then by jersey number
+      // The captain is whoever's user is the team captain (the isCaptain flag may be unset)
+      players.value = p.data
+        .map(pl => ({ ...pl, isCaptain: pl.isCaptain || (pl.userId && pl.userId === team.value.captain.id) }))
+        .sort((a, b) => (b.isCaptain - a.isCaptain) || a.jerseyNumber - b.jerseyNumber)
+      staff.value = s.data
+      try {
+        const { data } = await matchesService.getTeamUpcoming(team.value.id)
+        upcoming.value = Array.isArray(data) ? data : data.matches || []
+      } catch {
+        upcoming.value = []
+      }
     }
-])
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo cargar tu equipo'))
+  } finally {
+    loading.value = false
+  }
+}
 
-// Methods
-const fetchMyTeams = async () => {
-    try {
-        isLoading.value = true
-        const response = await teamsService.getMyTeams()
-        // Backend returns array of teams with playerCount.
-        myTeams.value = response.data.map(team => ({
-            ...team,
-            // playerCount is already in team object from backend
-            maxPlayers: 12, // Default or from tournament rules
-            status: 'ACTIVE', // Default for now
-            image: team.logoUrl || 'https://cdn.vuetifyjs.com/images/cards/basketball.jpg',
-            completionPercentage: calculateCompletion(team)
-        }))
-    } catch (error) {
-        console.error('Error fetching teams:', error)
-        toast.error('Error al cargar tus equipos')
-    } finally {
-        isLoading.value = false
+const run = async (action, okMessage) => {
+  saving.value = true
+  try {
+    await action()
+    toast.success(okMessage)
+    await load()
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo completar la acción'))
+  } finally {
+    saving.value = false
+  }
+}
+
+const createTeam = () => {
+  const { name, category, city } = newTeam.value
+  return run(() => teamsService.create({ name, category, ...(city && { city }) }), 'Equipo creado')
+}
+
+const addStaff = async () => {
+  await run(() => teamsService.addStaff(team.value.id, newStaff.value), 'Cuerpo técnico actualizado')
+  newStaff.value = { fullName: '', role: 'COACH' }
+}
+
+const openEdit = () => {
+  const { name, category, city } = team.value
+  editTeam.value = { name, category, city: city || '' }
+  logoFile = null
+  editDialog.value.showModal()
+}
+
+const saveTeam = async () => {
+  const { name, category, city } = editTeam.value
+  await run(async () => {
+    await teamsService.update(team.value.id, { name, category, ...(city && { city }) })
+    if (logoFile) {
+      const fd = new FormData()
+      fd.append('logo', logoFile)
+      await teamsService.updateLogo(team.value.id, fd)
     }
+  }, 'Equipo actualizado')
+  editDialog.value?.close()
 }
 
-const calculateCompletion = (team) => {
-    let score = 0
-    if (team.name) score += 20
-    if (team.players?.length >= 5) score += 40
-    if (team.logoUrl) score += 20
-    if (team.city) score += 20
-    return score
+const startEditPlayer = p => {
+  editingPlayer.value = p
+  playerForm.value = { jerseyNumber: p.jerseyNumber, position: p.position }
 }
 
-const getStatusColor = (status) => {
-    const colors = {
-        'ACTIVE': 'success',
-        'PENDING': 'warning',
-        'INACTIVE': 'error'
-    }
-    return colors[status] || 'grey'
+const savePlayer = async () => {
+  const p = editingPlayer.value
+  await run(() => teamsService.updatePlayer(team.value.id, p.id, playerForm.value), `${p.fullName} actualizado`)
+  editingPlayer.value = null
 }
 
-const getStatusText = (status) => {
-    const texts = {
-        'ACTIVE': 'Activo',
-        'PENDING': 'Pendiente',
-        'INACTIVE': 'Inactivo'
-    }
-    return texts[status] || status
-}
+const removeStaff = s => confirm(`¿Quitar a ${s.fullName} del cuerpo técnico?`) && run(() => teamsService.removeStaff(team.value.id, s.id), `${s.fullName} quitado`)
+const removePlayer = p => confirm(`¿Quitar a ${p.fullName} del plantel?`) && run(() => teamsService.removePlayer(team.value.id, p.id), `${p.fullName} quitado del plantel`)
 
-const createNewTeam = () => {
-    router.push('/app/tournaments')
-}
-
-const viewTeamDetails = (team) => {
-    router.push(`/app/captain/team/${team.id}`)
-}
-
-const manageTeam = (team) => {
-    router.push(`/app/captain/team/${team.id}`)
-}
-
-const navigateToRegistration = () => {
-    if (myTeams.value.length === 0) {
-        toast.warning('Primero debes crear un equipo')
-        return
-    }
-    // If only one team, go directly. If multiple, maybe ask or go to first.
-    // For now, go to first team
-    router.push({
-        name: 'PlayerRegistration',
-        query: { teamId: myTeams.value[0].id }
-    })
-}
-
-onMounted(() => {
-    fetchMyTeams()
-})
+onMounted(load)
 </script>
-
-<style scoped>
-.captain-dashboard {
-    animation: fadeInUp 0.6s ease-out;
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.welcome-section {
-    background: linear-gradient(135deg,
-            rgba(var(--v-theme-secondary), 0.1) 0%,
-            rgba(var(--v-theme-primary), 0.1) 100%);
-    border-radius: 16px;
-    padding: 24px;
-    border: 1px solid rgba(var(--v-theme-divider), 0.2);
-}
-
-.bg-black-opacity {
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(2px);
-}
-
-:deep(.v-card) {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-:deep(.v-card:hover) {
-    transform: translateY(-2px);
-}
-</style>
