@@ -44,6 +44,16 @@ const tournamentsService = {
     // Generate fixtures (Organizer only)
     async generateFixtures(tournamentId) {
         return await api.post(`/tournaments/${tournamentId}/generate-fixtures`)
+    },
+
+    // Get all registered players in tournament with category/waiver/ID status (Organizer/Admin)
+    async getPlayers(tournamentId) {
+        return await api.get(`/tournaments/${tournamentId}/players`)
+    },
+
+    // Get tournament statistical leaders (Public)
+    async getLeaders(tournamentId) {
+        return await api.get(`/tournaments/${tournamentId}/leaders`)
     }
 }
 

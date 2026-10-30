@@ -112,6 +112,41 @@ const teamsService = {
     // Active sanctions and suspended players for next match
     async getActiveSanctions(teamId) {
         return await api.get(`/sanctions/team/${teamId}/active`)
+    },
+
+    // Teams looking for players
+    async getRecruitingTeams(params = {}) {
+        return await api.get('/teams/recruiting', { params })
+    },
+
+    // Join requests
+    async createJoinRequest(teamId, data) {
+        return await api.post(`/teams/${teamId}/join-requests`, data)
+    },
+
+    async getTeamJoinRequests(teamId) {
+        return await api.get(`/teams/${teamId}/join-requests`)
+    },
+
+    async resolveJoinRequest(requestId, data) {
+        return await api.patch(`/join-requests/${requestId}`, data)
+    },
+
+    async cancelJoinRequest(requestId) {
+        return await api.delete(`/join-requests/${requestId}`)
+    },
+
+    // Claim links for captain-created players
+    async createClaimLink(teamId, playerId) {
+        return await api.post(`/teams/${teamId}/players/${playerId}/claim-link`)
+    },
+
+    async previewClaimToken(token) {
+        return await api.get(`/claim/${token}`)
+    },
+
+    async claimAccount(token, data) {
+        return await api.post(`/claim/${token}`, data)
     }
 }
 

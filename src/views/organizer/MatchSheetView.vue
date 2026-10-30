@@ -85,10 +85,17 @@
                   :key="p.id"
                   type="button"
                   class="filter-chip font-mono"
+                  :class="{ 'cursor-not-allowed border-error/60 bg-error/15 text-error opacity-60': isSuspended(p.id) }"
                   :aria-pressed="selected?.id === p.id"
-                  :title="p.fullName"
-                  @click="selected = p"
-                >#{{ p.jerseyNumber }}</button>
+                  :disabled="isSuspended(p.id)"
+                  :title="isSuspended(p.id) ? `${p.fullName} (Suspendido)` : p.fullName"
+                  @click="!isSuspended(p.id) && (selected = p)"
+                >
+                  #{{ p.jerseyNumber }}
+                  <span v-if="isSuspended(p.id)" class="ml-1 rounded bg-error px-1 text-[10px] font-bold uppercase text-white">
+                    Suspendido
+                  </span>
+                </button>
               </div>
             </div>
           </div>
@@ -104,7 +111,7 @@
               :key="a.type"
               type="button"
               class="btn-secondary min-h-[56px] flex-col gap-0"
-              :disabled="!selected || busy"
+              :disabled="!selected || isSuspended(selected.id) || busy"
               @click="addEvent(a)"
             >
               <span class="font-scoreboard-num text-[18px]" :class="a.points ? 'text-primary' : 'text-on-surface'">{{ a.short }}</span>
@@ -186,6 +193,7 @@ const quarter = ref(1)
 const selected = ref(null)
 
 const finished = computed(() => ['FINISHED', 'FORFEIT'].includes(match.value?.status))
+const isSuspended = playerId => (match.value?.suspendedPlayerIds || []).includes(playerId)
 const clash = computed(() => hasUniformClash(match.value?.homeTeam, match.value?.awayTeam))
 const awaySwatch = computed(() =>
   clash.value ? match.value?.awayTeam?.awayColor || match.value?.awayTeam?.homeColor : match.value?.awayTeam?.homeColor || match.value?.awayTeam?.awayColor

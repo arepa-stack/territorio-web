@@ -69,9 +69,21 @@
               </span>
             </div>
           </div>
-          <button type="button" class="btn-secondary shrink-0" @click="openEdit">
-            <span class="icon">edit</span> Editar equipo
-          </button>
+          <div class=" flex shrink-0 flex-wrap items-center gap-space-xs">
+            <button
+              type="button"
+              class="filter-chip"
+              :aria-pressed="Boolean(team.lookingForPlayers)"
+              :disabled="saving"
+              @click="toggleRecruiting"
+            >
+              <span class="icon text-[18px]">person_search</span>
+              {{ team.lookingForPlayers ? 'Buscando jugadores: Sí' : 'Buscando jugadores: No' }}
+            </button>
+            <button type="button" class="btn-secondary shrink-0" @click="openEdit">
+              <span class="icon">edit</span> Editar equipo
+            </button>
+          </div>
         </div>
         <div class="mt-space-lg flex flex-col gap-space-xs rounded-lg bg-surface-container-low p-space-md">
           <RosterChip v-if="team.roster" :roster="team.roster" class="self-start" />
@@ -392,6 +404,59 @@
         </div>
       </section>
 
+      <!-- Join Requests from Free-Agent Players (Task 14) -->
+      <section v-if="pendingJoinRequests.length">
+        <SectionHeader title="Solicitudes para unirse" icon="person_add">
+          <span class="label-tactical rounded bg-secondary-container px-space-sm py-1 text-on-secondary-container">
+            {{ pendingJoinRequests.length }} pendiente(s)
+          </span>
+        </SectionHeader>
+        <div class="grid gap-space-sm md:grid-cols-2">
+          <article v-for="req in pendingJoinRequests" :key="req.id" class="card flex flex-col gap-space-sm p-space-md">
+            <div class="flex items-start justify-between gap-space-sm">
+              <div>
+                <h3 class="m-0 font-title-sm text-title-sm">{{ req.playerUser?.fullName || 'Jugador' }}</h3>
+                <p class="m-0 text-body-sm text-on-surface-variant">
+                  {{ req.position ? positionLabel(req.position) : 'Sin posición' }}
+                  <span v-if="req.jerseyNumber != null"> · Dorsal sugerido #{{ req.jerseyNumber }}</span>
+                </p>
+              </div>
+              <StatusChip :status="req.status" />
+            </div>
+            <p v-if="req.message" class="m-0 text-body-sm italic text-on-surface-variant">"{{ req.message }}"</p>
+            <div class="flex flex-wrap items-end gap-space-xs pt-1">
+              <div class="w-24">
+                <label class="field-label" :for="`jr-num-${req.id}`">Dorsal *</label>
+                <input
+                  :id="`jr-num-${req.id}`"
+                  v-model.number="joinRequestNums[req.id]"
+                  type="number"
+                  min="0"
+                  max="99"
+                  class="input font-mono"
+                />
+              </div>
+              <button
+                type="button"
+                class="btn-danger flex-1"
+                :disabled="saving || rosterLocked"
+                @click="resolveJoinReq(req, 'REJECTED')"
+              >
+                Rechazar
+              </button>
+              <button
+                type="button"
+                class="btn-primary flex-1"
+                :disabled="saving || rosterLocked"
+                @click="resolveJoinReq(req, 'APPROVED')"
+              >
+                Aceptar
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <!-- Roster -->
       <section>
         <SectionHeader title="Nómina del plantel" icon="groups">
@@ -442,9 +507,19 @@
               <p class="m-0 flex flex-wrap items-center gap-space-xs truncate font-title-sm text-title-sm">
                 {{ p.fullName }}
                 <span v-if="p.isCaptain" class="label-tactical rounded bg-secondary-container/30 px-1 text-secondary">Cap</span>
+                <span v-if="p.isUnclaimed" class="label-tactical rounded bg-tertiary/30 px-1.5 py-0.5 text-[11px] text-on-surface">
+                  Sin reclamar
+                </span>
                 <StatusChip v-if="isPlayerSuspended(p.id)" status="SUSPENDED" label="Suspendido" />
               </p>
-              <span class="label-tactical text-primary">{{ positionLabel(p.position) }}</span>
+              <div class="flex flex-wrap items-center gap-x-space-md gap-y-0.5 text-body-sm text-on-surface-variant">
+                <span class="label-tactical text-primary">{{ positionLabel(p.position) }}</span>
+                <span v-if="p.jerseySize">Talla {{ p.jerseySize }}</span>
+                <span v-if="p.phone">Tel: {{ p.phone }}</span>
+                <span v-if="p.emergencyContactName || p.emergencyContactPhone">
+                  Emergencia: {{ p.emergencyContactName || 'Contacto' }} {{ p.emergencyContactPhone || '' }}
+                </span>
+              </div>
               <p
                 v-for="s in playerSanctionsOf(p.id)"
                 :key="s.id"
@@ -454,6 +529,16 @@
                 <span v-if="s.gamesSuspended"> ({{ s.gamesSuspended }} partido{{ s.gamesSuspended > 1 ? 's' : '' }})</span>
               </p>
             </div>
+            <button
+              v-if="p.isUnclaimed"
+              type="button"
+              class="btn-secondary text-body-sm"
+              :disabled="saving"
+              title="Generar link para que el jugador reclame su cuenta"
+              @click="generateClaimLink(p)"
+            >
+              <span class="icon text-[18px]">vpn_key</span> Link cuenta
+            </button>
             <button type="button" class="btn-ghost" :aria-label="`Editar a ${p.fullName}`" @click="startEditPlayer(p)">
               <span class="icon">edit</span>
             </button>
@@ -554,6 +639,10 @@ const newStaff = ref({ fullName: '', role: 'COACH' })
 const paymentDialog = ref(null)
 const invites = ref([])
 const newInvite = ref({ expiresInDays: 7, maxUses: null })
+const joinRequests = ref([])
+const joinRequestNums = ref({})
+
+const pendingJoinRequests = computed(() => joinRequests.value.filter(r => r.status === 'PENDING'))
 
 const rescheduleDialog = ref(null)
 const rescheduleTarget = ref(null)
@@ -598,6 +687,17 @@ const load = async () => {
         .sort((a, b) => (b.isCaptain - a.isCaptain) || a.jerseyNumber - b.jerseyNumber)
       staff.value = s.data
       invitesService.list(team.value.id).then(({ data }) => (invites.value = data)).catch(() => (invites.value = []))
+      teamsService
+        .getTeamJoinRequests(team.value.id)
+        .then(({ data }) => {
+          joinRequests.value = data || []
+          for (const r of joinRequests.value) {
+            if (joinRequestNums.value[r.id] == null) {
+              joinRequestNums.value[r.id] = r.jerseyNumber ?? 0
+            }
+          }
+        })
+        .catch(() => (joinRequests.value = []))
       teamsService
         .getActiveSanctions(team.value.id)
         .then(({ data }) => (activeSanctions.value = data || { suspendedPlayerIds: [], sanctions: [] }))
@@ -734,6 +834,42 @@ const removeStaff = async s => {
 const removePlayer = async p => {
   if (!(await confirm({ title: 'Quitar del plantel', message: `¿Quitar a ${p.fullName} del plantel?`, confirmText: 'Quitar', danger: true }))) return
   run(() => teamsService.removePlayer(team.value.id, p.id), `${p.fullName} quitado del plantel`)
+}
+
+const toggleRecruiting = () =>
+  run(
+    () => teamsService.update(team.value.id, { lookingForPlayers: !team.value.lookingForPlayers }),
+    !team.value.lookingForPlayers ? 'Equipo visible en búsqueda de jugadores' : 'Búsqueda de jugadores desactivada'
+  )
+
+const resolveJoinReq = async (req, status) => {
+  const jerseyNumber = Number(joinRequestNums.value[req.id] ?? req.jerseyNumber ?? 0)
+  await run(
+    () =>
+      teamsService.resolveJoinRequest(req.id, {
+        status,
+        ...(status === 'APPROVED' ? { jerseyNumber, position: req.position || 'BASE' } : {})
+      }),
+    status === 'APPROVED' ? 'Jugador incorporado al equipo' : 'Solicitud rechazada'
+  )
+}
+
+const generateClaimLink = async p => {
+  saving.value = true
+  try {
+    const res = await teamsService.createClaimLink(team.value.id, p.id)
+    const link = `${window.location.origin}/claim/${res.data.token}`
+    try {
+      await navigator.clipboard.writeText(link)
+      toast.success(`Link de reclamación copiado para ${p.fullName}`)
+    } catch {
+      toast.info(`Link de reclamación: ${link}`)
+    }
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo generar el link de reclamación'))
+  } finally {
+    saving.value = false
+  }
 }
 
 const createInvite = async () => {

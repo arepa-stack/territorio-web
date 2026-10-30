@@ -46,14 +46,14 @@
           </router-link>
         </header>
 
-        <div class="flex gap-space-xs border-0 border-b border-solid border-outline-variant/40" role="tablist">
+        <div class="flex gap-space-xs overflow-x-auto border-0 border-b border-solid border-outline-variant/40" role="tablist">
           <button
             v-for="t in tabs"
             :key="t.value"
             type="button"
             role="tab"
             :aria-selected="tab === t.value"
-            class="label-tactical cursor-pointer border-0 border-b-2 border-solid bg-transparent px-space-md py-space-sm text-[14px]"
+            class="label-tactical cursor-pointer whitespace-nowrap border-0 border-b-2 border-solid bg-transparent px-space-md py-space-sm text-[14px]"
             :class="tab === t.value ? 'border-primary-container text-primary' : 'border-transparent text-on-surface-variant'"
             @click="tab = t.value"
           >{{ t.label }}</button>
@@ -61,6 +61,41 @@
 
         <StandingsTable v-if="tab === 'standings'" :standings="standings" />
         <FixtureList v-if="tab === 'fixture'" :matches="matches" />
+
+        <!-- Statistical Leaders (Task 12) -->
+        <div v-if="tab === 'leaders'" class="grid gap-space-md md:grid-cols-2">
+          <article v-for="cat in leaderCategories" :key="cat.key" class="card flex flex-col gap-space-sm p-space-lg">
+            <div class="flex items-center justify-between">
+              <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ cat.title }}</h2>
+              <span class="label-tactical text-secondary">{{ cat.unit }}</span>
+            </div>
+            <p v-if="!leaders[cat.key]?.length" class="m-0 text-body-sm text-on-surface-variant">
+              Sin estadísticas registradas todavía.
+            </p>
+            <div v-else class="flex flex-col gap-space-xs">
+              <div
+                v-for="(item, idx) in leaders[cat.key].slice(0, 5)"
+                :key="item.userId || idx"
+                class="flex items-center justify-between gap-space-sm rounded bg-surface-container-low px-space-sm py-2"
+              >
+                <div class="flex min-w-0 items-center gap-space-sm">
+                  <span class="w-6 text-center font-scoreboard-num text-[20px] text-primary">{{ idx + 1 }}</span>
+                  <div class="min-w-0">
+                    <p class="m-0 truncate font-title-sm text-title-sm">{{ item.fullName }}</p>
+                    <p class="m-0 truncate text-body-sm text-on-surface-variant">
+                      {{ item.teamName }} · {{ item.gamesPlayed }} PJ
+                    </p>
+                  </div>
+                </div>
+                <div class="text-right font-stat-mono tabular">
+                  <span class="text-title-sm font-bold text-primary">{{ item[cat.field] }}</span>
+                  <span class="ml-1 text-body-sm text-on-surface-variant">({{ item[cat.perGameField] }}/P)</span>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
         <div v-if="tab === 'teams'" class="grid gap-space-sm md:grid-cols-2">
           <p v-if="!standings.length" class="m-0 text-body-md text-on-surface-variant">Todavía no hay equipos aprobados.</p>
           <article v-for="s in standings" :key="s.teamId" class="card flex items-center gap-space-md p-space-md">
@@ -91,7 +126,15 @@ const CATEGORIES = {
 const tabs = [
   { value: 'standings', label: 'Tabla' },
   { value: 'fixture', label: 'Fixture' },
+  { value: 'leaders', label: 'Líderes' },
   { value: 'teams', label: 'Equipos' }
+]
+
+const leaderCategories = [
+  { key: 'points', title: 'Anotadores', unit: 'PTS', field: 'points', perGameField: 'pointsPerGame' },
+  { key: 'rebounds', title: 'Rebotes', unit: 'REB', field: 'rebounds', perGameField: 'reboundsPerGame' },
+  { key: 'assists', title: 'Asistencias', unit: 'AST', field: 'assists', perGameField: 'assistsPerGame' },
+  { key: 'threePointers', title: 'Triples', unit: '3P', field: 'threePointers', perGameField: 'threePointersPerGame' }
 ]
 
 const route = useRoute()
@@ -100,6 +143,7 @@ const authStore = useAuthStore()
 const tournament = ref(null)
 const matches = ref([])
 const standings = ref([])
+const leaders = ref({ points: [], rebounds: [], assists: [], threePointers: [] })
 const loading = ref(true)
 const tab = ref('standings')
 
@@ -113,14 +157,18 @@ const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 
 onMounted(async () => {
   const id = route.params.id
-  const [t, m, s] = await Promise.allSettled([
+  const [t, m, s, l] = await Promise.allSettled([
     tournamentsService.getById(id),
     matchesService.getByTournament(id),
-    matchesService.getStandings(id)
+    matchesService.getStandings(id),
+    tournamentsService.getLeaders(id)
   ])
   tournament.value = t.status === 'fulfilled' ? t.value.data : null
   matches.value = m.status === 'fulfilled' ? m.value.data.matches || [] : []
   standings.value = s.status === 'fulfilled' ? s.value.data.standings || [] : []
+  if (l.status === 'fulfilled' && l.value.data) {
+    leaders.value = l.value.data
+  }
   loading.value = false
 })
 </script>

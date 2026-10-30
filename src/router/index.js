@@ -67,6 +67,13 @@ const routes = [
     component: () => import('@/views/teams/JoinTeamView.vue'),
     meta: { requiresAuth: false }
   },
+  {
+    // Claim account link for players registered by CI without email (Tarea 15)
+    path: '/claim/:token',
+    name: 'ClaimAccount',
+    component: () => import('@/views/auth/ClaimAccountView.vue'),
+    meta: { requiresAuth: false }
+  },
   // Link sent by the backend email: FRONTEND_URL/reset-password?token=...
   { path: '/reset-password', redirect: to => ({ path: '/auth/reset-password', query: to.query }) },
   {
@@ -113,6 +120,26 @@ const routes = [
           requiresAuth: true,
           roles: ['PLAYER'],
           title: 'Mis Equipos'
+        }
+      },
+      {
+        path: 'player/recruiting',
+        name: 'PlayerRecruiting',
+        component: () => import('@/views/player/PlayerRecruitingView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['PLAYER'],
+          title: 'Buscar Equipo'
+        }
+      },
+      {
+        path: 'notifications',
+        name: 'Notifications',
+        component: () => import('@/views/NotificationsView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN', 'REFEREE', 'MODERATOR'],
+          title: 'Notificaciones'
         }
       },
       {

@@ -222,6 +222,10 @@
                             <span class="icon text-[18px] text-secondary">info</span>
                             Un equipo necesita 5 jugadores activos para validar su inscripción.
                         </p>
+                        <label class="flex cursor-pointer items-center gap-space-sm rounded bg-surface-container-low p-space-sm text-body-sm">
+                            <input v-model="formData.requireIdVerification" type="checkbox" class="h-4 w-4 accent-primary" />
+                            <span>Exigir verificación de documento de identidad (cédula) a todos los jugadores</span>
+                        </label>
                         <div>
                             <label class="field-label" for="t-rules">Reglas del torneo (una por línea)</label>
                             <textarea
@@ -539,6 +543,7 @@ const saveTournament = async () => {
             entryFee: Number(formData.value.entryFee),
             playersPerTeam: Number(formData.value.playersPerTeam),
             quarterDuration: Number(formData.value.quarterDuration),
+            requireIdVerification: Boolean(formData.value.requireIdVerification),
             rules: (formData.value.rulesText || '').split('\n').map(r => r.trim()).filter(Boolean),
             prizes: (formData.value.prizesText || '').split('\n').map(p => p.trim()).filter(Boolean),
             paymentInfo: Number(formData.value.entryFee) > 0 ? paymentInfoPayload(formData.value.paymentInfo) : undefined,

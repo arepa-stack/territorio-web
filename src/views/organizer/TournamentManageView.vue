@@ -28,6 +28,16 @@
             <span class="icon text-[18px]">payments</span>
             <span class="font-stat-mono tabular text-on-surface">{{ Number(tournament.entryFee) > 0 ? `$${tournament.entryFee}` : 'Gratis' }}</span>
           </span>
+          <label class="flex cursor-pointer items-center gap-1.5 text-on-surface">
+            <input
+              type="checkbox"
+              :checked="Boolean(tournament.requireIdVerification)"
+              :disabled="busy"
+              class="h-4 w-4 accent-primary"
+              @change="toggleRequireIdVerification($event.target.checked)"
+            />
+            <span>Exigir documento de identidad verificado</span>
+          </label>
         </div>
       </header>
 
@@ -174,6 +184,129 @@
 
       <!-- Standings -->
       <StandingsTable v-if="tab === 'standings'" :standings="standings" />
+
+      <!-- Players (Task 10, 16, 17) -->
+      <section v-if="tab === 'players'" class="flex flex-col gap-space-md">
+        <div class="flex flex-col gap-space-sm sm:flex-row sm:items-center sm:justify-between">
+          <p class="m-0 text-body-sm text-on-surface-variant">
+            Listado de jugadores inscritos ({{ filteredTournamentPlayers.length }}). Revisa elegibilidad por edad/categoría, sanciones, reglamento y cédula.
+          </p>
+          <div class="sm:w-64">
+            <label class="sr-only" for="tp-team-filter">Filtrar por equipo</label>
+            <select id="tp-team-filter" v-model="playerTeamFilter" class="input">
+              <option value="ALL">Todos los equipos</option>
+              <option v-for="tm in playerTeamOptions" :key="tm.id" :value="tm.id">{{ tm.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <p v-if="!filteredTournamentPlayers.length" class="text-body-md text-on-surface-variant">
+          No hay jugadores registrados para este filtro.
+        </p>
+
+        <div v-else class="card overflow-x-auto">
+          <table class="w-full border-collapse text-left text-body-sm">
+            <thead>
+              <tr class="label-tactical text-on-surface-variant">
+                <th class="px-space-md py-space-sm">#</th>
+                <th class="px-space-md py-space-sm">Jugador</th>
+                <th class="px-space-md py-space-sm">Equipo</th>
+                <th class="px-space-md py-space-sm">CI / Edad</th>
+                <th class="px-space-md py-space-sm">Categoría</th>
+                <th class="px-space-md py-space-sm">Menor / Reglamento</th>
+                <th class="px-space-md py-space-sm">Sanciones</th>
+                <th class="px-space-md py-space-sm">Documento ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="p in filteredTournamentPlayers"
+                :key="`${p.teamId}-${p.playerId}`"
+                class="border-0 border-t border-solid border-outline-variant/30"
+              >
+                <td class="px-space-md py-space-sm font-scoreboard-num text-[18px] tabular">#{{ p.jerseyNumber }}</td>
+                <td class="px-space-md py-space-sm">
+                  <div class="font-bold">{{ p.fullName }}</div>
+                  <div class="text-label-sm text-on-surface-variant">{{ p.position }}</div>
+                </td>
+                <td class="px-space-md py-space-sm">{{ p.teamName }}</td>
+                <td class="px-space-md py-space-sm font-stat-mono">
+                  <div>{{ p.ci || 'Sin CI' }}</div>
+                  <div class="text-on-surface-variant">{{ p.ageAtStart != null ? `${p.ageAtStart} años` : 'Sin fecha nac.' }}</div>
+                </td>
+                <td class="px-space-md py-space-sm">
+                  <span
+                    v-if="p.categoryEligible"
+                    class="inline-flex items-center gap-1 rounded bg-secondary-container/30 px-2 py-0.5 text-label-sm font-bold text-secondary"
+                  >
+                    Apto
+                  </span>
+                  <div v-else class="flex flex-col gap-0.5">
+                    <span class="inline-flex self-start rounded bg-error/20 px-2 py-0.5 text-label-sm font-bold text-error">
+                      Observado
+                    </span>
+                    <span v-for="(iss, idx) in p.categoryIssues" :key="idx" class="text-[11px] text-error">{{ iss }}</span>
+                  </div>
+                </td>
+                <td class="px-space-md py-space-sm">
+                  <div class="flex flex-col gap-0.5 text-[12px]">
+                    <span :class="p.waiverAcceptedAt ? 'text-secondary' : 'text-on-surface-variant'">
+                      {{ p.waiverAcceptedAt ? 'Reglamento aceptado' : 'Reglamento pendiente' }}
+                    </span>
+                    <template v-if="p.isMinor">
+                      <span v-if="!p.minorIssues?.length" class="text-secondary">Menor: Rep. OK ({{ p.guardian?.name }})</span>
+                      <span v-else class="text-error">Menor: Falta representante</span>
+                    </template>
+                  </div>
+                </td>
+                <td class="px-space-md py-space-sm">
+                  <span v-if="!p.activeSanctions?.length" class="text-on-surface-variant">Ninguna</span>
+                  <div v-else class="flex flex-col gap-0.5">
+                    <span
+                      v-for="s in p.activeSanctions"
+                      :key="s.id"
+                      class="rounded bg-error/20 px-1.5 py-0.5 text-[11px] text-error"
+                    >
+                      {{ s.type }} ({{ s.matchesRemaining }} PJ)
+                    </span>
+                  </div>
+                </td>
+                <td class="px-space-md py-space-sm">
+                  <div class="flex flex-col gap-1">
+                    <div class="flex items-center gap-1">
+                      <StatusChip v-if="p.identityDocument" :status="p.identityDocument.status" />
+                      <span v-else class="text-[12px] text-on-surface-variant">Sin subir</span>
+                    </div>
+                    <div v-if="p.identityDocument && p.userId" class="flex flex-wrap gap-1">
+                      <button type="button" class="btn-ghost px-2 py-0.5 text-[11px]" @click="openPlayerIdDoc(p.userId)">
+                        Ver
+                      </button>
+                      <button
+                        v-if="p.identityDocument.status !== 'VERIFIED'"
+                        type="button"
+                        class="btn-secondary px-2 py-0.5 text-[11px]"
+                        :disabled="busy"
+                        @click="reviewPlayerIdDoc(p, 'VERIFIED')"
+                      >
+                        Verificar
+                      </button>
+                      <button
+                        v-if="p.identityDocument.status !== 'REJECTED'"
+                        type="button"
+                        class="btn-danger px-2 py-0.5 text-[11px]"
+                        :disabled="busy"
+                        @click="reviewPlayerIdDoc(p, 'REJECTED')"
+                      >
+                        Rechazar
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </template>
   </div>
 </template>
@@ -184,6 +317,7 @@ import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
 import matchesService from '@/services/matches'
+import usersService from '@/services/users'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
 import FixtureList from '@/components/tournament/FixtureList.vue'
@@ -202,7 +336,8 @@ const id = route.params.id
 const tabs = [
   { value: 'registrations', label: 'Inscripciones' },
   { value: 'fixture', label: 'Fixture' },
-  { value: 'standings', label: 'Tabla' }
+  { value: 'standings', label: 'Tabla' },
+  { value: 'players', label: 'Jugadores' }
 ]
 const tab = ref('registrations')
 const loading = ref(true)
@@ -212,7 +347,24 @@ const registrations = ref([])
 const matches = ref([])
 const standings = ref([])
 const rescheduleRequests = ref([])
+const tournamentPlayers = ref([])
+const playerTeamFilter = ref('ALL')
 const paymentInfoForm = ref(emptyPaymentInfo())
+
+const playerTeamOptions = computed(() => {
+  const map = new Map()
+  for (const p of tournamentPlayers.value) {
+    if (p.teamId && !map.has(p.teamId)) {
+      map.set(p.teamId, { id: p.teamId, name: p.teamName })
+    }
+  }
+  return Array.from(map.values())
+})
+
+const filteredTournamentPlayers = computed(() => {
+  if (playerTeamFilter.value === 'ALL') return tournamentPlayers.value
+  return tournamentPlayers.value.filter(p => p.teamId === playerTeamFilter.value)
+})
 
 const approved = computed(() => registrations.value.filter(r => r.status === 'APPROVED'))
 const pendingReschedulesCount = computed(() => rescheduleRequests.value.filter(r => r.status === 'PENDING').length)
@@ -230,12 +382,13 @@ const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 
 const load = async () => {
   try {
-    const [t, regs, ms, st, rr] = await Promise.allSettled([
+    const [t, regs, ms, st, rr, pls] = await Promise.allSettled([
       tournamentsService.getById(id),
       tournamentsService.getRegistrations(id),
       matchesService.getByTournament(id),
       matchesService.getStandings(id),
-      matchesService.getRescheduleRequests(id)
+      matchesService.getRescheduleRequests(id),
+      tournamentsService.getPlayers(id)
     ])
     if (t.status === 'rejected') throw t.reason
     tournament.value = t.value.data
@@ -244,6 +397,7 @@ const load = async () => {
     matches.value = ms.status === 'fulfilled' ? ms.value.data.matches || [] : []
     standings.value = st.status === 'fulfilled' ? st.value.data.standings || [] : []
     rescheduleRequests.value = rr.status === 'fulfilled' ? rr.value.data || [] : []
+    tournamentPlayers.value = pls.status === 'fulfilled' ? pls.value.data.players || [] : []
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo cargar el torneo'))
   } finally {
@@ -321,6 +475,44 @@ const resolveReschedule = async (req, status) => {
 }
 
 const generateFixture = () => run(() => tournamentsService.generateFixtures(id), 'Fixture generado')
+
+const toggleRequireIdVerification = checked =>
+  run(
+    () => tournamentsService.update(id, { requireIdVerification: Boolean(checked) }),
+    checked ? 'Verificación de documento activada' : 'Verificación de documento desactivada'
+  )
+
+const openPlayerIdDoc = async userId => {
+  try {
+    const res = await usersService.fetchIdentityDocumentBlob(userId)
+    const url = URL.createObjectURL(res.data)
+    window.open(url, '_blank', 'noopener,noreferrer')
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo abrir el documento de identidad'))
+  }
+}
+
+const reviewPlayerIdDoc = async (player, status) => {
+  const verified = status === 'VERIFIED'
+  const note = await confirm({
+    title: verified ? 'Verificar documento de identidad' : 'Rechazar documento de identidad',
+    message: verified
+      ? `¿Confirmas que el documento de identidad de ${player.fullName} coincide con sus datos?`
+      : `Indica el motivo por el que rechazas el documento de ${player.fullName}.`,
+    confirmText: verified ? 'Verificar' : 'Rechazar',
+    danger: !verified,
+    input: verified ? null : { label: 'Motivo del rechazo', placeholder: 'Ej. Imagen borrosa o cédula vencida' }
+  })
+  if (note === false) return
+  await run(
+    () =>
+      usersService.reviewIdentityDocument(player.userId, {
+        status,
+        ...(typeof note === 'string' && note.trim() ? { reviewNote: note.trim() } : {})
+      }),
+    verified ? 'Documento verificado' : 'Documento rechazado'
+  )
+}
 
 onMounted(load)
 </script>

@@ -20,6 +20,35 @@ const playersService = {
   // Creates the person (or reuses them if the cédula exists) and adds them to the team
   async create(playerData) {
     return await api.post('/players/create', playerData)
+  },
+
+  // Leave a team voluntarily
+  async leaveTeam(teamId) {
+    return await api.post(`/players/me/teams/${teamId}/leave`)
+  },
+
+  // Update logged-in player's photo
+  async uploadMyPhoto(file) {
+    const formData = new FormData()
+    formData.append('photo', file)
+    return await api.patch('/players/me/photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+
+  // Update logged-in player's profile
+  async updateMe(data) {
+    return await api.patch('/players/me', data)
+  },
+
+  // Get player's join requests
+  async getMyJoinRequests() {
+    return await api.get('/players/me/join-requests')
+  },
+
+  // Accept tournament waiver & rules
+  async acceptTournamentWaiver(tournamentId) {
+    return await api.post(`/players/me/tournaments/${tournamentId}/accept-waiver`)
   }
 }
 

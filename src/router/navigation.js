@@ -42,6 +42,8 @@ export const NAV_BY_ROLE = {
   ],
   PLAYER: [
     { label: 'Inicio', icon: 'home', to: '/app/player', exact: true },
+    { label: 'Equipos', icon: 'groups', to: '/app/player/teams' },
+    { label: 'Buscar equipo', icon: 'person_search', to: '/app/player/recruiting' },
     tournaments,
     { label: 'Calendario', icon: 'calendar_month', to: '/app/player/schedule' },
     { label: 'Estadísticas', icon: 'bar_chart', to: '/app/player/stats' },

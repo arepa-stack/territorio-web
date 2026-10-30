@@ -5,6 +5,10 @@ const notificationsService = {
     return await api.get('/notifications/my-notifications')
   },
 
+  async list(params = {}) {
+    return await api.get('/notifications', { params })
+  },
+
   async markAsRead(id) {
     return await api.patch(`/notifications/${id}/read`)
   },

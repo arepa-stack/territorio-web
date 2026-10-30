@@ -83,7 +83,42 @@
           </div>
         </div>
 
-        <TournamentInfoButton :tournament="t" class="self-start" />
+        <div class="flex flex-wrap items-center gap-space-xs">
+          <TournamentInfoButton :tournament="t" />
+          <router-link :to="`/torneo/${t.id}`" class="btn-ghost text-body-sm">
+            <span class="icon text-[18px]">emoji_events</span> Ver fixture y tabla
+          </router-link>
+        </div>
+
+        <!-- Player participation indicator & waiver -->
+        <template v-if="isPlayer && playerRegistrationOf(t)">
+          <div class="flex flex-col gap-space-xs rounded-lg bg-surface-container-low p-space-sm">
+            <div class="flex flex-wrap items-center justify-between gap-space-xs">
+              <router-link
+                :to="`/torneo/${t.id}`"
+                class="inline-flex items-center gap-1 rounded-full bg-primary-container px-2.5 py-1 text-label-sm font-bold uppercase text-white no-underline"
+              >
+                <span class="icon text-[16px]">sports_basketball</span> Mi equipo juega aquí ({{ playerRegistrationOf(t).teamName }})
+              </router-link>
+              <StatusChip :status="playerRegistrationOf(t).status" />
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-space-xs pt-1">
+              <span v-if="playerRegistrationOf(t).waiverAcceptedAt" class="flex items-center gap-1 text-body-sm text-secondary">
+                <span class="icon text-[16px]">verified</span> Reglamento y deslinde aceptado
+              </span>
+              <button
+                v-else
+                type="button"
+                class="btn-secondary text-body-sm"
+                :disabled="acceptingWaiver === t.id"
+                @click="acceptWaiver(t)"
+              >
+                <span class="icon text-[18px]">fact_check</span>
+                {{ acceptingWaiver === t.id ? 'Aceptando…' : 'Aceptar reglamento y deslinde' }}
+              </button>
+            </div>
+          </div>
+        </template>
 
         <!-- Captain actions -->
         <template v-if="isCaptain && myTeam">
@@ -130,15 +165,20 @@ import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
 import teamsService from '@/services/teams'
+import playersService from '@/services/players'
 import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { usePlayerOverview } from '@/composables/usePlayerOverview'
+import { useConfirm } from '@/composables/useConfirm'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
 import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
 import PaymentDialog from '@/components/tournament/PaymentDialog.vue'
 
 const toast = useToast()
+const confirm = useConfirm()
 const authStore = useAuthStore()
+const playerOverview = usePlayerOverview()
 
 const CATEGORIES = {
   OPEN: 'Libre', SUB_13: 'Sub-13', SUB_15: 'Sub-15', SUB_17: 'Sub-17', SUB_19: 'Sub-19',
@@ -153,6 +193,7 @@ const statusFilters = [
 
 const isCaptain = computed(() => authStore.userRole === 'TEAM_CAPTAIN')
 const isOrganizer = computed(() => authStore.userRole === 'ORGANIZER')
+const isPlayer = computed(() => authStore.userRole === 'PLAYER')
 
 const tournaments = ref([])
 const myTeam = ref(null)
@@ -162,12 +203,46 @@ const search = ref('')
 const status = ref('REGISTRATION')
 const confirming = ref(null)
 const registering = ref(false)
+const acceptingWaiver = ref(null)
 const paymentDialog = ref(null)
 
 const categoryLabel = c => CATEGORIES[c] || c
 const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 const countStatus = s => (s === 'ALL' ? tournaments.value.length : tournaments.value.filter(t => t.status === s).length)
 const registrationOf = t => myTeam.value?.registrations?.find(r => r.tournament.id === t.id)
+
+const playerRegistrationOf = t => {
+  if (!isPlayer.value) return null
+  for (const membership of playerOverview.teams.value) {
+    const reg = membership.registrations?.find(
+      r => r.tournament?.id === t.id && (r.status === 'APPROVED' || r.status === 'PENDING')
+    )
+    if (reg) {
+      return { ...reg, teamName: membership.team.name }
+    }
+  }
+  return null
+}
+
+const acceptWaiver = async t => {
+  const rulesText = t.rules || 'Me comprometo a respetar el reglamento deportivo del torneo y acepto el deslinde de responsabilidad médica y deportiva.'
+  const ok = await confirm({
+    title: `Reglamento y deslinde — ${t.name}`,
+    message: `${rulesText}\n\n¿Confirmas que has leído y aceptas el reglamento y deslinde de responsabilidad?`,
+    confirmText: 'Aceptar reglamento'
+  })
+  if (!ok) return
+  acceptingWaiver.value = t.id
+  try {
+    await playersService.acceptTournamentWaiver(t.id)
+    toast.success('Reglamento y deslinde aceptado')
+    await playerOverview.load(true)
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo registrar tu aceptación'))
+  } finally {
+    acceptingWaiver.value = null
+  }
+}
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -211,7 +286,6 @@ const register = async t => {
     if (warn) toast.warning(warn)
     confirming.value = null
     await Promise.all([loadTournaments(), loadTeam()])
-    // Paid tournament: go straight to the payment flow (it can also be done later from the captain panel)
     if (Number(t.entryFee) > 0) {
       tournamentsService
         .getById(t.id)
@@ -225,5 +299,9 @@ const register = async t => {
   }
 }
 
-onMounted(() => Promise.all([loadTournaments(), loadTeam()]))
+onMounted(() => {
+  const tasks = [loadTournaments(), loadTeam()]
+  if (isPlayer.value) tasks.push(playerOverview.load())
+  Promise.all(tasks)
+})
 </script>

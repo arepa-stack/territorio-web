@@ -27,8 +27,13 @@ export function usePlayerOverview() {
   }
 
   const teams = computed(() => overview.value?.teams ?? [])
+  const formerTeams = computed(() => overview.value?.formerTeams ?? [])
   const matches = computed(() => overview.value?.matches ?? [])
   const stats = computed(() => overview.value?.stats ?? null)
+  const matchStats = computed(() => overview.value?.matchStats ?? [])
+  const activeSanctions = computed(() => overview.value?.activeSanctions ?? [])
+  const isSuspendedNextMatch = computed(() => Boolean(overview.value?.isSuspendedNextMatch))
+  const suspendedReason = computed(() => overview.value?.suspendedReason ?? null)
 
   // Which of my teams plays this match
   const myTeamIn = match => teams.value.find(t => t.team.id === match.homeTeamId || t.team.id === match.awayTeamId)
@@ -43,5 +48,21 @@ export function usePlayerOverview() {
     return (s[key] / s.gamesPlayed).toFixed(1)
   }
 
-  return { overview, loading, error, load, teams, matches, stats, upcoming, myTeamIn, perGame }
+  return {
+    overview,
+    loading,
+    error,
+    load,
+    teams,
+    formerTeams,
+    matches,
+    stats,
+    matchStats,
+    activeSanctions,
+    isSuspendedNextMatch,
+    suspendedReason,
+    upcoming,
+    myTeamIn,
+    perGame
+  }
 }

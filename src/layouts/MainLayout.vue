@@ -75,6 +75,16 @@
                   <p class="m-0 text-body-sm text-on-surface-variant">{{ n.message }}</p>
                 </button>
               </div>
+
+              <div class="mt-space-xs border-t border-outline-variant/40 pt-space-xs text-center">
+                <router-link
+                  to="/app/notifications"
+                  class="btn-ghost block w-full py-1 text-center text-body-sm text-secondary no-underline"
+                  @click="notifDetails && (notifDetails.open = false)"
+                >
+                  Ver todas las notificaciones
+                </router-link>
+              </div>
             </div>
           </details>
 
