@@ -163,6 +163,7 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
 import playersService from '@/services/players'
@@ -175,6 +176,7 @@ import StatusChip from '@/components/ui/StatusChip.vue'
 const toast = useToast()
 const confirm = useConfirm()
 const authStore = useAuthStore()
+const route = useRoute()
 
 const CATEGORIES = {
   OPEN: 'Libre',
@@ -281,5 +283,13 @@ const cancelRequest = async req => {
   }
 }
 
-onMounted(() => Promise.all([loadRecruiting(), loadMyRequests()]))
+onMounted(async () => {
+  await Promise.all([loadRecruiting(), loadMyRequests()])
+  // ?equipo=<id> comes from the public team list: open that team's form right away
+  const target = teams.value.find(t => t.id === route.query.equipo)
+  if (target && !hasPendingRequestFor(target.id) && target.captain?.id !== authStore.user?.id) {
+    openApplyForm(target)
+    requestAnimationFrame(() => document.getElementById('pos-' + target.id)?.scrollIntoView({ block: 'center' }))
+  }
+})
 </script>

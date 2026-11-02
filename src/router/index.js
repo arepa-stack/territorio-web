@@ -55,6 +55,19 @@ const routes = [
     ]
   },
   {
+    // Public browsing: no account needed to find a tournament or a team
+    path: '/torneos',
+    name: 'PublicTournaments',
+    component: () => import('@/views/tournaments/PublicTournamentsView.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/equipos',
+    name: 'PublicRecruiting',
+    component: () => import('@/views/teams/PublicRecruitingView.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/torneo/:id',
     name: 'PublicTournament',
     component: () => import('@/views/tournaments/PublicTournamentView.vue'),

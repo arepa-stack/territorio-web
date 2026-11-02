@@ -9,6 +9,10 @@
         </span>
       </router-link>
       <div class="flex items-center gap-space-xs">
+        <nav class="hidden items-center gap-space-md sm:flex" aria-label="Explorar">
+          <router-link to="/torneos" class="label-tactical text-on-surface-variant no-underline hover:text-primary">Torneos</router-link>
+          <router-link to="/equipos" class="label-tactical text-on-surface-variant no-underline hover:text-primary">Equipos</router-link>
+        </nav>
         <button
           type="button"
           class="flex h-11 w-11 cursor-pointer items-center justify-center rounded border-0 bg-transparent text-on-surface-variant hover:text-primary"

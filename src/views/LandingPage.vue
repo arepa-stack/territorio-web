@@ -11,12 +11,13 @@
             Compite por <span class="text-primary-container">tu zona</span>
           </h1>
           <p class="m-0 max-w-[52ch] text-body-md text-on-surface-variant md:text-[17px] md:leading-7">
-            Los equipos de barrio juegan torneos en las canchas de su zona. El que más torneos gana en una zona se convierte en su dueño.
+            Encuentra torneos en las canchas de tu zona, súmate a un equipo o inscribe el tuyo. Tus puntos, rebotes y asistencias quedan registrados partido a partido.
           </p>
           <div class="flex flex-col gap-space-sm sm:flex-row">
-            <router-link to="/auth/register" class="btn-primary">Crear cuenta</router-link>
-            <a href="#torneos" class="btn-secondary">Ver torneos</a>
+            <router-link to="/torneos" class="btn-primary"><span class="icon">search</span> Buscar torneos</router-link>
+            <router-link to="/equipos" class="btn-secondary"><span class="icon">person_search</span> Busco equipo</router-link>
           </div>
+          <p class="m-0 text-body-sm text-on-surface-variant">Ver torneos y equipos no requiere cuenta.</p>
         </div>
         <div class="hidden h-[360px] md:block">
           <Basketball3D />
@@ -24,48 +25,31 @@
       </section>
 
       <!-- Open tournaments -->
-      <section id="torneos" class="scroll-mt-20">
-        <SectionHeader title="Inscripciones abiertas" icon="emoji_events" />
+      <section>
+        <SectionHeader title="Inscripciones abiertas" icon="emoji_events">
+          <router-link to="/torneos" class="text-body-sm text-primary">Ver todos los torneos</router-link>
+        </SectionHeader>
         <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando torneos…</p>
-        <p v-else-if="!open.length" class="text-body-md text-on-surface-variant">No hay torneos con inscripciones abiertas en este momento.</p>
-        <div class="grid gap-space-md md:grid-cols-2 lg:grid-cols-3">
-          <article v-for="t in open" :key="t.id" class="card flex flex-col gap-space-md p-space-md">
-            <div class="flex items-start justify-between gap-space-sm">
-              <h3 class="m-0 font-headline-md text-headline-md uppercase">{{ t.name }}</h3>
-              <StatusChip :status="t.status" />
-            </div>
-            <div class="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-              <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ t.location }}</span>
-              <span class="flex items-center gap-space-xs">
-                <span class="icon text-[18px]">calendar_month</span>{{ formatDate(t.startDate) }} – {{ formatDate(t.endDate) }}
-              </span>
-              <span class="flex items-center gap-space-xs">
-                <span class="icon text-[18px]">payments</span>Inscripción
-                <span class="font-stat-mono text-on-surface">{{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}</span>
-              </span>
-            </div>
-            <div>
-              <div class="mb-1 flex justify-between">
-                <span class="label-tactical text-on-surface-variant">Cupos</span>
-                <span class="font-stat-mono text-stat-mono tabular">{{ t.registeredTeams }}/{{ t.maxTeams }}</span>
-              </div>
-              <div class="h-1.5 overflow-hidden rounded-full bg-surface-container-highest">
-                <div class="h-full bg-secondary-container" :style="{ width: Math.min(100, (t.registeredTeams / t.maxTeams) * 100) + '%' }" />
-              </div>
-            </div>
-            <router-link :to="`/torneo/${t.id}`" class="btn-secondary mt-auto">Ver torneo</router-link>
-          </article>
+        <div v-else-if="!tournaments.length" class="card flex flex-col gap-space-sm p-space-lg">
+          <p class="m-0 text-body-md text-on-surface-variant">No hay torneos con inscripciones abiertas ahora mismo.</p>
+          <router-link to="/torneos?estado=IN_PROGRESS" class="btn-secondary self-start">Ver torneos en curso</router-link>
+        </div>
+        <div v-else class="grid gap-space-md md:grid-cols-2 lg:grid-cols-3">
+          <TournamentCard v-for="t in tournaments" :key="t.id" :tournament="t" />
         </div>
       </section>
 
-      <!-- How it works: one card per role -->
+      <!-- One path per profile -->
       <section>
-        <SectionHeader title="Cómo funciona" icon="sports" />
+        <SectionHeader title="¿Cómo quieres jugar?" icon="sports" />
         <div class="grid gap-space-md md:grid-cols-3">
-          <article v-for="r in roles" :key="r.title" class="card flex flex-col gap-space-sm p-space-lg">
+          <article v-for="r in paths" :key="r.title" class="card flex flex-col gap-space-sm p-space-lg">
             <span class="icon text-[32px] text-primary-container">{{ r.icon }}</span>
             <h3 class="m-0 font-headline-md text-headline-md uppercase">{{ r.title }}</h3>
-            <p class="m-0 text-body-md text-on-surface-variant">{{ r.text }}</p>
+            <ul class="m-0 flex flex-col gap-1 pl-5 text-body-md text-on-surface-variant">
+              <li v-for="s in r.steps" :key="s">{{ s }}</li>
+            </ul>
+            <router-link :to="r.to" class="btn-secondary mt-auto">{{ r.cta }}</router-link>
           </article>
         </div>
       </section>
@@ -75,6 +59,8 @@
       <div class="mx-auto flex max-w-[1200px] flex-col gap-space-sm px-gutter py-space-xl text-body-sm text-on-surface-variant md:flex-row md:justify-between md:px-margin-md">
         <span>Basketball MVP · CCS Streetball</span>
         <span class="flex gap-space-md">
+          <router-link to="/torneos" class="text-on-surface-variant no-underline hover:text-primary">Torneos</router-link>
+          <router-link to="/equipos" class="text-on-surface-variant no-underline hover:text-primary">Equipos</router-link>
           <router-link to="/auth/login" class="text-on-surface-variant no-underline hover:text-primary">Iniciar sesión</router-link>
           <router-link to="/auth/register" class="text-on-surface-variant no-underline hover:text-primary">Crear cuenta</router-link>
         </span>
@@ -84,23 +70,39 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import tournamentsService from '@/services/tournaments'
 import Basketball3D from '@/components/Basketball3D.vue'
 import PublicHeader from '@/components/PublicHeader.vue'
-import StatusChip from '@/components/ui/StatusChip.vue'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
+import TournamentCard from '@/components/tournament/TournamentCard.vue'
 
-const roles = [
-  { icon: 'emoji_events', title: 'Organizador', text: 'Crea torneos en una cancha de tu zona, aprueba a los equipos y genera el fixture.' },
-  { icon: 'groups', title: 'Capitán', text: 'Arma tu equipo fichando jugadores por cédula e inscríbelo en los torneos.' },
-  { icon: 'sports_basketball', title: 'Jugador', text: 'Sigue tu calendario, tus equipos y tus estadísticas partido a partido.' }
+const paths = [
+  {
+    icon: 'sports_basketball',
+    title: 'Busco equipo',
+    steps: ['Mira qué equipos buscan jugadores', 'Crea tu cuenta de jugador', 'Postúlate y el capitán te acepta'],
+    cta: 'Ver equipos que buscan jugadores',
+    to: '/equipos'
+  },
+  {
+    icon: 'groups',
+    title: 'Tengo equipo',
+    steps: ['Elige un torneo con cupos', 'Crea tu cuenta de capitán', 'Ficha a tu gente e inscríbete'],
+    cta: 'Elegir torneo',
+    to: '/torneos'
+  },
+  {
+    icon: 'emoji_events',
+    title: 'Organizo torneos',
+    steps: ['Crea el torneo en una cancha de tu zona', 'Aprueba equipos y pagos', 'Genera el fixture y carga resultados'],
+    cta: 'Crear cuenta de organizador',
+    to: { path: '/auth/register', query: { role: 'ORGANIZER' } }
+  }
 ]
 
 const tournaments = ref([])
 const loading = ref(true)
-const open = computed(() => tournaments.value.filter(t => t.status === 'REGISTRATION'))
-const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 
 onMounted(async () => {
   try {

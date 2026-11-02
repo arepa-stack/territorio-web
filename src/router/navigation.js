@@ -55,3 +55,7 @@ export const NAV_BY_ROLE = {
   REFEREE: [tournaments, courts],
   MODERATOR: [tournaments, courts]
 }
+
+// Public CTAs: a visitor signs up with the right role and comes back to `redirect`; a logged-in user goes straight there
+export const ctaLink = (isAuthenticated, role, redirect) =>
+  isAuthenticated ? redirect : { path: '/auth/register', query: { role, redirect } }

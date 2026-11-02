@@ -103,11 +103,13 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useAuthStore } from '@/stores/auth'
 
 const toast = useToast()
 const authStore = useAuthStore()
+const route = useRoute()
 
 // Referee, moderator and admin are assigned by an admin (the API rejects them here)
 const roles = [
@@ -123,8 +125,9 @@ const positions = [
   { value: 'PIVOT', label: 'Pívot' }
 ]
 
+// ?role=TEAM_CAPTAIN preselects the account type (public CTAs link here)
 const form = reactive({
-  role: 'PLAYER',
+  role: roles.some(r => r.value === route.query.role) ? route.query.role : 'PLAYER',
   fullName: '',
   email: '',
   ci: '',

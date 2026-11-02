@@ -3,7 +3,7 @@
     <PublicHeader />
 
     <main class="mx-auto flex max-w-[1200px] flex-col gap-space-lg px-gutter py-space-lg md:px-margin-md">
-      <router-link to="/" class="btn-ghost self-start px-0"><span class="icon">arrow_back</span> Inicio</router-link>
+      <router-link to="/torneos" class="btn-ghost self-start px-0"><span class="icon">arrow_back</span> Torneos</router-link>
 
       <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando torneo…</p>
       <p v-else-if="!tournament" class="text-body-md text-on-surface-variant">No encontramos este torneo.</p>
@@ -37,14 +37,28 @@
               <div class="h-full bg-secondary-container" :style="{ width: Math.min(100, (tournament.registeredTeams / tournament.maxTeams) * 100) + '%' }" />
             </div>
           </div>
-          <router-link
-            v-if="tournament.status === 'REGISTRATION'"
-            :to="authStore.userRole === 'TEAM_CAPTAIN' ? '/app/tournaments' : '/auth/register'"
-            class="btn-primary self-start"
-          >
-            <span class="icon">how_to_reg</span> Inscribir mi equipo
-          </router-link>
+          <div v-if="showTeamCta || showPlayerCta" class="flex flex-col gap-space-sm sm:flex-row">
+            <router-link v-if="showTeamCta" :to="ctaLink(authStore.isAuthenticated, 'TEAM_CAPTAIN', '/app/tournaments')" class="btn-primary">
+              <span class="icon">how_to_reg</span> Inscribir mi equipo
+            </router-link>
+            <a v-if="showPlayerCta && recruitingHere.length" href="#buscan-jugadores" class="btn-secondary">
+              <span class="icon">person_search</span> Quiero jugar aquí ({{ recruitingHere.length }} {{ recruitingHere.length === 1 ? 'equipo busca' : 'equipos buscan' }} jugadores)
+            </a>
+            <router-link v-else-if="showPlayerCta" :to="ctaLink(authStore.isAuthenticated, 'PLAYER', '/app/player/recruiting')" class="btn-secondary">
+              <span class="icon">person_search</span> No tengo equipo
+            </router-link>
+          </div>
+          <p v-if="!authStore.isAuthenticated" class="m-0 text-body-sm text-on-surface-variant">
+            Para inscribirte o postularte necesitas una cuenta; al crearla vuelves directo a este paso.
+          </p>
         </header>
+
+        <section v-if="showPlayerCta && recruitingHere.length" id="buscan-jugadores" class="scroll-mt-20">
+          <h2 class="m-0 mb-space-sm font-headline-md text-headline-md uppercase">Equipos de este torneo que buscan jugadores</h2>
+          <div class="grid gap-space-md md:grid-cols-2 lg:grid-cols-3">
+            <RecruitingTeamCard v-for="t in recruitingHere" :key="t.id" :team="t" />
+          </div>
+        </section>
 
         <div class="flex gap-space-xs overflow-x-auto border-0 border-b border-solid border-outline-variant/40" role="tablist">
           <button
@@ -118,6 +132,9 @@ import PublicHeader from '@/components/PublicHeader.vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import FixtureList from '@/components/tournament/FixtureList.vue'
 import StandingsTable from '@/components/tournament/StandingsTable.vue'
+import RecruitingTeamCard from '@/components/tournament/RecruitingTeamCard.vue'
+import teamsService from '@/services/teams'
+import { ctaLink } from '@/router/navigation'
 
 const CATEGORIES = {
   OPEN: 'Libre', SUB_13: 'Sub-13', SUB_15: 'Sub-15', SUB_17: 'Sub-17', SUB_19: 'Sub-19',
@@ -146,6 +163,20 @@ const standings = ref([])
 const leaders = ref({ points: [], rebounds: [], assists: [], threePointers: [] })
 const loading = ref(true)
 const tab = ref('standings')
+const recruiting = ref([])
+
+// Visitors see every CTA; logged-in users only the ones their role can act on
+const role = computed(() => authStore.userRole)
+const showTeamCta = computed(
+  () => tournament.value?.status === 'REGISTRATION' && (!authStore.isAuthenticated || role.value === 'TEAM_CAPTAIN')
+)
+const showPlayerCta = computed(
+  () => ['REGISTRATION', 'IN_PROGRESS'].includes(tournament.value?.status) && (!authStore.isAuthenticated || ['PLAYER', 'TEAM_CAPTAIN'].includes(role.value))
+)
+const recruitingHere = computed(() => {
+  const inTournament = new Set(standings.value.map(s => s.teamId))
+  return recruiting.value.filter(t => inTournament.has(t.id) && t.captain?.id !== authStore.user?.id)
+})
 
 const categoryLabel = computed(() => CATEGORIES[tournament.value?.category] || tournament.value?.category)
 const venueLabel = computed(() => {
@@ -157,11 +188,12 @@ const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 
 onMounted(async () => {
   const id = route.params.id
-  const [t, m, s, l] = await Promise.allSettled([
+  const [t, m, s, l, rec] = await Promise.allSettled([
     tournamentsService.getById(id),
     matchesService.getByTournament(id),
     matchesService.getStandings(id),
-    tournamentsService.getLeaders(id)
+    tournamentsService.getLeaders(id),
+    teamsService.getRecruitingTeams()
   ])
   tournament.value = t.status === 'fulfilled' ? t.value.data : null
   matches.value = m.status === 'fulfilled' ? m.value.data.matches || [] : []
@@ -169,6 +201,7 @@ onMounted(async () => {
   if (l.status === 'fulfilled' && l.value.data) {
     leaders.value = l.value.data
   }
+  recruiting.value = rec.status === 'fulfilled' ? rec.value.data || [] : []
   loading.value = false
 })
 </script>
