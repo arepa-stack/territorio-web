@@ -15,7 +15,6 @@
         "axios": "^1.6.7",
         "leaflet": "^1.9.4",
         "pinia": "^2.1.7",
-        "three": "^0.182.0",
         "vue": "^3.4.15",
         "vue-router": "^4.2.5",
         "vue-toastification": "^2.0.0-rc.5"

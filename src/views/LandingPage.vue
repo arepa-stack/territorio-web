@@ -8,7 +8,7 @@
       <div class="absolute inset-0 -z-10 bg-gradient-to-r from-surface via-surface/85 to-surface/30" />
       <div class="absolute inset-0 -z-10 bg-gradient-to-t from-surface via-transparent to-transparent" />
 
-      <div class="mx-auto grid max-w-[1200px] items-center gap-space-xl px-gutter pb-margin-lg pt-margin-lg md:grid-cols-[1.3fr_1fr] md:px-margin-md md:pt-[96px]">
+      <div class="mx-auto max-w-[1200px] px-gutter pb-margin-lg pt-margin-lg md:px-margin-md md:pt-[96px]">
         <div class="flex flex-col gap-space-lg">
           <span class="label-tactical flex items-center gap-space-xs self-start rounded border border-solid border-primary-container/50 bg-primary-container/15 px-space-sm py-1 text-primary">
             <span class="h-2 w-2 animate-pulse rounded-full bg-primary-container" /> Temporada {{ year }} · Caracas
@@ -24,9 +24,6 @@
             <router-link to="/equipos" class="btn-secondary"><span class="icon">person_search</span> Busco equipo</router-link>
           </div>
           <p class="m-0 text-body-sm text-on-surface-variant">Mirar torneos y equipos es gratis y no requiere cuenta.</p>
-        </div>
-        <div class="hidden h-[360px] md:block">
-          <Basketball3D />
         </div>
       </div>
 
@@ -196,7 +193,6 @@ import tournamentsService from '@/services/tournaments'
 import { useAuthStore } from '@/stores/auth'
 import { ctaLink } from '@/router/navigation'
 import { formatDay } from '@/utils/labels'
-import Basketball3D from '@/components/Basketball3D.vue'
 import PublicHeader from '@/components/PublicHeader.vue'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
 import TournamentCard from '@/components/tournament/TournamentCard.vue'
