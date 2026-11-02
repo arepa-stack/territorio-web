@@ -84,6 +84,28 @@
           </div>
           <p class="m-0 text-body-md">{{ zoneForm.description }}</p>
           <p class="m-0 font-stat-mono text-stat-mono text-on-surface-variant">Radio {{ formatRadius(zoneForm.radius) }}</p>
+          <template v-if="standingOf(zoneForm)">
+            <div v-if="standingOf(zoneForm).champion" class="rounded border border-solid border-secondary-container/40 bg-surface-container-low p-space-md shadow-[0_0_16px_rgba(245,158,11,0.2)]">
+              <span class="label-tactical flex items-center gap-1 text-on-surface-variant"><span class="icon icon-fill text-[16px] text-secondary-container">crown</span> Campeón actual</span>
+              <p class="m-0 truncate font-headline-md text-headline-md uppercase text-secondary">{{ standingOf(zoneForm).champion.teamName }}</p>
+              <router-link :to="`/torneo/${standingOf(zoneForm).champion.tournamentId}`" class="text-body-sm text-on-surface-variant hover:text-primary">
+                Ganó {{ standingOf(zoneForm).champion.tournamentName }}
+              </router-link>
+            </div>
+            <p v-else class="m-0 rounded border border-dashed border-secondary-container/50 p-space-md text-body-sm text-on-surface-variant">Trono vacío: nadie ha ganado un torneo aquí todavía.</p>
+            <h3 class="label-tactical m-0 text-on-surface-variant">Equipos participantes ({{ standingOf(zoneForm).participants.length }})</h3>
+            <p v-if="!standingOf(zoneForm).participants.length" class="m-0 text-body-sm text-on-surface-variant">Ningún equipo ha jugado en esta zona.</p>
+            <ol v-else class="m-0 flex list-none flex-col gap-1 p-0">
+              <li v-for="team in standingOf(zoneForm).participants" :key="team.teamId" class="flex items-center gap-space-sm rounded bg-surface-container-low px-space-sm py-space-xs">
+                <span v-if="team.teamId === standingOf(zoneForm).ownerTeamId" class="icon icon-fill text-[18px] text-secondary-container" title="Dueño de la zona">crown</span>
+                <span v-else class="icon text-[18px] text-on-surface-variant">shield</span>
+                <span class="min-w-0 flex-1 truncate text-body-md" :class="{ 'text-secondary': team.titles }">{{ team.teamName }}</span>
+                <span class="whitespace-nowrap font-stat-mono text-stat-mono" :class="team.titles ? 'text-secondary' : 'text-on-surface-variant'">
+                  {{ team.titles }} <span class="icon icon-fill align-[-3px] text-[14px]">trophy</span>
+                </span>
+              </li>
+            </ol>
+          </template>
           <h3 class="label-tactical m-0 text-on-surface-variant">Canchas ({{ zoneForm.venues.length }})</h3>
           <p v-if="!zoneForm.venues.length" class="m-0 text-body-sm text-on-surface-variant">Esta zona aún no tiene canchas.</p>
           <button
@@ -199,6 +221,9 @@
               <span class="min-w-0 flex-1">
                 <span class="block truncate font-title-sm text-title-sm">{{ zone.name }}</span>
                 <span class="block font-stat-mono text-[12px] text-on-surface-variant">{{ formatRadius(zone.radius) }} · {{ zone.venues.length }} cancha(s)</span>
+                <span v-if="standingOf(zone)?.champion" class="flex items-center gap-1 truncate text-body-sm text-secondary">
+                  <span class="icon icon-fill text-[14px]">crown</span>{{ standingOf(zone).champion.teamName }}
+                </span>
               </span>
             </button>
             <button
@@ -226,6 +251,7 @@ import 'leaflet/dist/leaflet.css'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import zonesService from '@/services/zones'
+import tournamentsService from '@/services/tournaments'
 import venuesService from '@/services/venues'
 import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
@@ -252,6 +278,7 @@ const formError = ref('')
 const saving = ref(false)
 const drawing = ref(false) // true between the center click and the click that fixes the radius
 const venueTournaments = ref([])
+const standings = ref({}) // zoneId -> champion, participants and titles
 const loadingTournaments = ref(false)
 
 // A tournament is active while it takes registrations or is being played
@@ -266,6 +293,7 @@ let draft = null
 
 const formatRadius = m => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`)
 const selectedZone = computed(() => zoneForm.value || venueForm.value)
+const standingOf = zone => standings.value[zone?.id]
 const venueZone = computed(() => zones.value.find(z => z.id === venueForm.value?.zoneId))
 
 const hint = computed(() => {
@@ -283,6 +311,17 @@ const label = text => {
     return el
 }
 
+// Zone name plus its current champion, always visible on the map
+const zoneLabel = zone => {
+    const el = document.createElement('span')
+    el.append(label(zone.name))
+    const champion = standingOf(zone)?.champion
+    const sub = label(champion ? `👑 ${champion.teamName}` : 'En disputa')
+    sub.className = champion ? 'champion' : 'contested'
+    el.append(sub)
+    return el
+}
+
 const draw = () => {
     layers.clearLayers()
     zones.value.forEach(zone => {
@@ -295,7 +334,7 @@ const draw = () => {
             fillOpacity: selected ? 0.35 : 0.2,
             weight: selected ? 4 : 2
         })
-            .bindTooltip(label(zone.name))
+            .bindTooltip(zoneLabel(zone), { permanent: true, direction: 'center', className: 'zone-label' })
             .on('click', e => {
                 // While placing or editing, let the click bubble to the map to set the point
                 if (canEdit.value && (mode.value || zoneForm.value || venueForm.value)) return
@@ -442,7 +481,11 @@ const cancel = () => {
 
 const load = async () => {
     try {
-        const res = await zonesService.getAll()
+        const [res, standingsRes] = await Promise.all([
+            zonesService.getAll(),
+            tournamentsService.getZoneStandings().catch(() => ({ data: [] })) // the map still works without it
+        ])
+        standings.value = Object.fromEntries((standingsRes.data || []).map(s => [s.id, s]))
         zones.value = (res.data?.data || []).filter(z => z.isActive)
         draw()
     } catch (error) {
@@ -531,6 +574,41 @@ onBeforeUnmount(() => map?.remove())
 .map.picking,
 .map.picking :deep(.leaflet-container) {
     cursor: crosshair;
+}
+
+:deep(.zone-label) {
+    text-align: center;
+    padding: 4px 10px;
+    border: 1px solid rgb(var(--c-secondary-container) / 0.6);
+    border-radius: 4px;
+    background: rgb(11 15 23 / 0.88);
+    box-shadow: 0 0 16px rgb(245 158 11 / 0.3);
+    color: #f8fafc;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.15;
+}
+
+:deep(.zone-label)::before {
+    display: none;
+}
+
+:deep(.zone-label .champion),
+:deep(.zone-label .contested) {
+    display: block;
+}
+
+:deep(.zone-label .champion) {
+    color: #f59e0b;
+    font-size: 16px;
+}
+
+:deep(.zone-label .contested) {
+    color: #ff7a3d;
+    font-size: 12px;
 }
 
 .pin {
