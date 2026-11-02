@@ -40,27 +40,11 @@
     <div class="grid gap-space-md md:grid-cols-2 xl:grid-cols-3">
       <article v-for="t in filtered" :key="t.id" class="card group flex flex-col gap-space-md overflow-hidden p-space-md">
         <!-- Cover: court photo bleeding to the card edges, title over a dark gradient -->
-        <div v-if="t.coverPhoto" class="relative -mx-space-md -mt-space-md h-48 overflow-hidden">
-          <img
-            :src="t.coverPhoto"
-            :alt="`Cancha de ${t.name}`"
-            loading="lazy"
-            class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          <div class="absolute inset-0 bg-gradient-to-t from-[rgba(11,15,23,0.95)] via-[rgba(11,15,23,0.35)] to-transparent" />
+        <TournamentCover :src="t.coverPhoto" :alt="`Cancha de ${t.name}`" class="-mx-space-md -mt-space-md h-48">
           <StatusChip :status="t.status" class="absolute right-space-sm top-space-sm" />
-          <div class="absolute inset-x-0 bottom-0 px-space-md pb-space-sm">
-            <span class="label-tactical text-secondary">{{ categoryLabel(t.category) }}</span>
-            <h2 class="m-0 font-headline-md text-headline-md uppercase text-white">{{ t.name }}</h2>
-          </div>
-        </div>
-        <div v-else class="flex items-start justify-between gap-space-sm">
-          <div class="min-w-0">
-            <span class="label-tactical text-secondary">{{ categoryLabel(t.category) }}</span>
-            <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ t.name }}</h2>
-          </div>
-          <StatusChip :status="t.status" />
-        </div>
+          <span class="label-tactical text-secondary">{{ categoryLabel(t.category) }}</span>
+          <h2 class="m-0 font-headline-md text-headline-md uppercase text-white">{{ t.name }}</h2>
+        </TournamentCover>
 
         <div class="flex flex-col gap-1 text-body-sm text-on-surface-variant">
           <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ t.location }}</span>
@@ -171,6 +155,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePlayerOverview } from '@/composables/usePlayerOverview'
 import { useConfirm } from '@/composables/useConfirm'
 import StatusChip from '@/components/ui/StatusChip.vue'
+import TournamentCover from '@/components/tournament/TournamentCover.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
 import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
 import PaymentDialog from '@/components/tournament/PaymentDialog.vue'

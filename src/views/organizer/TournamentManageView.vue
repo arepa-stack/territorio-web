@@ -8,13 +8,18 @@
 
     <template v-else-if="tournament">
       <!-- Header -->
-      <header class="card flex flex-col gap-space-md p-space-lg">
-        <div class="flex flex-wrap items-start justify-between gap-space-sm">
-          <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">
+      <header class="card flex flex-col gap-space-md overflow-hidden p-space-lg">
+        <TournamentCover :src="tournament.coverPhoto" :alt="`Cancha de ${tournament.name}`" class="-mx-space-lg -mt-space-lg h-48 md:h-64">
+          <StatusChip :status="tournament.status" class="absolute right-space-md top-space-md" />
+          <label class="btn-secondary absolute left-space-md top-space-md cursor-pointer bg-surface/80 py-1 text-body-sm">
+            <span class="icon text-[18px]">photo_camera</span>
+            {{ uploadingBanner ? 'Subiendo…' : tournament.coverPhoto ? 'Cambiar portada' : 'Subir foto de la cancha' }}
+            <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" :disabled="uploadingBanner" @change="changeBanner" />
+          </label>
+          <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase text-white md:font-headline-lg md:text-headline-lg">
             {{ tournament.name }}
           </h1>
-          <StatusChip :status="tournament.status" />
-        </div>
+        </TournamentCover>
         <div class="flex flex-wrap gap-x-space-lg gap-y-1 text-body-sm text-on-surface-variant">
           <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ tournament.location }}</span>
           <span class="flex items-center gap-space-xs">
@@ -316,6 +321,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
+import TournamentCover from '@/components/tournament/TournamentCover.vue'
 import matchesService from '@/services/matches'
 import usersService from '@/services/users'
 import StatusChip from '@/components/ui/StatusChip.vue'
@@ -343,6 +349,23 @@ const tab = ref('registrations')
 const loading = ref(true)
 const busy = ref(false)
 const tournament = ref(null)
+const uploadingBanner = ref(false)
+
+const changeBanner = async e => {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  uploadingBanner.value = true
+  try {
+    const { data } = await tournamentsService.uploadBanner(file)
+    tournament.value = { ...tournament.value, ...(await tournamentsService.setBanner(tournament.value.id, data.url)).data }
+    toast.success('Portada actualizada')
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo subir la portada'))
+  } finally {
+    uploadingBanner.value = false
+  }
+}
 const registrations = ref([])
 const matches = ref([])
 const standings = ref([])

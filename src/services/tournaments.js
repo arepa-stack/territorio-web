@@ -51,6 +51,19 @@ const tournamentsService = {
         return await api.get(`/tournaments/${tournamentId}/players`)
     },
 
+    // Court photo used as the tournament cover; returns { url }
+    async uploadBanner(file) {
+        const formData = new FormData()
+        formData.append('file', file)
+        return await api.post('/uploads/tournament-banner', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        })
+    },
+
+    async setBanner(tournamentId, bannerUrl) {
+        return await api.patch(`/tournaments/${tournamentId}/banner`, { bannerUrl })
+    },
+
     // Get tournament statistical leaders (Public)
     async getLeaders(tournamentId) {
         return await api.get(`/tournaments/${tournamentId}/leaders`)

@@ -9,14 +9,12 @@
       <p v-else-if="!tournament" class="text-body-md text-on-surface-variant">No encontramos este torneo.</p>
 
       <template v-else>
-        <header class="card flex flex-col gap-space-md p-space-lg">
-          <div class="flex flex-wrap items-start justify-between gap-space-sm">
-            <div>
-              <span class="label-tactical text-secondary">{{ categoryLabel }}</span>
-              <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">{{ tournament.name }}</h1>
-            </div>
-            <StatusChip :status="tournament.status" />
-          </div>
+        <header class="card flex flex-col gap-space-md overflow-hidden p-space-lg">
+          <TournamentCover :src="tournament.coverPhoto" :alt="`Cancha de ${tournament.name}`" class="-mx-space-lg -mt-space-lg h-56 md:h-80">
+            <StatusChip :status="tournament.status" class="absolute right-space-md top-space-md" />
+            <span class="label-tactical text-secondary">{{ categoryLabel }}</span>
+            <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase text-white md:font-headline-lg md:text-headline-lg">{{ tournament.name }}</h1>
+          </TournamentCover>
           <p v-if="tournament.description" class="m-0 max-w-[65ch] text-body-md text-on-surface-variant">{{ tournament.description }}</p>
           <div class="flex flex-wrap gap-x-space-lg gap-y-1 text-body-sm text-on-surface-variant">
             <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ venueLabel }}</span>
@@ -130,6 +128,7 @@ import matchesService from '@/services/matches'
 import { useAuthStore } from '@/stores/auth'
 import PublicHeader from '@/components/PublicHeader.vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
+import TournamentCover from '@/components/tournament/TournamentCover.vue'
 import FixtureList from '@/components/tournament/FixtureList.vue'
 import StandingsTable from '@/components/tournament/StandingsTable.vue'
 import RecruitingTeamCard from '@/components/tournament/RecruitingTeamCard.vue'

@@ -187,6 +187,14 @@
                             :options="availableVenues.map(v => ({ value: v.id, label: v.name }))"
                             :empty="formData.zoneIds.length ? 'No hay canchas en las zonas elegidas.' : 'No hay canchas.'"
                         />
+                        <div class="flex flex-col gap-space-xs">
+                            <span class="field-label">Foto de portada {{ venueCover ? '(opcional)' : '*' }}</span>
+                            <img v-if="bannerPreview" :src="bannerPreview" alt="Portada del torneo" class="aspect-video w-full rounded object-cover" />
+                            <p class="m-0 text-body-sm text-on-surface-variant">
+                                {{ venueCover ? 'Usaremos la foto de la cancha elegida; sube otra si prefieres.' : 'Sube una foto de la cancha: es lo primero que ven los jugadores.' }}
+                            </p>
+                            <input id="t-banner" type="file" accept="image/jpeg,image/png,image/webp" class="input" @change="onBannerSelected" />
+                        </div>
                         <div>
                             <label class="field-label" for="t-location">Ubicación general *</label>
                             <input id="t-location" v-model.trim="formData.location" class="input" placeholder="Cancha La Paz, Caracas" />
@@ -317,6 +325,8 @@ const isLoading = ref(false)
 const filterStatus = ref('ALL')
 const showDialog = ref(false)
 const isSaving = ref(false)
+const bannerFile = ref(null)
+const bannerFilePreview = ref('')
 const isLoadingOptions = ref(false)
 const formError = ref('')
 
@@ -436,8 +446,21 @@ watch(() => formData.value.zoneIds, () => {
     formData.value.venueIds = formData.value.venueIds.filter(id => allowed.has(id))
 })
 
+// First photo of a selected venue; a tournament needs it or an uploaded cover
+const venueCover = computed(() =>
+    venues.value.filter(v => formData.value.venueIds?.includes(v.id)).flatMap(v => v.photos || [])[0] || ''
+)
+const bannerPreview = computed(() => bannerFilePreview.value || venueCover.value)
+const onBannerSelected = e => {
+    const file = e.target.files?.[0] || null
+    if (bannerFilePreview.value) URL.revokeObjectURL(bannerFilePreview.value)
+    bannerFile.value = file
+    bannerFilePreview.value = file ? URL.createObjectURL(file) : ''
+}
+
 const validateForm = () => {
     const f = formData.value
+    if (!bannerFile.value && !venueCover.value) return 'Sube una foto de portada o elige una cancha que tenga fotos.'
     if (!f.name) return 'Escribe el nombre del torneo.'
     if (!f.startDate || !f.endDate) return 'Elige las fechas de inicio y fin.'
     if (new Date(f.endDate) <= new Date(f.startDate)) return 'La fecha de fin debe ser posterior a la de inicio.'
@@ -473,6 +496,7 @@ const createTournament = async (prefill = {}) => {
         venueIds: [],
         refereeIds: []
     }
+    onBannerSelected({ target: {} })
     showDialog.value = true
     await fetchOptions()
     // Set after options load so the zone watcher doesn't discard the prefilled venue
@@ -550,6 +574,9 @@ const saveTournament = async () => {
             zoneIds: formData.value.zoneIds && formData.value.zoneIds.length > 0 ? formData.value.zoneIds : undefined,
             venueIds: formData.value.venueIds && formData.value.venueIds.length > 0 ? formData.value.venueIds : undefined,
             refereeIds: formData.value.refereeIds && formData.value.refereeIds.length > 0 ? formData.value.refereeIds : undefined,
+        }
+        if (bannerFile.value) {
+            payload.bannerUrl = (await tournamentsService.uploadBanner(bannerFile.value)).data.url
         }
 
         await tournamentsService.create(payload)
