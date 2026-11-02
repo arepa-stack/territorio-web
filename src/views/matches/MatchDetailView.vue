@@ -88,6 +88,10 @@
       <!-- Comments -->
       <section>
         <SectionHeader title="Comentarios" icon="forum" />
+        <p v-if="!commentsEnabled" class="card m-0 flex items-center gap-space-xs p-space-md text-body-md text-on-surface-variant">
+          <span class="icon">comments_disabled</span> Los comentarios están suspendidos temporalmente.
+        </p>
+        <template v-else>
         <form class="mb-space-md flex flex-col gap-space-xs" @submit.prevent="submitComment">
           <textarea v-model.trim="newComment" class="input" rows="2" maxlength="1000" placeholder="Comenta el partido con respeto" />
           <button type="submit" class="btn-secondary self-end" :disabled="postingComment || !newComment">
@@ -116,6 +120,7 @@
             </select>
           </div>
         </article>
+        </template>
       </section>
     </template>
   </div>
@@ -247,6 +252,7 @@ const REPORT_REASONS = {
   INAPPROPRIATE: 'Inapropiado'
 }
 const newComment = ref('')
+const commentsEnabled = ref(false)
 const postingComment = ref(false)
 
 const loadComments = async () => {
@@ -302,7 +308,8 @@ onMounted(async () => {
     match.value = m.data
     events.value = ev.data || []
     if (mine.data) myRatings.value = mine.data
-    await loadComments()
+    commentsEnabled.value = Boolean((await commentsService.getStatus().catch(() => ({ data: {} }))).data.enabled)
+    if (commentsEnabled.value) await loadComments()
   } catch (e) {
     toast.error(handleApiError(e, 'No se pudo cargar el partido'))
   } finally {

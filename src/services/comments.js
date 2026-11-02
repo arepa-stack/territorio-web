@@ -1,6 +1,10 @@
 import api from './api'
 
 const commentsService = {
+    async getStatus() {
+        return await api.get('/comments/status')
+    },
+
     async getForMatch(matchId) {
         return await api.get(`/comments/match/${matchId}`, { params: { limit: 50 } })
     },
