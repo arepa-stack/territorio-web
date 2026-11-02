@@ -1,0 +1,146 @@
+/* "Cartel de cancha" look for the public pages (landing, zone map). Design: Claude Design canvas "Landing Basketball MVP" */
+.poster {
+  --asphalt: #0d0d0b;
+  --asphalt-2: #141411;
+  --line: #2a2924;
+  --line-soft: #22211c;
+  --chalk: #ede8dc;
+  --chalk-dim: #d6d1c4;
+  --muted: #a8a397;
+  --blaze: #ff4f12;
+  --gold: #f5b21b;
+  --hot: #ff7a45;
+  min-height: 100vh;
+  background: var(--asphalt);
+  color: var(--chalk);
+  font-family: 'Archivo', sans-serif;
+}
+
+.poster a {
+  color: var(--chalk);
+}
+
+.poster a:hover {
+  color: var(--blaze);
+}
+
+.poster h1,
+.poster h2,
+.poster h3,
+.poster p {
+  margin: 0;
+}
+
+.wrap {
+  box-sizing: border-box;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+.display {
+  font-family: 'Anton', sans-serif;
+  font-weight: 400;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.mono {
+  font-family: 'Space Mono', monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.btn-blaze,
+.btn-line,
+.btn-ink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 16px 24px;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.poster .btn-blaze {
+  background: var(--blaze);
+  color: var(--asphalt);
+}
+
+.poster .btn-blaze:hover {
+  background: var(--chalk);
+  color: var(--asphalt);
+}
+
+.poster .btn-line {
+  border: 2px solid var(--chalk);
+  color: var(--chalk);
+}
+
+.poster .btn-line:hover {
+  border-color: var(--blaze);
+  color: var(--blaze);
+}
+
+.poster .btn-ink {
+  background: var(--asphalt);
+  color: var(--chalk);
+}
+
+.poster .btn-ink:hover {
+  background: var(--asphalt-2);
+  color: var(--blaze);
+}
+
+.link-under {
+  padding: 12px 0;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+
+/* Title bar of each zone panel: champion box, participants with title bars */
+.champ-box {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+  border: 2px solid var(--gold);
+  background: var(--asphalt);
+}
+
+.team-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.title-bar {
+  display: block;
+  height: 10px;
+}
+
+@media (max-width: 900px) {
+  .wrap {
+    padding: 0 16px;
+  }
+}

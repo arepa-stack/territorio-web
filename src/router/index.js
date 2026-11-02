@@ -68,6 +68,13 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    // Public zone map: zones, venues and tournament status only (no player data)
+    path: '/zonas',
+    name: 'PublicZoneMap',
+    component: () => import('@/views/zones/PublicZoneMapView.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/torneo/:id',
     name: 'PublicTournament',
     component: () => import('@/views/tournaments/PublicTournamentView.vue'),

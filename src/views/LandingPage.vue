@@ -1,231 +1,190 @@
 <template>
-  <div class="min-h-screen bg-surface font-body text-on-surface">
-    <PublicHeader />
+  <!-- Design: Claude Design canvas "Landing Basketball MVP" (cartel de cancha) -->
+  <div class="poster">
+    <PosterHeader />
 
-    <!-- Hero: full-bleed court photo (cover of an open tournament) under a dark gradient -->
-    <section class="relative isolate overflow-hidden">
-      <img v-if="heroPhoto" :src="heroPhoto" alt="" class="absolute inset-0 -z-10 h-full w-full object-cover" />
-      <div class="absolute inset-0 -z-10 bg-gradient-to-r from-surface via-surface/85 to-surface/30" />
-      <div class="absolute inset-0 -z-10 bg-gradient-to-t from-surface via-transparent to-transparent" />
-
-      <div class="mx-auto max-w-[1200px] px-gutter pb-margin-lg pt-margin-lg md:px-margin-md md:pt-[96px]">
-        <div class="flex flex-col gap-space-lg">
-          <span class="label-tactical flex items-center gap-space-xs self-start rounded border border-solid border-primary-container/50 bg-primary-container/15 px-space-sm py-1 text-primary">
-            <span class="h-2 w-2 animate-pulse rounded-full bg-primary-container" /> Temporada {{ year }} · Caracas
-          </span>
-          <h1 class="m-0 font-display-xl-mobile text-[44px] uppercase leading-[0.95] md:font-display-xl md:text-[80px]">
-            Tu barrio.<br />Tu cancha.<br /><span class="text-primary-container">Tu corona.</span>
-          </h1>
-          <p class="m-0 max-w-[52ch] text-body-md text-on-surface-variant md:text-[17px] md:leading-7">
-            Torneos en las canchas de tu zona, estadísticas de cada partido y equipos que buscan jugadores. Gana torneos y tu equipo se vuelve dueño de la zona.
-          </p>
-          <div class="flex flex-col gap-space-sm sm:flex-row">
-            <router-link to="/torneos" class="btn-primary"><span class="icon">search</span> Buscar torneo</router-link>
-            <router-link to="/equipos" class="btn-secondary"><span class="icon">person_search</span> Busco equipo</router-link>
-          </div>
-          <p class="m-0 text-body-sm text-on-surface-variant">Mirar torneos y equipos es gratis y no requiere cuenta.</p>
+    <!-- Hero: court photo in black and white under the headline -->
+    <section class="hero">
+      <img v-if="heroPhoto" :src="heroPhoto" alt="" class="hero__photo" />
+      <div class="hero__shade" />
+      <div class="wrap hero__body">
+        <p class="eyebrow hero__kicker">
+          <span class="text-blaze">Temporada {{ year }}</span><span>Caracas</span>
+          <span v-if="summary">{{ summary.stats.activeTournaments }} torneos en juego</span>
+        </p>
+        <h1 class="display hero__title">
+          <span>Tu barrio.</span><span>Tu cancha.</span><span class="text-blaze">Tu corona.</span>
+        </h1>
+        <p class="hero__lead">
+          Torneos en las canchas de tu zona, la planilla de cada partido y equipos que buscan jugadores. Gana en tu zona y tu equipo se queda con ella.
+        </p>
+        <div class="hero__ctas">
+          <router-link to="/torneos" class="btn-blaze hero__cta">
+            Buscar torneo
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+          </router-link>
+          <router-link to="/equipos" class="btn-line hero__cta">Busco equipo</router-link>
         </div>
-      </div>
-
-      <!-- Social proof: real counters -->
-      <div v-if="summary" class="mx-auto max-w-[1200px] px-gutter pb-margin-lg md:px-margin-md">
-        <dl class="m-0 grid grid-cols-2 gap-px overflow-hidden rounded border border-solid border-outline-variant/40 bg-outline-variant/40 md:grid-cols-4">
-          <div v-for="c in counters" :key="c.label" class="flex flex-col gap-1 bg-surface-container-low/90 p-space-md backdrop-blur">
-            <dt class="label-tactical order-2 text-on-surface-variant">{{ c.label }}</dt>
-            <dd class="m-0 font-scoreboard-num text-[32px] tabular text-on-surface md:text-[40px]">{{ c.value.toLocaleString('es-VE') }}</dd>
-          </div>
-        </dl>
+        <p class="mono hero__note">Mirar torneos, equipos y zonas es gratis. Sin cuenta.</p>
       </div>
     </section>
 
-    <main class="mx-auto flex max-w-[1200px] flex-col gap-margin-lg px-gutter pb-margin-lg md:px-margin-md">
-      <!-- Upcoming matches: broadcast-style strip -->
-      <section v-if="summary?.upcoming.length">
-        <SectionHeader title="Próximos partidos" icon="scoreboard" />
-        <div class="-mx-gutter flex snap-x gap-space-sm overflow-x-auto px-gutter pb-space-xs md:mx-0 md:px-0">
-          <router-link
-            v-for="m in summary.upcoming"
-            :key="m.id"
-            :to="`/torneo/${m.tournament.id}`"
-            class="card flex min-w-[240px] snap-start flex-col gap-space-xs p-space-md text-on-surface no-underline transition-colors hover:border-primary-container"
-          >
-            <span class="label-tactical flex items-center justify-between text-on-surface-variant">
-              <span class="capitalize">{{ formatDay(m.matchDate) }}</span>
-              <span class="font-stat-mono text-primary">{{ m.matchTime }}</span>
-            </span>
-            <span v-for="side in [m.homeTeam, m.awayTeam]" :key="side.id" class="flex items-center gap-space-xs font-title-sm text-title-sm">
-              <span class="h-3 w-3 shrink-0 rounded-full border border-solid border-outline-variant" :style="{ backgroundColor: side.homeColor || 'transparent' }" />
-              <span class="truncate">{{ side.name }}</span>
-            </span>
-            <span class="truncate text-body-sm text-on-surface-variant">{{ m.venue || 'Cancha por definir' }} · {{ m.tournament.name }}</span>
-          </router-link>
+    <!-- Upcoming matches: printed match-sheet strip -->
+    <section v-if="summary?.upcoming.length" class="sheet" aria-labelledby="prox">
+      <div class="wrap sheet__body">
+        <div class="sheet__head">
+          <h2 id="prox" class="display sheet__title">Próximos partidos</h2>
         </div>
-      </section>
+        <router-link v-for="m in summary.upcoming.slice(0, 4)" :key="m.id" :to="`/torneo/${m.tournament.id}`" class="match-row">
+          <span class="mono match-row__when">{{ shortDay(m.matchDate) }} <span class="match-row__time">· {{ m.matchTime }}</span></span>
+          <span class="display match-row__teams">{{ m.homeTeam.name }} <span class="match-row__vs">vs</span> {{ m.awayTeam.name }}</span>
+          <span class="match-row__where">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.5" /></svg>
+            {{ m.venue || 'Cancha por definir' }} · {{ m.tournament.name }}
+          </span>
+        </router-link>
+      </div>
+    </section>
 
-      <!-- Open tournaments -->
-      <section>
-        <SectionHeader title="Inscripciones abiertas" icon="emoji_events">
-          <router-link to="/torneos" class="text-body-sm text-primary">Ver todos los torneos</router-link>
-        </SectionHeader>
-        <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando torneos…</p>
-        <div v-else-if="!tournaments.length" class="card flex flex-col gap-space-sm p-space-lg">
-          <p class="m-0 text-body-md text-on-surface-variant">No hay torneos con inscripciones abiertas ahora mismo.</p>
-          <router-link to="/torneos?estado=IN_PROGRESS" class="btn-secondary self-start">Ver torneos en curso</router-link>
+    <!-- The league in numbers (real counters) -->
+    <section v-if="summary" class="rule-bottom" aria-label="La liga en números">
+      <dl class="wrap stats">
+        <div v-for="c in counters" :key="c.label" class="stats__cell">
+          <dt class="mono stats__label">{{ c.label }}</dt>
+          <dd class="display stats__value">{{ String(c.value).padStart(2, '0') }}</dd>
         </div>
-        <div v-else class="grid gap-space-md md:grid-cols-2 lg:grid-cols-3">
-          <TournamentCard v-for="t in tournaments" :key="t.id" :tournament="t" />
-        </div>
-      </section>
+      </dl>
+    </section>
 
-      <!-- Leaders: pride and competition -->
-      <section v-if="summary?.leaders.length">
-        <SectionHeader title="Figuras de la liga" icon="local_fire_department" />
-        <div class="grid gap-space-md md:grid-cols-3">
-          <article
-            v-for="(l, i) in summary.leaders"
-            :key="l.playerId"
-            class="card flex items-center gap-space-md p-space-lg"
-            :class="{ 'shadow-[0_0_16px_rgba(245,158,11,0.3)]': i === 0 }"
-          >
-            <div class="relative shrink-0">
-              <img v-if="l.photoUrl" :src="l.photoUrl" :alt="l.fullName" class="h-16 w-16 rounded-full object-cover" />
-              <span v-else class="flex h-16 w-16 items-center justify-center rounded-full bg-surface-container-high font-headline-md text-headline-md">
-                {{ initials(l.fullName) }}
-              </span>
-              <span class="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full font-stat-mono text-body-sm text-surface" :class="MEDALS[i]">{{ i + 1 }}</span>
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="m-0 truncate font-title-sm text-title-sm">{{ l.fullName }}</p>
-              <p class="m-0 truncate text-body-sm text-on-surface-variant">{{ l.teamName }} · {{ l.gamesPlayed }} PJ</p>
-            </div>
-            <div class="text-right">
-              <span class="block font-scoreboard-num text-scoreboard-num tabular text-primary-container">{{ l.pointsPerGame }}</span>
-              <span class="label-tactical text-on-surface-variant">PTS/P</span>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <!-- Zonas de control: the hook that makes this league different. Design: Stitch "Landing Pública · Zonas de Control" -->
-      <section class="flex flex-col gap-space-lg">
-        <div class="flex flex-col gap-space-sm md:flex-row md:items-end md:justify-between">
-          <div class="flex flex-col gap-space-xs">
-            <span class="label-tactical flex items-center gap-space-xs text-secondary"><span class="h-2.5 w-2.5 rounded-[1px] bg-secondary-container" /> Dominio territorial</span>
-            <h2 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Zonas de control</h2>
-            <p class="m-0 max-w-[60ch] text-body-md text-on-surface-variant">
-              Gana torneos en una zona y tu equipo se vuelve su dueño. Quien tenga más de la mitad de los títulos manda; si nadie, la zona está en disputa.
+    <!-- Zonas de control: the hook that makes this league different -->
+    <section class="zones rule-bottom" aria-labelledby="zonas-t">
+      <svg class="zones__court" aria-hidden="true" width="900" height="900" viewBox="0 0 900 900" fill="none" stroke="#1C1B17" stroke-width="3">
+        <circle cx="450" cy="450" r="420" /><circle cx="450" cy="450" r="140" /><rect x="330" y="0" width="240" height="380" /><path d="M30 450h840" />
+      </svg>
+      <div class="wrap section-pad zones__body">
+        <div class="split">
+          <div class="split__text">
+            <span class="eyebrow text-gold">El juego dentro del juego</span>
+            <h2 id="zonas-t" class="display section-title">Zonas de control</h2>
+            <p class="lead">
+              Cada zona de Caracas tiene sus canchas. Gana torneos ahí y tu equipo suma títulos: con más de la mitad, la zona es tuya. Si nadie llega, está en disputa.
             </p>
           </div>
-          <router-link :to="ctaLink(authStore.isAuthenticated, 'TEAM_CAPTAIN', '/app/zones/map')" class="btn-secondary self-start md:self-auto">
-            <span class="icon">map</span> Ver mapa de zonas
+          <router-link to="/zonas" class="btn-line">
+            Ver mapa de zonas
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
           </router-link>
         </div>
 
-        <div v-if="summary?.zones.length" class="relative grid gap-space-lg overflow-hidden rounded border border-solid border-outline-variant/40 bg-surface-container-lowest p-space-md md:grid-cols-2 md:p-space-lg lg:grid-cols-3">
-          <div class="pointer-events-none absolute inset-0 opacity-40" style="background-image: radial-gradient(rgba(255, 85, 0, 0.18) 1px, transparent 0); background-size: 24px 24px" />
-          <article
-            v-for="z in summary.zones"
-            :key="z.id"
-            class="relative flex flex-col gap-space-md overflow-hidden rounded border-2 border-solid bg-surface-container-low p-space-lg transition-colors"
-            :class="z.ownerTeamId ? 'border-secondary-container/60 shadow-[0_0_16px_rgba(245,158,11,0.25)]' : 'border-primary-container/50 shadow-[0_0_16px_rgba(255,85,0,0.15)]'"
-          >
-            <span class="absolute inset-x-0 top-0 h-1" :style="{ background: z.color || '#FF5500' }" />
-            <div class="flex items-center justify-between gap-space-sm">
-              <span class="label-tactical truncate rounded border border-solid px-space-sm py-1" :class="{ invisible: !z.cities.length }" :style="{ color: z.color, borderColor: z.color }">
-                {{ z.cities.join(' · ') }}
-              </span>
-              <span v-if="z.ownerTeamId" class="label-tactical flex items-center gap-1 rounded border border-solid border-secondary-container/50 bg-surface px-space-sm py-1 text-secondary">
-                <span class="icon icon-fill text-[16px]">crown</span> Dueño: {{ z.ranking[0].teamName }}
-              </span>
-              <span v-else class="label-tactical flex items-center gap-space-xs text-primary">
-                <span class="h-2 w-2 animate-ping rounded-full bg-primary-container" /> En disputa
-              </span>
-            </div>
-            <div>
-              <h3 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase">{{ z.name }}</h3>
-              <p class="m-0 font-stat-mono text-[12px] text-on-surface-variant">{{ z.venues }} cancha{{ z.venues === 1 ? '' : 's' }} · {{ z.totalTitles }} torneo{{ z.totalTitles === 1 ? '' : 's' }} jugado{{ z.totalTitles === 1 ? '' : 's' }}</p>
-            </div>
+        <template v-if="summary?.zones.length">
+          <router-link to="/zonas" class="zones__map" aria-label="Abrir el mapa de zonas">
+            <ZoneLeafletMap :zones="mapZones" :standings="standings" :interactive="false" />
+            <span class="zones__map-open">Abrir mapa completo</span>
+          </router-link>
+          <div class="zones__grid">
+            <ZonePanel v-for="z in summary.zones" :key="z.id" :zone="z" :max-teams="6" />
+          </div>
+        </template>
+        <p v-else class="empty-box">
+          <strong>Ninguna zona tiene dueño todavía.</strong> El primer campeón de cada zona se lleva la corona.
+        </p>
+      </div>
+    </section>
 
-            <div v-if="z.champion" class="rounded border border-solid border-secondary-container/40 bg-surface p-space-md shadow-[0_0_16px_rgba(245,158,11,0.2)]">
-              <span class="label-tactical flex items-center gap-1 text-on-surface-variant"><span class="icon icon-fill text-[16px] text-secondary-container">crown</span> Campeón actual</span>
-              <p class="m-0 truncate font-headline-md text-headline-md uppercase text-secondary">{{ z.champion.teamName }}</p>
-              <router-link :to="`/torneo/${z.champion.tournamentId}`" class="text-body-sm text-on-surface-variant hover:text-primary">
-                Ganó {{ z.champion.tournamentName }}
-              </router-link>
-            </div>
-            <div v-else class="rounded border border-dashed border-secondary-container/50 bg-surface p-space-md">
-              <span class="label-tactical text-on-surface-variant">Campeón actual</span>
-              <p class="m-0 font-title-sm text-title-sm">Trono vacío</p>
-              <p class="m-0 text-body-sm text-on-surface-variant">El primer campeón se lleva la corona.</p>
-            </div>
-
-            <div v-if="z.ranking.length" class="flex flex-col gap-space-sm">
-              <span class="label-tactical text-on-surface-variant">Más ganadores</span>
-              <div v-for="(r, i) in z.ranking" :key="r.teamId">
-                <div class="mb-1 flex justify-between gap-space-sm text-body-sm">
-                  <span class="truncate" :class="i === 0 ? 'text-on-surface' : 'text-on-surface-variant'">{{ i + 1 }}. {{ r.teamName }}</span>
-                  <span class="whitespace-nowrap font-stat-mono text-stat-mono" :class="i === 0 ? 'text-secondary' : 'text-on-surface-variant'">
-                    {{ r.titles }} <span class="icon icon-fill align-[-3px] text-[14px]">trophy</span> {{ r.share }}%
-                  </span>
-                </div>
-                <div class="h-1.5 overflow-hidden rounded-full bg-surface-container-highest">
-                  <div class="h-full" :class="MEDALS[i]" :style="{ width: r.share + '%' }" />
-                </div>
-              </div>
-            </div>
-
-            <router-link to="/torneos" class="mt-auto" :class="z.openTournaments ? 'btn-primary' : 'btn-secondary'">
-              {{ z.openTournaments ? `Retar al campeón · ${z.openTournaments} torneo${z.openTournaments > 1 ? 's' : ''} abierto${z.openTournaments > 1 ? 's' : ''}` : 'Ver torneos' }}
-            </router-link>
-          </article>
+    <!-- Open registrations: poster rows -->
+    <section id="torneos" class="rule-bottom" aria-labelledby="torneos-t">
+      <div class="wrap section-pad stack-40">
+        <div class="split">
+          <h2 id="torneos-t" class="display section-title">Inscripciones<br />abiertas</h2>
+          <router-link to="/torneos" class="link-under">Ver todos los torneos</router-link>
         </div>
-        <div v-else class="flex items-center gap-space-md rounded border border-dashed border-secondary-container/50 bg-surface-container-low p-space-lg">
-          <span class="icon icon-fill text-[40px] text-secondary-container">crown</span>
-          <p class="m-0 text-body-md">
-            <strong class="block font-title-sm text-title-sm">Ninguna zona tiene dueño todavía.</strong>
-            <span class="text-on-surface-variant">El primer campeón de cada zona se lleva la corona.</span>
-          </p>
+        <p v-if="loading" class="lead">Cargando torneos…</p>
+        <div v-else-if="!openTournaments.length" class="empty-box">
+          No hay torneos con inscripciones abiertas ahora mismo.
+          <router-link to="/torneos?estado=IN_PROGRESS" class="link-under">Ver torneos en curso</router-link>
         </div>
-      </section>
-
-      <!-- One path per profile -->
-      <section>
-        <SectionHeader title="¿Cómo quieres jugar?" icon="sports" />
-        <div class="grid gap-space-md md:grid-cols-3">
-          <article v-for="r in paths" :key="r.title" class="card flex flex-col gap-space-sm p-space-lg">
-            <span class="icon text-[32px] text-primary-container">{{ r.icon }}</span>
-            <h3 class="m-0 font-headline-md text-headline-md uppercase">{{ r.title }}</h3>
-            <ol class="m-0 flex flex-col gap-space-xs p-0 text-body-md text-on-surface-variant">
-              <li v-for="(s, i) in r.steps" :key="s" class="flex items-start gap-space-sm">
-                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-surface-container-high font-stat-mono text-body-sm text-primary">{{ i + 1 }}</span>
-                {{ s }}
-              </li>
-            </ol>
-            <router-link :to="r.to" class="btn-secondary mt-auto">{{ r.cta }}</router-link>
-          </article>
+        <div v-else class="t-list">
+          <router-link v-for="t in openTournaments" :key="t.id" :to="`/torneo/${t.id}`" class="t-row">
+            <img v-if="t.coverPhoto" :src="t.coverPhoto" :alt="`Cancha de ${t.name}`" class="t-row__photo" />
+            <span v-else class="t-row__photo t-row__photo--empty" aria-hidden="true" />
+            <span class="t-row__main">
+              <span class="display t-row__name">{{ t.name }}</span>
+              <span class="t-row__place">{{ t.location || 'Cancha por definir' }} · {{ CATEGORIES[t.category] || t.category }}</span>
+            </span>
+            <span class="t-row__fact">
+              <span class="mono t-row__label">Arranca</span>
+              <span class="mono t-row__value">{{ calendarDay(t.startDate) }}</span>
+            </span>
+            <span class="t-row__fact">
+              <span class="mono t-row__label">Inscripción</span>
+              <span class="mono t-row__value">{{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}</span>
+            </span>
+            <span class="t-row__slots">
+              <span class="mono t-row__slots-head">
+                <span class="t-row__label">Cupos</span>
+                <span :class="{ 'text-hot': t.maxTeams - t.registeredTeams === 1 }">
+                  {{ t.registeredTeams }}/{{ t.maxTeams }}{{ t.maxTeams - t.registeredTeams === 1 ? ' · Último cupo' : '' }}
+                </span>
+              </span>
+              <span class="t-row__track"><span class="t-row__fill" :style="{ width: Math.min(100, (t.registeredTeams / t.maxTeams) * 100) + '%' }" /></span>
+            </span>
+          </router-link>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Final call to action -->
-      <section v-if="!authStore.isAuthenticated" class="relative isolate overflow-hidden rounded-lg bg-primary-container p-space-xl text-center md:p-margin-lg">
-        <img v-if="heroPhoto" :src="heroPhoto" alt="" class="absolute inset-0 -z-10 h-full w-full object-cover opacity-20 mix-blend-multiply" />
-        <h2 class="m-0 font-display-xl-mobile text-display-xl-mobile uppercase text-surface md:font-display-xl md:text-display-xl">
-          La próxima temporada empieza en tu cancha
-        </h2>
-        <p class="mx-auto mb-space-lg mt-space-sm max-w-[48ch] text-body-md font-semibold text-surface">Crea tu cuenta gratis y entra a tu primer torneo en minutos.</p>
-        <router-link to="/auth/register" class="btn-secondary border-surface bg-surface text-on-surface">Crear cuenta gratis</router-link>
-      </section>
-    </main>
+    <!-- League leaders (only once match sheets exist) -->
+    <section v-if="summary?.leaders.length" class="rule-bottom" aria-labelledby="figuras-t">
+      <div class="wrap section-pad stack-40">
+        <h2 id="figuras-t" class="display section-title">Figuras de la liga</h2>
+        <ol class="leaders">
+          <li v-for="(l, i) in summary.leaders" :key="l.playerId" class="leaders__item" :class="{ 'is-first': i === 0 }">
+            <span class="display leaders__rank">{{ String(i + 1).padStart(2, '0') }}</span>
+            <span class="leaders__who">
+              <span class="display leaders__name">{{ l.fullName }}</span>
+              <span class="mono leaders__team">{{ l.teamName }} · {{ l.gamesPlayed }} PJ</span>
+            </span>
+            <span class="leaders__ppg"><span class="display">{{ l.pointsPerGame }}</span><span class="mono leaders__unit">Pts/P</span></span>
+          </li>
+        </ol>
+      </div>
+    </section>
 
-    <footer class="border-0 border-t border-solid border-outline-variant/40">
-      <div class="mx-auto flex max-w-[1200px] flex-col gap-space-sm px-gutter py-space-xl text-body-sm text-on-surface-variant md:flex-row md:justify-between md:px-margin-md">
+    <!-- One path per profile -->
+    <section id="equipos" class="rule-bottom" aria-labelledby="jugar-t">
+      <div class="wrap section-pad stack-48">
+        <h2 id="jugar-t" class="display section-title">¿Cómo quieres jugar?</h2>
+        <div class="steps">
+          <div v-for="(p, i) in paths" :key="p.title" class="steps__item">
+            <span class="display steps__n">{{ String(i + 1).padStart(2, '0') }}</span>
+            <h3 class="display steps__title">{{ p.title }}</h3>
+            <p class="steps__body">{{ p.body }}</p>
+            <router-link :to="p.to" class="link-under steps__cta">{{ p.cta }}</router-link>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final call to action (visitors only) -->
+    <section v-if="!authStore.isAuthenticated" class="cta" aria-labelledby="cta-t">
+      <div class="wrap cta__body">
+        <h2 id="cta-t" class="display cta__title">La próxima temporada empieza en tu cancha</h2>
+        <div class="cta__side">
+          <router-link to="/auth/register" class="btn-ink cta__btn">Crear cuenta gratis</router-link>
+          <span class="mono cta__note">Jugadores, capitanes y organizadores.</span>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap footer mono">
         <span>Basketball MVP · CCS Streetball</span>
-        <span class="flex flex-wrap gap-space-md">
-          <router-link to="/torneos" class="text-on-surface-variant no-underline hover:text-primary">Torneos</router-link>
-          <router-link to="/equipos" class="text-on-surface-variant no-underline hover:text-primary">Equipos</router-link>
-          <router-link to="/auth/login" class="text-on-surface-variant no-underline hover:text-primary">Iniciar sesión</router-link>
-          <router-link to="/auth/register" class="text-on-surface-variant no-underline hover:text-primary">Crear cuenta</router-link>
-        </span>
+        <nav class="footer__links" aria-label="Pie de página">
+          <router-link to="/torneos">Torneos</router-link>
+          <router-link to="/equipos">Equipos</router-link>
+          <router-link to="/zonas">Zonas</router-link>
+          <router-link to="/auth/login">Entrar</router-link>
+        </nav>
       </div>
     </footer>
   </div>
@@ -233,62 +192,636 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import '@/styles/poster.css'
 import tournamentsService from '@/services/tournaments'
+import zonesService from '@/services/zones'
 import { useAuthStore } from '@/stores/auth'
-import { ctaLink } from '@/router/navigation'
-import { formatDay } from '@/utils/labels'
-import PublicHeader from '@/components/PublicHeader.vue'
-import SectionHeader from '@/components/ui/SectionHeader.vue'
-import TournamentCard from '@/components/tournament/TournamentCard.vue'
+import { CATEGORIES } from '@/utils/labels'
+import PosterHeader from '@/components/PosterHeader.vue'
+import ZoneLeafletMap from '@/components/zone/ZoneLeafletMap.vue'
+import ZonePanel from '@/components/zone/ZonePanel.vue'
 
 const authStore = useAuthStore()
 const year = new Date().getFullYear()
-const MEDALS = ['bg-secondary-container', 'bg-[#cbd5e1]', 'bg-[#d97706]']
 
 const paths = [
+  { title: 'Jugador', body: 'Encuentra un equipo que busca gente en tu zona, postúlate y sigue tus números partido a partido.', cta: 'Busco equipo', to: '/equipos' },
+  { title: 'Capitán', body: 'Arma tu plantel, invita por WhatsApp, inscribe al equipo y pelea la corona de tu zona.', cta: 'Elegir torneo', to: '/torneos' },
   {
-    icon: 'sports_basketball',
-    title: 'Busco equipo',
-    steps: ['Mira qué equipos buscan jugadores', 'Crea tu cuenta de jugador', 'Postúlate y el capitán te acepta'],
-    cta: 'Ver equipos que buscan jugadores',
-    to: '/equipos'
-  },
-  {
-    icon: 'groups',
-    title: 'Tengo equipo',
-    steps: ['Elige un torneo con cupos', 'Crea tu cuenta de capitán', 'Ficha a tu gente e inscríbete'],
-    cta: 'Elegir torneo',
-    to: '/torneos'
-  },
-  {
-    icon: 'emoji_events',
-    title: 'Organizo torneos',
-    steps: ['Crea el torneo en una cancha de tu zona', 'Aprueba equipos y pagos', 'Genera el fixture y carga resultados'],
-    cta: 'Crear cuenta de organizador',
+    title: 'Organizador',
+    body: 'Crea el torneo con la foto de tu cancha, aprueba inscripciones y carga resultados.',
+    cta: 'Organizar un torneo',
     to: { path: '/auth/register', query: { role: 'ORGANIZER' } }
   }
 ]
 
 const tournaments = ref([])
 const summary = ref(null)
+const mapZones = ref([])
 const loading = ref(true)
 
+const today = new Date(new Date().toDateString())
+// Registration still open but already over: stale test data, keep it off the landing
+const openTournaments = computed(() => tournaments.value.filter(t => new Date(t.endDate) >= today).slice(0, 5))
 const heroPhoto = computed(() => tournaments.value.find(t => t.coverPhoto)?.coverPhoto || '')
+const standings = computed(() => Object.fromEntries((summary.value?.zones || []).map(z => [z.id, z])))
 const counters = computed(() => [
   { label: 'Torneos activos', value: summary.value.stats.activeTournaments },
   { label: 'Equipos', value: summary.value.stats.teams },
   { label: 'Jugadores', value: summary.value.stats.players },
   { label: 'Partidos jugados', value: summary.value.stats.matchesPlayed }
 ])
-const initials = name => name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
+// Dates are stored as UTC calendar days; reading them in local time (UTC-4) shows the day before
+const shortDay = d => new Date(d).toLocaleDateString('es-VE', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' })
+const calendarDay = d => new Date(d).toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 
 onMounted(async () => {
-  const [t, s] = await Promise.allSettled([
-    tournamentsService.getAll({ status: 'REGISTRATION', limit: 6 }),
-    tournamentsService.getLandingSummary()
+  const [t, s, z] = await Promise.allSettled([
+    tournamentsService.getAll({ status: 'REGISTRATION', limit: 12 }),
+    tournamentsService.getLandingSummary(),
+    zonesService.getAll()
   ])
   tournaments.value = t.status === 'fulfilled' ? t.value.data.tournaments || [] : []
   summary.value = s.status === 'fulfilled' ? s.value.data : null
+  mapZones.value = z.status === 'fulfilled' ? (z.value.data?.data || []).filter(zone => zone.isActive) : []
   loading.value = false
 })
 </script>
+
+<style scoped>
+.text-blaze {
+  color: var(--blaze);
+}
+
+.text-gold {
+  color: var(--gold);
+}
+
+.text-hot {
+  color: var(--hot);
+}
+
+.rule-bottom {
+  border-bottom: 1px solid var(--line);
+}
+
+.section-pad {
+  padding-top: 112px;
+  padding-bottom: 112px;
+}
+
+.stack-40,
+.stack-48 {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.stack-48 {
+  gap: 48px;
+}
+
+.section-title {
+  font-size: clamp(48px, 6vw, 88px);
+}
+
+.lead {
+  max-width: 720px;
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+}
+
+.split {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.split__text {
+  display: flex;
+  max-width: 720px;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.empty-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 28px;
+  border: 2px dashed var(--line);
+  font-size: 17px;
+  color: var(--chalk-dim);
+}
+
+/* Hero */
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+
+.hero__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.25) brightness(0.55);
+}
+
+.hero__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #0d0d0b 0%, rgb(13 13 11 / 0.75) 45%, rgb(13 13 11 / 0.2) 100%);
+}
+
+.hero__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-top: 96px;
+  padding-bottom: 88px;
+}
+
+.hero__kicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.hero__title {
+  font-size: clamp(64px, 11vw, 168px);
+  line-height: 0.88;
+  letter-spacing: -0.01em;
+}
+
+.hero__title span {
+  display: block;
+}
+
+.hero__lead {
+  max-width: 540px;
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+}
+
+.hero__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.hero__cta {
+  padding: 20px 28px;
+  font-size: 16px;
+}
+
+.hero__note {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--muted);
+}
+
+/* Upcoming matches */
+.sheet {
+  background: var(--chalk);
+  color: var(--asphalt);
+}
+
+.sheet__body {
+  display: flex;
+  flex-direction: column;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.sheet__head {
+  padding-bottom: 16px;
+  border-bottom: 3px solid var(--asphalt);
+}
+
+.sheet__title {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.poster .match-row {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) minmax(0, 320px);
+  align-items: center;
+  gap: 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid #c9c3b4;
+  color: var(--asphalt);
+  text-decoration: none;
+}
+
+.poster .match-row:hover {
+  background: #e3ddd0;
+  color: var(--asphalt);
+}
+
+.match-row__when {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.match-row__time {
+  color: #5e5a51;
+}
+
+.match-row__teams {
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.match-row__vs {
+  padding: 0 8px;
+  font-size: 20px;
+  color: #c2390a;
+}
+
+.match-row__where {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #4a473f;
+}
+
+/* Numbers */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 auto;
+}
+
+.stats__cell {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 48px 24px 40px 0;
+  border-right: 1px solid var(--line);
+}
+
+.stats__cell:last-child {
+  border-right: 0;
+}
+
+.stats__label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stats__value {
+  margin: 0;
+  font-size: 96px;
+}
+
+/* Zones */
+.zones {
+  position: relative;
+  overflow: hidden;
+}
+
+.zones__court {
+  position: absolute;
+  top: -120px;
+  right: -260px;
+}
+
+.zones__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.zones__map {
+  position: relative;
+  display: block;
+  height: 460px;
+  border: 1px solid var(--line);
+}
+
+/* The mini map is a picture: the whole box is the link to /zonas */
+.zones__map :deep(.zone-map) {
+  pointer-events: none;
+}
+
+.zones__map-open {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
+  padding: 14px 20px;
+  background: var(--blaze);
+  color: var(--asphalt);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.zones__map:hover .zones__map-open {
+  background: var(--chalk);
+}
+
+.zones__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+/* Tournaments */
+.t-list {
+  border-top: 3px solid var(--chalk);
+}
+
+.poster .t-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 150px 120px 200px;
+  align-items: center;
+  gap: 24px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+}
+
+.poster .t-row:hover .t-row__name {
+  color: var(--blaze);
+}
+
+.t-row__photo {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.15);
+}
+
+.t-row__photo--empty {
+  display: block;
+  background: repeating-linear-gradient(135deg, #1c1b17 0 10px, #141411 10px 20px);
+}
+
+.t-row__main,
+.t-row__fact,
+.t-row__slots {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.t-row__name {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.t-row__place {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.t-row__label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.t-row__value {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.t-row__slots-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.t-row__track {
+  display: block;
+  height: 6px;
+  background: var(--line);
+}
+
+.t-row__fill {
+  display: block;
+  height: 6px;
+  background: var(--blaze);
+}
+
+/* Leaders */
+.leaders {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 3px solid var(--chalk);
+}
+
+.leaders__item {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.leaders__rank {
+  width: 72px;
+  font-size: 56px;
+  color: var(--muted);
+}
+
+.leaders__item.is-first .leaders__rank,
+.leaders__item.is-first .leaders__ppg {
+  color: var(--gold);
+}
+
+.leaders__who {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.leaders__name {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.leaders__team,
+.leaders__unit {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.leaders__ppg {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 56px;
+}
+
+/* Steps */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 3px solid var(--chalk);
+}
+
+.steps__item {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 36px 32px 8px 0;
+}
+
+.steps__n {
+  font-size: 72px;
+  line-height: 1;
+  color: var(--blaze);
+}
+
+.steps__title {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.steps__body {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--chalk-dim);
+}
+
+.steps__cta {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+/* Final CTA */
+.cta {
+  background: var(--blaze);
+  color: var(--asphalt);
+}
+
+.cta__body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  padding-top: 96px;
+  padding-bottom: 96px;
+}
+
+.cta__title {
+  max-width: 900px;
+  font-size: clamp(52px, 7vw, 104px);
+}
+
+.cta__side {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cta__btn {
+  padding: 22px 32px;
+  font-size: 16px;
+}
+
+.cta__note {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 32px;
+  padding-bottom: 32px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.poster .footer__links a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.poster .footer__links a:hover {
+  color: var(--blaze);
+}
+
+@media (max-width: 900px) {
+  .section-pad {
+    padding-top: 72px;
+    padding-bottom: 72px;
+  }
+
+  .split,
+  .cta__body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .poster .match-row,
+  .poster .t-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .t-row__photo {
+    width: 100%;
+    height: 140px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats__cell:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .stats__value {
+    font-size: 72px;
+  }
+
+  .zones__grid,
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .zones__map {
+    height: 340px;
+  }
+
+  .leaders__ppg {
+    font-size: 40px;
+  }
+}
+</style>

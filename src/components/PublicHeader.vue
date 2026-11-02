@@ -12,6 +12,7 @@
         <nav class="hidden items-center gap-space-md sm:flex" aria-label="Explorar">
           <router-link to="/torneos" class="label-tactical text-on-surface-variant no-underline hover:text-primary">Torneos</router-link>
           <router-link to="/equipos" class="label-tactical text-on-surface-variant no-underline hover:text-primary">Equipos</router-link>
+          <router-link to="/zonas" class="label-tactical text-on-surface-variant no-underline hover:text-primary">Zonas</router-link>
         </nav>
         <button
           type="button"
