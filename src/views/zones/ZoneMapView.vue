@@ -24,7 +24,8 @@
     <div class="grid gap-space-md lg:grid-cols-[1fr_22rem]">
       <div class="flex flex-col gap-space-xs">
         <div class="card overflow-hidden">
-          <div ref="mapEl" class="map" :class="{ picking: canEdit && (mode || selectedZone) }"></div>
+          <!-- Dynamic classes live on a wrapper: Vue would overwrite the classes Leaflet adds to its container -->
+          <div :class="{ picking: canEdit && (mode || selectedZone), flying }"><div ref="mapEl" class="map"></div></div>
         </div>
         <div class="flex flex-wrap gap-space-md text-body-sm text-on-surface-variant">
           <span class="flex items-center gap-space-xs"><span class="pin solid" /> Cancha con torneo activo</span>
@@ -270,6 +271,7 @@ const canEdit = computed(() => authStore.userRole === 'ADMIN')
 const isOrganizer = computed(() => authStore.userRole === 'ORGANIZER') // POST /tournaments is ORGANIZER-only
 
 const mapEl = ref(null)
+const flying = ref(false)
 const zones = ref([])
 const mode = ref(null) // 'zone' | 'venue' | null
 const zoneForm = ref(null) // selected/edited zone
@@ -320,6 +322,14 @@ const zoneLabel = zone => {
     sub.className = champion ? 'champion' : 'contested'
     el.append(sub)
     return el
+}
+
+// During a flight Leaflet scales the circles as a bitmap and only redraws when it lands,
+// so a big zoom jump shows a pixelated blob: hide circles and labels until the move ends
+const fly = move => {
+    flying.value = true
+    map.once('moveend', () => (flying.value = false))
+    move()
 }
 
 const draw = () => {
@@ -430,7 +440,7 @@ const editZone = zone => {
         venues: zone.venues
     }
     draw()
-    map.flyToBounds(L.latLng(zoneForm.value.lat, zoneForm.value.lng).toBounds(zone.radius * 2), { padding: [40, 40] })
+    fly(() => map.flyToBounds(L.latLng(zoneForm.value.lat, zoneForm.value.lng).toBounds(zone.radius * 2), { padding: [40, 40], duration: 1.2 }))
 }
 
 const editVenue = venue => {
@@ -448,7 +458,7 @@ const editVenue = venue => {
         longitude: Number(venue.longitude)
     }
     draw()
-    map.flyTo([venueForm.value.latitude, venueForm.value.longitude], Math.max(map.getZoom(), 16))
+    fly(() => map.flyTo([venueForm.value.latitude, venueForm.value.longitude], Math.max(map.getZoom(), 16), { duration: 1.2 }))
     loadVenueTournaments(venue.id)
 }
 
@@ -542,8 +552,7 @@ const deactivateVenue = () => run(() => venuesService.delete(venueForm.value.id)
 watch(() => zoneForm.value && [zoneForm.value.radius, zoneForm.value.color], drawDraft)
 
 onMounted(async () => {
-    // Canvas redraws every animation frame; the default SVG renderer stretches big circles
-    // during flyTo and paints the whole map with the zone color until the move ends
+    // Canvas keeps circles crisp at rest; during flights they are hidden (see fly)
     map = L.map(mapEl.value, { preferCanvas: true }).setView(DEFAULT_CENTER, 12)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -571,8 +580,18 @@ onBeforeUnmount(() => map?.remove())
     width: 100%;
 }
 
-.map.picking,
-.map.picking :deep(.leaflet-container) {
+.map :deep(.leaflet-overlay-pane),
+.map :deep(.leaflet-tooltip-pane) {
+    transition: opacity 0.2s;
+}
+
+.flying .map :deep(.leaflet-overlay-pane),
+.flying .map :deep(.leaflet-tooltip-pane) {
+    opacity: 0;
+    transition: none;
+}
+
+.picking .map {
     cursor: crosshair;
 }
 
