@@ -22,7 +22,7 @@
         <router-link to="/app/player/recruiting" class="btn-primary">
           <span class="icon">person_search</span> Buscar equipo
         </router-link>
-        <router-link to="/app/player/profile" class="btn-secondary">
+        <router-link v-if="authStore.userRole === 'PLAYER'" to="/app/player/profile" class="btn-secondary">
           <span class="icon">military_tech</span> Quiero ser capitán
         </router-link>
       </div>
@@ -151,12 +151,14 @@ import playersService from '@/services/players'
 import { handleApiError } from '@/services/api'
 import { usePlayerOverview } from '@/composables/usePlayerOverview'
 import { useConfirm } from '@/composables/useConfirm'
+import { useAuthStore } from '@/stores/auth'
 import { POSITIONS } from '@/utils/labels'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
 
 const toast = useToast()
 const confirm = useConfirm()
+const authStore = useAuthStore()
 const { loading, load, teams, formerTeams } = usePlayerOverview()
 const open = reactive({})
 const rosters = reactive({})

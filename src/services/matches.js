@@ -1,6 +1,14 @@
 import api from './api'
 
 const matchesService = {
+    async getById(matchId) {
+        return await api.get(`/matches/${matchId}`)
+    },
+
+    async getEvents(matchId) {
+        return await api.get(`/matches/${matchId}/events`)
+    },
+
     async getByTournament(tournamentId) {
         return await api.get('/matches', { params: { tournamentId, limit: 200 } })
     },

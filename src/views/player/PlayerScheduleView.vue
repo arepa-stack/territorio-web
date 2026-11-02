@@ -1,6 +1,11 @@
 <template>
   <div class="flex flex-col gap-space-lg">
-    <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Mi calendario</h1>
+    <div class="flex flex-wrap items-center justify-between gap-space-sm">
+      <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Mi calendario</h1>
+      <button v-if="upcoming.length" type="button" class="btn-ghost" @click="exportCalendar">
+        <span class="icon">event</span> Añadir a mi calendario
+      </button>
+    </div>
 
     <div v-if="teams.length > 1" class="-mx-gutter flex gap-space-xs overflow-x-auto px-gutter pb-1 md:mx-0 md:px-0">
       <button type="button" class="filter-chip" :aria-pressed="teamFilter === 'ALL'" @click="teamFilter = 'ALL'">Todos</button>
@@ -22,7 +27,9 @@
     <section v-for="d in days" :key="d.key" class="flex flex-col gap-space-xs">
       <h2 class="label-tactical m-0 capitalize text-on-surface-variant">{{ formatDay(d.date) }}</h2>
       <div v-for="m in d.matches" :key="m.id" class="flex flex-col gap-1">
-        <MatchCard :match="m" :mine="myTeamIn(m)?.team.id" />
+        <router-link :to="`/app/matches/${m.id}`" class="block text-inherit no-underline">
+          <MatchCard :match="m" :mine="myTeamIn(m)?.team.id" />
+        </router-link>
         <div
           v-if="m.status === 'SCHEDULED'"
           class="card flex flex-wrap items-center justify-between gap-space-xs bg-surface-container-low px-space-md py-space-xs"
@@ -57,6 +64,7 @@ import { formatDay } from '@/utils/labels'
 import matchesService from '@/services/matches'
 import { handleApiError } from '@/services/api'
 import MatchCard from '@/components/tournament/MatchCard.vue'
+import { downloadIcs } from '@/utils/ics'
 
 const toast = useToast()
 const { loading, load, teams, matches, myTeamIn } = usePlayerOverview()
@@ -81,6 +89,10 @@ const markAttendance = async (match, status) => {
     savingMatchId.value = null
   }
 }
+
+const upcoming = computed(() => matches.value.filter(m => m.status === 'SCHEDULED'))
+
+const exportCalendar = () => downloadIcs('mis-partidos.ics', upcoming.value)
 
 const days = computed(() => {
   const list = matches.value.filter(

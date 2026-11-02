@@ -2,6 +2,15 @@ import api from './api'
 
 // Only endpoints that exist in the backend PlayersController.
 const playersService = {
+  // Public profile; the backend strips contact and sensitive data by viewer
+  async getById(playerId) {
+    return await api.get(`/players/${playerId}`)
+  },
+
+  async getStats(playerId) {
+    return await api.get(`/matches/players/${playerId}/stats`)
+  },
+
   // Teams, matches and stats of the logged-in user
   async getMe() {
     return await api.get('/players/me')

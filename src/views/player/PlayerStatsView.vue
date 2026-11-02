@@ -81,7 +81,7 @@
                 </td>
                 <td class="px-space-md py-space-sm text-on-surface-variant">{{ m.tournamentName }}</td>
                 <td class="px-space-md py-space-sm">
-                  <span class="font-bold">{{ m.opponentName }}</span>
+                  <router-link :to="`/app/matches/${m.matchId}`" class="font-bold text-on-surface hover:text-primary">{{ m.opponentName }}</router-link>
                   <span class="ml-1 font-stat-mono text-on-surface-variant">({{ m.score }})</span>
                 </td>
                 <td class="px-space-md py-space-sm font-stat-mono font-bold text-primary tabular">{{ m.points }}</td>

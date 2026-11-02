@@ -82,13 +82,13 @@
         </SectionHeader>
         <div v-if="!teams.length" class="card flex flex-col gap-space-md p-space-lg">
           <p class="m-0 text-body-md text-on-surface-variant">
-            Todavía no estás en ningún equipo. Un capitán te puede fichar con tu cédula, puedes buscar equipos que estén reclutando o solicitar ser capitán.
+            Todavía no estás en ningún equipo. Un capitán te puede fichar con tu cédula, puedes buscar equipos que estén reclutando<template v-if="authStore.userRole === 'PLAYER'"> o solicitar ser capitán</template>.
           </p>
           <div class="flex flex-wrap gap-space-sm">
             <router-link to="/app/player/recruiting" class="btn-primary">
               <span class="icon">person_search</span> Buscar equipo
             </router-link>
-            <router-link to="/app/player/profile" class="btn-secondary">
+            <router-link v-if="authStore.userRole === 'PLAYER'" to="/app/player/profile" class="btn-secondary">
               <span class="icon">military_tech</span> Quiero ser capitán
             </router-link>
           </div>

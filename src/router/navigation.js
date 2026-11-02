@@ -37,6 +37,9 @@ export const NAV_BY_ROLE = {
   TEAM_CAPTAIN: [
     { label: 'Mi equipo', icon: 'groups', to: '/app/captain', exact: true },
     { label: 'Fichar', icon: 'person_add', to: '/app/captain/register-player' },
+    // A captain can also play in other teams (or their own): same player screens
+    { label: 'Como jugador', icon: 'sports_basketball', to: '/app/player', exact: true },
+    { label: 'Calendario', icon: 'calendar_month', to: '/app/player/schedule' },
     tournaments,
     courts
   ],

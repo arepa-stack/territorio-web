@@ -6,8 +6,8 @@
       <header class="card flex flex-col gap-space-md p-space-lg sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-space-md">
           <img
-            v-if="me.profilePicture"
-            :src="me.profilePicture"
+            v-if="me.avatarUrl"
+            :src="me.avatarUrl"
             :alt="me.fullName"
             class="h-16 w-16 shrink-0 rounded-full object-cover"
           />
@@ -238,9 +238,29 @@
 
       <section class="card flex flex-col gap-space-xs p-space-md">
         <h2 class="label-tactical m-0 px-space-sm text-on-surface-variant">Cuenta</h2>
-        <router-link to="/auth/forgot-password" class="btn-ghost justify-start text-on-surface">
-          <span class="icon">key</span> Cambiar contraseña
-        </router-link>
+        <button type="button" class="btn-ghost justify-start text-on-surface" :aria-expanded="showCredentials" @click="showCredentials = !showCredentials">
+          <span class="icon">key</span> Cambiar email o contraseña
+        </button>
+        <form v-if="showCredentials" class="flex flex-col gap-space-sm px-space-sm pb-space-sm" @submit.prevent="saveCredentials">
+          <div>
+            <label class="field-label" for="cred-email">Email</label>
+            <input id="cred-email" v-model.trim="credentials.email" type="email" class="input" autocomplete="email" required />
+          </div>
+          <div>
+            <label class="field-label" for="cred-new">Nueva contraseña (opcional)</label>
+            <input id="cred-new" v-model="credentials.password" type="password" class="input" minlength="6" autocomplete="new-password" />
+          </div>
+          <div>
+            <label class="field-label" for="cred-current">Contraseña actual</label>
+            <input id="cred-current" v-model="credentials.currentPassword" type="password" class="input" autocomplete="current-password" required />
+          </div>
+          <p class="m-0 text-body-sm text-on-surface-variant">
+            ¿No la recuerdas? <router-link to="/auth/forgot-password" class="text-primary">Recupérala por email</router-link>
+          </p>
+          <button type="submit" class="btn-secondary self-start" :disabled="savingCredentials">
+            {{ savingCredentials ? 'Guardando…' : 'Guardar cambios' }}
+          </button>
+        </form>
         <button type="button" class="btn-ghost justify-start text-error" @click="logout">
           <span class="icon">logout</span> Cerrar sesión
         </button>
@@ -275,6 +295,9 @@ const saving = ref(false)
 const uploadingPhoto = ref(false)
 const uploadingDoc = ref(false)
 const submittingCaptainReq = ref(false)
+const showCredentials = ref(false)
+const savingCredentials = ref(false)
+const credentials = reactive({ email: '', password: '', currentPassword: '' })
 
 const form = reactive({
   fullName: '',
@@ -334,6 +357,26 @@ const fill = u => {
     weight: u.weight ?? null
   })
   if (!captainForm.city && u.city) captainForm.city = u.city
+  credentials.email = u.email || ''
+}
+
+const saveCredentials = async () => {
+  const payload = { currentPassword: credentials.currentPassword }
+  if (credentials.email !== me.value.email) payload.email = credentials.email
+  if (credentials.password) payload.password = credentials.password
+  if (!payload.email && !payload.password) return toast.info('No hay cambios')
+  savingCredentials.value = true
+  try {
+    const res = await authService.updateProfile(payload)
+    fill(res.data)
+    Object.assign(credentials, { password: '', currentPassword: '' })
+    showCredentials.value = false
+    toast.success(payload.email ? 'Datos de acceso actualizados. Verifica tu nuevo email.' : 'Contraseña actualizada')
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo actualizar'))
+  } finally {
+    savingCredentials.value = false
+  }
 }
 
 const save = async () => {
@@ -356,8 +399,8 @@ const onPhotoSelected = async e => {
   uploadingPhoto.value = true
   try {
     const res = await playersService.uploadMyPhoto(file)
-    if (res.data?.profilePicture) {
-      me.value.profilePicture = res.data.profilePicture
+    if (res.data?.avatarUrl) {
+      me.value.avatarUrl = res.data.avatarUrl
     } else {
       fill((await authService.getProfile()).data)
     }

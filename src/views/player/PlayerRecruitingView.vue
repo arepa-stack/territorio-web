@@ -99,7 +99,10 @@
           </div>
 
           <div>
-            <div v-if="hasPendingRequestFor(t.id)" class="rounded bg-surface-container-low p-space-sm text-center text-body-sm text-secondary">
+            <div v-if="t.captain?.id === authStore.user?.id" class="rounded bg-surface-container-low p-space-sm text-center text-body-sm text-on-surface-variant">
+              Es tu equipo. Si también juegas, fíchate desde tu panel de capitán.
+            </div>
+            <div v-else-if="hasPendingRequestFor(t.id)" class="rounded bg-surface-container-low p-space-sm text-center text-body-sm text-secondary">
               Ya tienes una solicitud pendiente en este equipo
             </div>
             <div v-else-if="activeTeamForm === t.id" class="flex flex-col gap-space-sm rounded bg-surface-container-low p-space-md">
@@ -165,11 +168,13 @@ import teamsService from '@/services/teams'
 import playersService from '@/services/players'
 import { handleApiError } from '@/services/api'
 import { useConfirm } from '@/composables/useConfirm'
+import { useAuthStore } from '@/stores/auth'
 import { POSITIONS } from '@/utils/labels'
 import StatusChip from '@/components/ui/StatusChip.vue'
 
 const toast = useToast()
 const confirm = useConfirm()
+const authStore = useAuthStore()
 
 const CATEGORIES = {
   OPEN: 'Libre',

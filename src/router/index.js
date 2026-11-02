@@ -88,7 +88,7 @@ const routes = [
         component: PlayerDashboard,
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN'],
           title: 'Dashboard'
         }
       },
@@ -108,7 +108,7 @@ const routes = [
         component: () => import('@/views/player/PlayerStatsView.vue'),
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN'],
           title: 'Estadísticas'
         }
       },
@@ -118,7 +118,7 @@ const routes = [
         component: () => import('@/views/player/PlayerTeamsView.vue'),
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN'],
           title: 'Mis Equipos'
         }
       },
@@ -128,7 +128,7 @@ const routes = [
         component: () => import('@/views/player/PlayerRecruitingView.vue'),
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN'],
           title: 'Buscar Equipo'
         }
       },
@@ -148,7 +148,7 @@ const routes = [
         component: () => import('@/views/player/PlayerScheduleView.vue'),
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN'],
           title: 'Calendario'
         }
       },
@@ -170,6 +170,26 @@ const routes = [
           requiresAuth: true,
           roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN', 'REFEREE', 'MODERATOR'],
           title: 'Historial del equipo'
+        }
+      },
+      {
+        path: 'matches/:id',
+        name: 'MatchDetail',
+        component: () => import('@/views/matches/MatchDetailView.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN', 'REFEREE', 'MODERATOR'],
+          title: 'Partido'
+        }
+      },
+      {
+        path: 'players/:id',
+        name: 'PlayerPublicProfile',
+        component: () => import('@/views/player/PlayerPublicProfile.vue'),
+        meta: {
+          requiresAuth: true,
+          roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'ADMIN', 'REFEREE', 'MODERATOR'],
+          title: 'Jugador'
         }
       },
       {

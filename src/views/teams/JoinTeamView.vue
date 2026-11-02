@@ -47,9 +47,9 @@
             </div>
           </section>
 
-          <section v-else-if="authStore.user?.role !== 'PLAYER'" class="card p-space-lg">
+          <section v-else-if="!['PLAYER', 'TEAM_CAPTAIN'].includes(authStore.user?.role)" class="card p-space-lg">
             <p class="m-0 text-body-md text-on-surface-variant">
-              Solo las cuentas de jugador pueden unirse con un link. Entra con tu cuenta de jugador para aceptar la invitación.
+              Solo las cuentas de jugador o capitán pueden unirse con un link. Entra con tu cuenta de jugador para aceptar la invitación.
             </p>
           </section>
 
