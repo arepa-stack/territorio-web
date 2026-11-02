@@ -51,6 +51,11 @@ const tournamentsService = {
         return await api.get(`/tournaments/${tournamentId}/players`)
     },
 
+    // Public landing: counters, upcoming matches, leaders and zone owners
+    async getLandingSummary() {
+        return await api.get('/tournaments/landing-summary')
+    },
+
     // Court photo used as the tournament cover; returns { url }
     async uploadBanner(file) {
         const formData = new FormData()
