@@ -106,41 +106,85 @@
         </div>
       </section>
 
-      <!-- Territory: the hook that makes this league different -->
-      <section class="card relative overflow-hidden p-space-lg md:p-space-xl">
-        <span class="icon icon-fill pointer-events-none absolute -right-6 -top-6 text-[180px] text-secondary-container/10">workspace_premium</span>
-        <div class="relative grid gap-space-lg md:grid-cols-[1fr_1.2fr] md:items-center">
-          <div class="flex flex-col gap-space-sm">
-            <span class="label-tactical text-secondary">Dominio territorial</span>
-            <h2 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Dueños de zona</h2>
-            <p class="m-0 text-body-md text-on-surface-variant">
-              Cada zona de Caracas tiene canchas y torneos. El equipo que más torneos gana en una zona se corona su dueño y los demás lo pueden retar.
+      <!-- Zonas de control: the hook that makes this league different. Design: Stitch "Landing Pública · Zonas de Control" -->
+      <section class="flex flex-col gap-space-lg">
+        <div class="flex flex-col gap-space-sm md:flex-row md:items-end md:justify-between">
+          <div class="flex flex-col gap-space-xs">
+            <span class="label-tactical flex items-center gap-space-xs text-secondary"><span class="h-2.5 w-2.5 rounded-[1px] bg-secondary-container" /> Dominio territorial</span>
+            <h2 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Zonas de control</h2>
+            <p class="m-0 max-w-[60ch] text-body-md text-on-surface-variant">
+              Gana torneos en una zona y tu equipo se vuelve su dueño. Quien tenga más de la mitad de los títulos manda; si nadie, la zona está en disputa.
             </p>
-            <router-link :to="ctaLink(authStore.isAuthenticated, 'TEAM_CAPTAIN', '/app/zones/map')" class="btn-secondary self-start">
-              <span class="icon">map</span> Ver mapa de zonas
-            </router-link>
           </div>
-          <div v-if="summary?.zoneOwners.length" class="flex flex-col gap-space-sm">
-            <div
-              v-for="z in summary.zoneOwners"
-              :key="z.zone.id"
-              class="flex items-center gap-space-md rounded border border-solid border-secondary-container/40 bg-surface-container-low p-space-md"
-            >
-              <span class="icon icon-fill text-[28px] text-secondary-container">crown</span>
-              <div class="min-w-0 flex-1">
-                <p class="label-tactical m-0 text-on-surface-variant">{{ z.zone.name }}</p>
-                <p class="m-0 truncate font-title-sm text-title-sm">{{ z.team.name }}</p>
-              </div>
-              <span class="font-stat-mono text-stat-mono text-secondary">{{ z.championshipsWon }} títulos</span>
+          <router-link :to="ctaLink(authStore.isAuthenticated, 'TEAM_CAPTAIN', '/app/zones/map')" class="btn-secondary self-start md:self-auto">
+            <span class="icon">map</span> Ver mapa de zonas
+          </router-link>
+        </div>
+
+        <div v-if="summary?.zones.length" class="relative grid gap-space-lg overflow-hidden rounded border border-solid border-outline-variant/40 bg-surface-container-lowest p-space-md md:grid-cols-2 md:p-space-lg lg:grid-cols-3">
+          <div class="pointer-events-none absolute inset-0 opacity-40" style="background-image: radial-gradient(rgba(255, 85, 0, 0.18) 1px, transparent 0); background-size: 24px 24px" />
+          <article
+            v-for="z in summary.zones"
+            :key="z.id"
+            class="relative flex flex-col gap-space-md overflow-hidden rounded border-2 border-solid bg-surface-container-low p-space-lg transition-colors"
+            :class="z.ownerTeamId ? 'border-secondary-container/60 shadow-[0_0_16px_rgba(245,158,11,0.25)]' : 'border-primary-container/50 shadow-[0_0_16px_rgba(255,85,0,0.15)]'"
+          >
+            <span class="absolute inset-x-0 top-0 h-1" :style="{ background: z.color || '#FF5500' }" />
+            <div class="flex items-center justify-between gap-space-sm">
+              <span class="label-tactical truncate rounded border border-solid px-space-sm py-1" :class="{ invisible: !z.cities.length }" :style="{ color: z.color, borderColor: z.color }">
+                {{ z.cities.join(' · ') }}
+              </span>
+              <span v-if="z.ownerTeamId" class="label-tactical flex items-center gap-1 rounded border border-solid border-secondary-container/50 bg-surface px-space-sm py-1 text-secondary">
+                <span class="icon icon-fill text-[16px]">crown</span> Dueño: {{ z.ranking[0].teamName }}
+              </span>
+              <span v-else class="label-tactical flex items-center gap-space-xs text-primary">
+                <span class="h-2 w-2 animate-ping rounded-full bg-primary-container" /> En disputa
+              </span>
             </div>
-          </div>
-          <div v-else class="flex items-center gap-space-md rounded border border-dashed border-secondary-container/50 bg-surface-container-low p-space-lg">
-            <span class="icon icon-fill text-[40px] text-secondary-container">crown</span>
-            <p class="m-0 text-body-md">
-              <strong class="block font-title-sm text-title-sm">Ninguna zona tiene dueño todavía.</strong>
-              <span class="text-on-surface-variant">El primer campeón de cada zona se lleva la corona.</span>
-            </p>
-          </div>
+            <div>
+              <h3 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase">{{ z.name }}</h3>
+              <p class="m-0 font-stat-mono text-[12px] text-on-surface-variant">{{ z.venues }} cancha{{ z.venues === 1 ? '' : 's' }} · {{ z.totalTitles }} torneo{{ z.totalTitles === 1 ? '' : 's' }} jugado{{ z.totalTitles === 1 ? '' : 's' }}</p>
+            </div>
+
+            <div v-if="z.champion" class="rounded border border-solid border-secondary-container/40 bg-surface p-space-md shadow-[0_0_16px_rgba(245,158,11,0.2)]">
+              <span class="label-tactical flex items-center gap-1 text-on-surface-variant"><span class="icon icon-fill text-[16px] text-secondary-container">crown</span> Campeón actual</span>
+              <p class="m-0 truncate font-headline-md text-headline-md uppercase text-secondary">{{ z.champion.teamName }}</p>
+              <router-link :to="`/torneo/${z.champion.tournamentId}`" class="text-body-sm text-on-surface-variant hover:text-primary">
+                Ganó {{ z.champion.tournamentName }}
+              </router-link>
+            </div>
+            <div v-else class="rounded border border-dashed border-secondary-container/50 bg-surface p-space-md">
+              <span class="label-tactical text-on-surface-variant">Campeón actual</span>
+              <p class="m-0 font-title-sm text-title-sm">Trono vacío</p>
+              <p class="m-0 text-body-sm text-on-surface-variant">El primer campeón se lleva la corona.</p>
+            </div>
+
+            <div v-if="z.ranking.length" class="flex flex-col gap-space-sm">
+              <span class="label-tactical text-on-surface-variant">Más ganadores</span>
+              <div v-for="(r, i) in z.ranking" :key="r.teamId">
+                <div class="mb-1 flex justify-between gap-space-sm text-body-sm">
+                  <span class="truncate" :class="i === 0 ? 'text-on-surface' : 'text-on-surface-variant'">{{ i + 1 }}. {{ r.teamName }}</span>
+                  <span class="whitespace-nowrap font-stat-mono text-stat-mono" :class="i === 0 ? 'text-secondary' : 'text-on-surface-variant'">
+                    {{ r.titles }} <span class="icon icon-fill align-[-3px] text-[14px]">trophy</span> {{ r.share }}%
+                  </span>
+                </div>
+                <div class="h-1.5 overflow-hidden rounded-full bg-surface-container-highest">
+                  <div class="h-full" :class="MEDALS[i]" :style="{ width: r.share + '%' }" />
+                </div>
+              </div>
+            </div>
+
+            <router-link to="/torneos" class="mt-auto" :class="z.openTournaments ? 'btn-primary' : 'btn-secondary'">
+              {{ z.openTournaments ? `Retar al campeón · ${z.openTournaments} torneo${z.openTournaments > 1 ? 's' : ''} abierto${z.openTournaments > 1 ? 's' : ''}` : 'Ver torneos' }}
+            </router-link>
+          </article>
+        </div>
+        <div v-else class="flex items-center gap-space-md rounded border border-dashed border-secondary-container/50 bg-surface-container-low p-space-lg">
+          <span class="icon icon-fill text-[40px] text-secondary-container">crown</span>
+          <p class="m-0 text-body-md">
+            <strong class="block font-title-sm text-title-sm">Ninguna zona tiene dueño todavía.</strong>
+            <span class="text-on-surface-variant">El primer campeón de cada zona se lleva la corona.</span>
+          </p>
         </div>
       </section>
 
