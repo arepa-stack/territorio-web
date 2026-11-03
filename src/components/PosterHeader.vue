@@ -2,8 +2,8 @@
   <header class="poster-header">
     <div class="wrap poster-header__bar">
       <router-link to="/" class="poster-header__brand">
-        <span class="display poster-header__logo">Basketball<span class="poster-header__mvp">MVP</span></span>
-        <span class="mono poster-header__tag">CCS Streetball</span>
+        <span class="display poster-header__logo">Territorio<span class="poster-header__mvp">.</span></span>
+        <span class="mono poster-header__tag">Basket de barrio</span>
       </router-link>
       <nav class="poster-header__nav" aria-label="Explorar">
         <router-link v-for="l in links" :key="l.to" :to="l.to" active-class="is-active">{{ l.label }}</router-link>

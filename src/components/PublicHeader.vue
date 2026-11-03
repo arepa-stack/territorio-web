@@ -4,8 +4,8 @@
       <router-link to="/" class="flex items-center gap-space-sm no-underline">
         <span class="icon icon-fill text-[28px] text-primary-container">sports_basketball</span>
         <span class="flex flex-col leading-none">
-          <span class="whitespace-nowrap font-headline-md text-[20px] uppercase text-on-surface md:text-headline-md">Basketball MVP</span>
-          <span class="label-tactical mt-0.5 text-on-surface-variant">CCS Streetball</span>
+          <span class="whitespace-nowrap font-headline-md text-[20px] uppercase text-on-surface md:text-headline-md">Territorio</span>
+          <span class="label-tactical mt-0.5 text-on-surface-variant">Basket de barrio</span>
         </span>
       </router-link>
       <div class="flex items-center gap-space-xs">

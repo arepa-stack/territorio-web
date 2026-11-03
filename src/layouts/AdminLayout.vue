@@ -4,7 +4,7 @@
     <header class="a-head">
       <div class="wrap a-head__bar">
         <router-link to="/" class="a-head__brand">
-          <span class="display a-head__mark">Basketball<span class="a-head__mvp">MVP</span></span>
+          <span class="display a-head__mark">Territorio<span class="a-head__mvp">.</span></span>
           <span class="mono a-head__tag">Admin</span>
         </router-link>
         <nav class="a-head__nav" aria-label="Administración">

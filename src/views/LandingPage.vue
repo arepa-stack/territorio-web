@@ -154,7 +154,7 @@
 
     <footer>
       <div class="wrap footer mono">
-        <span>Basketball MVP · CCS Streetball</span>
+        <span>Territorio · Basket de barrio</span>
         <nav class="footer__links" aria-label="Pie de página">
           <router-link to="/torneos">Torneos</router-link>
           <router-link to="/equipos">Equipos</router-link>

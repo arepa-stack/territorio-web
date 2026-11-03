@@ -3,7 +3,7 @@
   <div class="court shell">
     <header class="shell__top">
       <router-link :to="homeRoute" class="shell__brand">
-        <span class="shell__mark">Basketball<span class="shell__mvp">MVP</span></span>
+        <span class="shell__mark">Territorio<span class="shell__mvp">.</span></span>
       </router-link>
       <div class="shell__top-actions">
         <button type="button" class="shell__bell" :aria-label="`Notificaciones, ${unreadCount} sin leer`" @click="openPanel">
@@ -17,7 +17,7 @@
 
     <aside id="court-nav" class="side" :class="{ 'is-open': drawer }">
       <router-link :to="homeRoute" class="shell__brand side__brand">
-        <span class="shell__mark">Basketball<span class="shell__mvp">MVP</span></span>
+        <span class="shell__mark">Territorio<span class="shell__mvp">.</span></span>
       </router-link>
       <span class="side__role">{{ roleLabel }}</span>
 
