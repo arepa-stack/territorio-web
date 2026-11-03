@@ -137,13 +137,13 @@ useCourtTheme()
   flex: 1;
   align-items: center;
   justify-content: center;
-  padding: 24px 40px 64px;
+  padding: 8px 40px 32px;
 }
 
 .auth__card {
   width: 100%;
   max-width: 440px;
-  padding: 36px;
+  padding: 28px 32px;
   border: 1px solid #2a2924;
   border-top: 6px solid #ff4f12;
   background: #141411;
@@ -153,6 +153,21 @@ useCourtTheme()
 .auth__card :deep(h1) {
   font-size: 44px;
   line-height: 0.95;
+}
+
+/* Short laptop screens (768px): tighter header and card so sign-up fits without scrolling */
+@media (max-height: 820px) and (min-width: 901px) {
+  .auth__head {
+    padding: 14px 40px;
+  }
+
+  .auth__card {
+    padding: 20px 28px;
+  }
+
+  .auth__card :deep(h1) {
+    font-size: 36px;
+  }
 }
 
 @media (max-width: 900px) {

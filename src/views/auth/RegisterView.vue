@@ -1,26 +1,27 @@
 <template>
-  <div class="flex flex-col gap-space-lg">
+  <div class="flex flex-col gap-space-md">
     <div>
       <h1 class="m-0 font-headline-lg text-headline-lg uppercase">Crea tu cuenta</h1>
-      <p class="m-0 mt-1 text-body-md text-on-surface-variant">Elige cómo vas a usar la liga.</p>
+      <p class="m-0 mt-1 text-body-md text-on-surface-variant">El resto de tus datos los completas en tu perfil.</p>
     </div>
 
     <form class="flex flex-col gap-space-md" novalidate @submit.prevent="handleRegister">
-      <fieldset class="m-0 flex flex-col gap-space-xs border-0 p-0">
-        <legend class="field-label">Rol</legend>
-        <label
-          v-for="r in roles"
-          :key="r.value"
-          class="flex cursor-pointer items-center gap-space-md rounded-lg border border-solid p-space-md"
-          :class="form.role === r.value ? 'border-primary-container bg-primary-container/10' : 'border-outline-variant/60 bg-surface-container-low'"
-        >
-          <input v-model="form.role" type="radio" name="role" :value="r.value" class="sr-only" />
-          <span class="icon text-[28px]" :class="form.role === r.value ? 'text-primary' : 'text-on-surface-variant'">{{ r.icon }}</span>
-          <span class="flex flex-col">
-            <span class="font-title-sm text-title-sm">{{ r.label }}</span>
-            <span class="text-body-sm text-on-surface-variant">{{ r.description }}</span>
-          </span>
-        </label>
+      <fieldset class="m-0 border-0 p-0">
+        <legend class="field-label">Voy a ser</legend>
+        <div class="grid grid-cols-3 gap-space-xs">
+          <label
+            v-for="r in roles"
+            :key="r.value"
+            class="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-solid px-space-xs py-space-sm text-center has-[:focus-visible]:outline has-[:focus-visible]:outline-2"
+            :class="form.role === r.value ? 'border-primary-container bg-primary-container/10' : 'border-outline-variant/60 bg-surface-container-low'"
+            :title="r.description"
+          >
+            <input v-model="form.role" type="radio" name="role" :value="r.value" class="sr-only" />
+            <span class="icon text-[24px]" :class="form.role === r.value ? 'text-primary' : 'text-on-surface-variant'">{{ r.icon }}</span>
+            <span class="text-body-sm font-bold">{{ r.label }}</span>
+          </label>
+        </div>
+        <p class="m-0 mt-space-xs text-body-sm text-on-surface-variant">{{ roles.find(r => r.value === form.role)?.description }}</p>
       </fieldset>
 
       <div>
@@ -41,39 +42,6 @@
           <input id="reg-phone" v-model.trim="form.phone" class="input" type="tel" autocomplete="tel" />
         </div>
       </div>
-      <div>
-        <label class="field-label" for="reg-city">Ciudad</label>
-        <input id="reg-city" v-model.trim="form.city" class="input" placeholder="Caracas" />
-      </div>
-
-      <!-- Only for players -->
-      <div v-if="form.role === 'PLAYER'" class="flex flex-col gap-space-md rounded-lg bg-surface-container-low p-space-md">
-        <span class="label-tactical text-secondary">Datos de juego</span>
-        <div>
-          <span class="field-label">Posición</span>
-          <div class="flex flex-wrap gap-space-xs">
-            <button
-              v-for="p in positions"
-              :key="p.value"
-              type="button"
-              class="filter-chip"
-              :aria-pressed="form.position === p.value"
-              @click="form.position = p.value"
-            >{{ p.label }}</button>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-space-md">
-          <div>
-            <label class="field-label" for="reg-height">Altura (cm)</label>
-            <input id="reg-height" v-model.number="form.height" class="input" type="number" min="140" max="230" />
-          </div>
-          <div>
-            <label class="field-label" for="reg-birth">Nacimiento</label>
-            <input id="reg-birth" v-model="form.birthDate" class="input" type="date" />
-          </div>
-        </div>
-      </div>
-
       <div class="grid gap-space-md sm:grid-cols-2">
         <div>
           <label class="field-label" for="reg-pass">Contraseña *</label>
@@ -117,13 +85,6 @@ const roles = [
   { value: 'TEAM_CAPTAIN', label: 'Capitán', icon: 'groups', description: 'Arma y gestiona un equipo.' },
   { value: 'ORGANIZER', label: 'Organizador', icon: 'emoji_events', description: 'Crea y administra torneos.' }
 ]
-const positions = [
-  { value: 'BASE', label: 'Base' },
-  { value: 'ESCOLTA', label: 'Escolta' },
-  { value: 'ALERO', label: 'Alero' },
-  { value: 'ALA_PIVOT', label: 'Ala-Pívot' },
-  { value: 'PIVOT', label: 'Pívot' }
-]
 
 // ?role=TEAM_CAPTAIN preselects the account type (public CTAs link here)
 const form = reactive({
@@ -132,10 +93,6 @@ const form = reactive({
   email: '',
   ci: '',
   phone: '',
-  city: '',
-  position: null,
-  height: null,
-  birthDate: '',
   password: '',
   confirmPassword: ''
 })
@@ -153,7 +110,7 @@ const handleRegister = async () => {
   error.value = validate()
   if (error.value) return
 
-  const isPlayer = form.role === 'PLAYER'
+  // ponytail: city, position, height and birth date are filled in the profile after signing up
   const payload = {
     role: form.role,
     fullName: form.fullName,
@@ -161,11 +118,7 @@ const handleRegister = async () => {
     password: form.password,
     confirmPassword: form.confirmPassword,
     ...(form.ci && { ci: form.ci }),
-    ...(form.phone && { phone: form.phone }),
-    ...(form.city && { city: form.city }),
-    ...(isPlayer && form.position && { position: form.position }),
-    ...(isPlayer && form.height && { height: form.height }),
-    ...(isPlayer && form.birthDate && { birthDate: form.birthDate })
+    ...(form.phone && { phone: form.phone })
   }
 
   const result = await authStore.register(payload)
