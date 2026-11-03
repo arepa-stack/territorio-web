@@ -76,6 +76,22 @@ export const SANCTION_TYPES = {
   PERMANENT_BAN: 'Expulsión definitiva'
 }
 
+export const VIOLATION_TYPES = {
+  UNSPORTSMANLIKE_CONDUCT: 'Conducta antideportiva',
+  VERBAL_ABUSE: 'Insultos',
+  PHYSICAL_AGGRESSION: 'Agresión física',
+  FIGHTING: 'Pelea',
+  OFFICIAL_ABUSE: 'Agresión o insulto al árbitro',
+  SPECTATOR_ABUSE: 'Problema con el público',
+  EQUIPMENT_ABUSE: 'Daño al equipamiento',
+  LATE_ARRIVAL: 'Llegada tarde',
+  UNIFORM_VIOLATION: 'Uniforme reglamentario',
+  DOPING: 'Doping',
+  OTHER: 'Otra'
+}
+
+export const SEVERITIES = { MINOR: 'Leve', MAJOR: 'Mayor', SERIOUS: 'Grave' }
+
 export const hasUniformClash = (homeTeam, awayTeam) => {
   const hc = homeTeam?.homeColor?.trim().toLowerCase()
   const ac = awayTeam?.homeColor?.trim().toLowerCase()

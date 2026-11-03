@@ -17,19 +17,22 @@
       <section v-if="isSuspendedNextMatch || activeSanctions.length" class="card flex flex-col gap-space-sm border-l-4 border-l-error bg-surface-container p-space-md">
         <div class="flex flex-wrap items-center gap-space-xs">
           <span class="inline-flex items-center gap-1 rounded-full bg-error px-2.5 py-0.5 text-label-sm font-bold uppercase text-white">
-            <span class="icon text-[16px]">gavel</span> Suspendido
+            <span class="icon text-[16px]">gavel</span> {{ isSuspendedNextMatch ? 'Suspendido' : 'Sanción activa' }}
           </span>
           <strong class="text-body-md text-on-surface">
-            {{ suspendedReason || 'Tienes sanciones activas pendientes de cumplir.' }}
+            {{ isSuspendedNextMatch ? 'No puedes jugar tu próximo partido.' : 'Tienes sanciones activas.' }}
           </strong>
         </div>
-        <div v-if="activeSanctions.length" class="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-          <div v-for="s in activeSanctions" :key="s.id" class="flex flex-wrap items-center justify-between gap-space-xs">
-            <span>{{ s.reason }} ({{ s.type }})</span>
-            <span v-if="s.matchesRemaining > 0" class="font-stat-mono text-error">
-              {{ s.matchesRemaining }} partido(s) restante(s)
-            </span>
+        <div v-for="s in activeSanctions" :key="s.id" class="flex flex-col gap-1 border-0 border-t border-solid border-outline-variant/40 pt-space-sm text-body-sm">
+          <div class="flex flex-wrap items-center gap-space-xs">
+            <strong class="text-on-surface">{{ SANCTION_TYPES[s.sanctionType] || s.sanctionType }}</strong>
+            <span v-if="s.tournamentName" class="text-on-surface-variant">· {{ s.tournamentName }}</span>
+            <span v-if="s.gamesSuspended" class="font-stat-mono text-error">· {{ s.gamesSuspended }} partido{{ s.gamesSuspended > 1 ? 's' : '' }} fuera</span>
+            <span v-if="s.fine" class="font-stat-mono" :class="s.isPaid ? 'text-tertiary' : 'text-secondary'">· Multa ${{ s.fine }} {{ s.isPaid ? 'pagada' : 'pendiente' }}</span>
           </div>
+          <span class="text-on-surface-variant">{{ s.reason }}</span>
+          <span v-if="s.isAppealed" class="label-tactical text-secondary">Apelación en revisión</span>
+          <button v-else type="button" class="btn-ghost self-start px-0" :disabled="appealing === s.id" @click="appeal(s)">Apelar sanción</button>
         </div>
       </section>
 
@@ -44,7 +47,7 @@
               class="inline-flex items-center gap-1 rounded-full bg-error px-2.5 py-0.5 text-label-sm font-bold uppercase text-white"
               :title="suspendedReason || 'Suspendido para este partido'"
             >
-              <span class="icon text-[14px]">block</span> Suspendido ({{ suspendedReason || 'Sanción activa' }})
+              <span class="icon text-[14px]">block</span> Suspendido
             </span>
           </div>
           <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-space-sm text-center">
@@ -121,10 +124,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerOverview } from '@/composables/usePlayerOverview'
-import { POSITIONS, formatDay } from '@/utils/labels'
+import { POSITIONS, SANCTION_TYPES, formatDay } from '@/utils/labels'
+import { useToast } from 'vue-toastification'
+import sanctionsService from '@/services/sanctions'
+import { handleApiError } from '@/services/api'
+import { useConfirm } from '@/composables/useConfirm'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
 import StatTile from '@/components/ui/StatTile.vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
@@ -143,6 +150,30 @@ const {
   myTeamIn,
   perGame
 } = usePlayerOverview()
+
+const toast = useToast()
+const confirm = useConfirm()
+const appealing = ref(null)
+// The organizer of the tournament reviews the appeal
+const appeal = async s => {
+  const reason = await confirm({
+    title: 'Apelar sanción',
+    message: 'Explica por qué crees que la sanción no corresponde. El organizador del torneo la revisa y te avisa.',
+    confirmText: 'Enviar apelación',
+    input: { label: 'Motivo', placeholder: 'Ej. No fui yo, el árbitro confundió el dorsal' }
+  })
+  if (!reason || typeof reason !== 'string') return
+  appealing.value = s.id
+  try {
+    await sanctionsService.appeal(s.id, reason)
+    toast.success('Apelación enviada')
+    await load(true)
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo enviar la apelación'))
+  } finally {
+    appealing.value = null
+  }
+}
 
 const firstName = computed(() => (authStore.userName || '').split(' ')[0])
 const next = computed(() => upcoming.value[0])

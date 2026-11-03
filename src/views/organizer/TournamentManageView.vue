@@ -228,6 +228,16 @@
       <!-- Standings -->
       <StandingsTable v-if="tab === 'standings'" :standings="standings" />
 
+      <!-- Sanctions -->
+      <TournamentSanctions
+        v-if="tab === 'sanctions'"
+        :tournament-id="id"
+        :players="tournamentPlayers"
+        :matches="matches"
+        :preselect-player-id="sanctionFor"
+        @changed="load"
+      />
+
       <!-- Players (Task 10, 16, 17) -->
       <section v-if="tab === 'players'" class="flex flex-col gap-space-md">
         <div class="flex flex-col gap-space-sm sm:flex-row sm:items-center sm:justify-between">
@@ -303,15 +313,16 @@
                   </div>
                 </td>
                 <td class="px-space-md py-space-sm">
-                  <span v-if="!p.activeSanctions?.length" class="text-on-surface-variant">Ninguna</span>
-                  <div v-else class="flex flex-col gap-0.5">
+                  <div class="flex flex-col items-start gap-1">
+                    <span v-if="!p.activeSanctions?.length" class="text-on-surface-variant">Ninguna</span>
                     <span
                       v-for="s in p.activeSanctions"
                       :key="s.id"
                       class="rounded bg-error/20 px-1.5 py-0.5 text-[11px] text-error"
                     >
-                      {{ s.type }} ({{ s.matchesRemaining }} PJ)
+                      {{ SANCTION_TYPES[s.type] || s.type }}{{ s.gamesSuspended ? ` · ${s.gamesSuspended} PJ` : '' }}
                     </span>
+                    <button type="button" class="btn-ghost px-2 py-0.5 text-[11px]" @click="sanctionPlayer(p.playerId)">Sancionar</button>
                   </div>
                 </td>
                 <td class="px-space-md py-space-sm">
@@ -355,7 +366,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
@@ -371,7 +382,8 @@ import paymentsService from '@/services/payments'
 import { handleApiError } from '@/services/api'
 import { useConfirm } from '@/composables/useConfirm'
 import PlayoffBracket from '@/components/PlayoffBracket.vue'
-import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload, formatDate, PLAYOFF_OPTIONS } from '@/utils/labels'
+import TournamentSanctions from '@/components/organizer/TournamentSanctions.vue'
+import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload, formatDate, PLAYOFF_OPTIONS, SANCTION_TYPES } from '@/utils/labels'
 
 const route = useRoute()
 const toast = useToast()
@@ -382,7 +394,8 @@ const tabs = [
   { value: 'registrations', label: 'Inscripciones' },
   { value: 'fixture', label: 'Fixture' },
   { value: 'standings', label: 'Tabla' },
-  { value: 'players', label: 'Jugadores' }
+  { value: 'players', label: 'Jugadores' },
+  { value: 'sanctions', label: 'Sanciones' }
 ]
 const tab = ref('registrations')
 const loading = ref(true)
@@ -458,7 +471,8 @@ const load = async () => {
     matches.value = ms.status === 'fulfilled' ? ms.value.data.matches || [] : []
     standings.value = st.status === 'fulfilled' ? st.value.data.standings || [] : []
     rescheduleRequests.value = rr.status === 'fulfilled' ? rr.value.data || [] : []
-    tournamentPlayers.value = pls.status === 'fulfilled' ? pls.value.data.players || [] : []
+    // The API nests the team; the table, the team filter and the sanctions form read flat fields
+    tournamentPlayers.value = (pls.status === 'fulfilled' ? pls.value.data.players || [] : []).map(p => ({ ...p, playerId: p.id, teamId: p.team?.id, teamName: p.team?.name }))
     bracket.value = tournament.value.playoffTeams ? (await tournamentsService.getBracket(id).catch(() => ({ data: null }))).data : null
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo cargar el torneo'))
@@ -537,6 +551,13 @@ const resolveReschedule = async (req, status) => {
 }
 
 const bracket = ref(null)
+// "Sancionar" in the players tab opens the sanctions tab with that player chosen
+const sanctionFor = ref('')
+const sanctionPlayer = playerId => {
+  sanctionFor.value = ''
+  tab.value = 'sanctions'
+  nextTick(() => (sanctionFor.value = playerId))
+}
 const hasPlayoffGames = computed(() => matches.value.some(x => x.phase))
 // Regular season over, playoffs configured but not created yet
 const needsPlayoffs = computed(() => Boolean(tournament.value?.playoffTeams) && !hasPlayoffGames.value && pendingCount.value === 0)
