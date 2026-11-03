@@ -9,6 +9,11 @@ const matchesService = {
         return await api.get(`/matches/${matchId}/events`)
     },
 
+    // Undo one play from the scoring table
+    async deleteEvent(eventId) {
+        return await api.delete(`/matches/events/${eventId}`)
+    },
+
     async getByTournament(tournamentId) {
         return await api.get('/matches', { params: { tournamentId, limit: 200 } })
     },
