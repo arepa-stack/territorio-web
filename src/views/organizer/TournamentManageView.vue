@@ -43,6 +43,18 @@
             />
             <span>Exigir documento de identidad verificado</span>
           </label>
+          <label class="flex items-center gap-1.5 text-on-surface">
+            <span class="icon text-[18px]">account_tree</span>
+            <select
+              class="input w-auto py-1"
+              :value="tournament.playoffTeams || 0"
+              :disabled="busy || tournament.status !== 'REGISTRATION'"
+              aria-label="Playoffs"
+              @change="setPlayoffs(Number($event.target.value))"
+            >
+              <option v-for="o in PLAYOFF_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+            </select>
+          </label>
         </div>
       </header>
 
@@ -69,12 +81,17 @@
           <span class="close__progress">{{ decidedCount }}/{{ matches.length }} partidos decididos</span>
           <span class="close__track"><span class="close__fill" :style="{ width: matches.length ? (decidedCount / matches.length) * 100 + '%' : '0%' }" /></span>
           <span v-if="pendingCount" class="close__note">{{ pendingCount > 1 ? 'Faltan' : 'Falta' }} {{ pendingCount }} partido{{ pendingCount > 1 ? 's' : '' }} por jugar o resolver (W.O.) para poder cerrar.</span>
-          <span v-else-if="standings[0]" class="close__note">Campeón según la tabla: <strong>{{ standings[0].teamName }}</strong> · {{ standings[0].points }} pts</span>
+          <span v-else-if="needsPlayoffs" class="close__note">Fase regular terminada: genera los playoffs con los {{ tournament.playoffTeams }} primeros de la tabla.</span>
+          <span v-else-if="champion" class="close__note">Campeón: <strong>{{ champion.teamName }}</strong>{{ tournament.playoffTeams ? ' · ganó la final' : ` · ${champion.points} pts` }}</span>
         </div>
-        <button type="button" class="btn-primary" :disabled="busy || pendingCount > 0 || !standings.length" @click="finishTournament">
+        <button v-if="needsPlayoffs" type="button" class="btn-primary" :disabled="busy" @click="generatePlayoffs">
+          <span class="icon">account_tree</span> Generar playoffs
+        </button>
+        <button v-else type="button" class="btn-primary" :disabled="busy || pendingCount > 0 || !champion" @click="finishTournament">
           <span class="icon">emoji_events</span> Finalizar y coronar campeón
         </button>
       </section>
+      <PlayoffBracket v-if="bracket" :bracket="bracket" subtitle="Playoffs" :title="tournament.name" />
       <section v-else-if="tournament.status === 'FINISHED' && tournament.winner" class="close close--done">
         <span class="icon close__crown">workspace_premium</span>
         <div class="close__info">
@@ -353,7 +370,8 @@ import PaymentInfoFields from '@/components/tournament/PaymentInfoFields.vue'
 import paymentsService from '@/services/payments'
 import { handleApiError } from '@/services/api'
 import { useConfirm } from '@/composables/useConfirm'
-import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload, formatDate } from '@/utils/labels'
+import PlayoffBracket from '@/components/PlayoffBracket.vue'
+import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload, formatDate, PLAYOFF_OPTIONS } from '@/utils/labels'
 
 const route = useRoute()
 const toast = useToast()
@@ -441,6 +459,7 @@ const load = async () => {
     standings.value = st.status === 'fulfilled' ? st.value.data.standings || [] : []
     rescheduleRequests.value = rr.status === 'fulfilled' ? rr.value.data || [] : []
     tournamentPlayers.value = pls.status === 'fulfilled' ? pls.value.data.players || [] : []
+    bracket.value = tournament.value.playoffTeams ? (await tournamentsService.getBracket(id).catch(() => ({ data: null }))).data : null
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo cargar el torneo'))
   } finally {
@@ -517,14 +536,34 @@ const resolveReschedule = async (req, status) => {
   )
 }
 
+const bracket = ref(null)
+const hasPlayoffGames = computed(() => matches.value.some(x => x.phase))
+// Regular season over, playoffs configured but not created yet
+const needsPlayoffs = computed(() => Boolean(tournament.value?.playoffTeams) && !hasPlayoffGames.value && pendingCount.value === 0)
+// With playoffs the champion is the winner of the final; without, the leader of the standings
+const champion = computed(() => {
+  if (!tournament.value?.playoffTeams) return standings.value[0] || null
+  const id = bracket.value?.champion?.teamId
+  return id ? standings.value.find(s => s.teamId === id) || { teamId: id, teamName: bracket.value.champion.name } : null
+})
+const generatePlayoffs = async () => {
+  const ok = await confirm({
+    title: 'Generar playoffs',
+    message: `Clasifican los ${tournament.value.playoffTeams} primeros de la tabla y se crean los cruces (1.º vs último clasificado, y así). Las siguientes rondas se arman solas cuando se juegan las llaves.`,
+    confirmText: 'Generar playoffs'
+  })
+  if (ok) run(() => tournamentsService.generatePlayoffs(id), 'Playoffs generados')
+}
+const setPlayoffs = value => run(() => tournamentsService.update(id, { playoffTeams: value }), 'Playoffs actualizados')
+
 // Same rule as the backend: scheduled, live or suspended games keep the tournament open
 const pendingCount = computed(() => matches.value.filter(x => ['SCHEDULED', 'IN_PROGRESS', 'SUSPENDED'].includes(x.status)).length)
 const decidedCount = computed(() => matches.value.length - pendingCount.value)
 const finishTournament = async () => {
-  const champ = standings.value[0]
+  const champ = champion.value
   const ok = await confirm({
     title: 'Finalizar torneo',
-    message: `${champ.teamName} queda campeón de "${tournament.value.name}" (1.º de la tabla con ${champ.points} pts). El torneo pasa a Finalizado, se suma a su historial y a la zona, y se avisa a todos los equipos. No se puede deshacer.`,
+    message: `${champ.teamName} queda campeón de "${tournament.value.name}"${tournament.value.playoffTeams ? ' (ganó la final)' : ` (1.º de la tabla con ${champ.points} pts)`}. El torneo pasa a Finalizado, se suma a su historial y a la zona, y se avisa a todos los equipos. No se puede deshacer.`,
     confirmText: 'Coronar campeón'
   })
   if (ok) run(() => tournamentsService.finish(id), `${champ.teamName} es campeón`)

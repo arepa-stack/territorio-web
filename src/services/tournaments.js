@@ -41,6 +41,16 @@ const tournamentsService = {
         return await api.get(`/tournaments/${tournamentId}/registrations`)
     },
 
+    // Playoff bracket (public): projection from the standings until the playoffs exist
+    async getBracket(tournamentId) {
+        return await api.get(`/tournaments/${tournamentId}/bracket`)
+    },
+
+    // Create the first playoff round from the standings (Organizer only)
+    async generatePlayoffs(tournamentId) {
+        return await api.post(`/tournaments/${tournamentId}/playoffs`)
+    },
+
     // Close the tournament and crown the leader of the standings (Organizer only)
     async finish(tournamentId) {
         return await api.post(`/tournaments/${tournamentId}/finish`)

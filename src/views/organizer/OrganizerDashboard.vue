@@ -213,6 +213,12 @@
                                 <label class="field-label" for="t-max">Máx. equipos</label>
                                 <input id="t-max" v-model.number="formData.maxTeams" class="input font-mono" type="number" min="4" max="32" />
                             </div>
+                            <div class="col-span-2 md:col-span-5">
+                                <label class="field-label" for="t-playoffs">Playoffs</label>
+                                <select id="t-playoffs" v-model.number="formData.playoffTeams" class="input">
+                                    <option v-for="o in PLAYOFF_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                                </select>
+                            </div>
                             <div>
                                 <label class="field-label" for="t-players">Jug. / equipo</label>
                                 <input id="t-players" v-model.number="formData.playersPerTeam" class="input font-mono" type="number" min="5" max="15" />
@@ -310,7 +316,7 @@ import ChipSelect from '@/components/ui/ChipSelect.vue'
 import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
 import PaymentInfoFields from '@/components/tournament/PaymentInfoFields.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { emptyPaymentInfo, paymentInfoPayload, formatDate } from '@/utils/labels'
+import { emptyPaymentInfo, paymentInfoPayload, formatDate, PLAYOFF_OPTIONS } from '@/utils/labels'
 
 const authStore = useAuthStore()
 
@@ -354,6 +360,7 @@ const formData = ref({
     location: '',
     maxTeams: 16,
     minTeams: 4,
+    playoffTeams: 0,
     entryFee: 10,
     playersPerTeam: 12,
     quarterDuration: 10,
@@ -464,6 +471,7 @@ const validateForm = () => {
     if (f.minTeams < 4 || f.minTeams > 16) return 'El mínimo de equipos va de 4 a 16.'
     if (f.maxTeams < 4 || f.maxTeams > 32) return 'El máximo de equipos va de 4 a 32.'
     if (f.minTeams > f.maxTeams) return 'El mínimo de equipos no puede superar el máximo.'
+    if (f.playoffTeams > f.maxTeams) return 'No pueden clasificar a playoffs más equipos que el máximo del torneo.'
     if (f.playersPerTeam < 5 || f.playersPerTeam > 15) return 'Los jugadores por equipo van de 5 a 15.'
     if (f.entryFee === '' || f.entryFee == null || Number(f.entryFee) < 0) return 'El costo de inscripción no puede ser negativo.'
     if (f.quarterDuration < 8 || f.quarterDuration > 12) return 'Los cuartos duran entre 8 y 12 minutos.'

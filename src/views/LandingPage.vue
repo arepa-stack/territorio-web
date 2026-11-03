@@ -56,6 +56,19 @@
       </dl>
     </section>
 
+    <!-- Playoffs being played: live bracket (or projection) per tournament -->
+    <section v-if="summary?.brackets?.length" class="rule-bottom" aria-labelledby="playoffs-t">
+      <div class="wrap section-pad stack-40">
+        <div class="split">
+          <h2 id="playoffs-t" class="display section-title">Playoffs<br />en juego</h2>
+          <router-link to="/torneos?estado=IN_PROGRESS" class="link-under">Ver torneos en curso</router-link>
+        </div>
+        <router-link v-for="b in summary.brackets" :key="b.tournamentId" :to="`/torneo/${b.tournamentId}`" class="bracket-link">
+          <PlayoffBracket :bracket="b.bracket" :title="b.tournamentName" subtitle="Camino al título" />
+        </router-link>
+      </div>
+    </section>
+
     <!-- Zonas de control: the hook that makes this league different -->
     <section class="zones rule-bottom" aria-labelledby="zonas-t">
       <svg class="zones__court" aria-hidden="true" width="900" height="900" viewBox="0 0 900 900" fill="none" stroke="#1C1B17" stroke-width="3">
@@ -174,6 +187,7 @@ import zonesService from '@/services/zones'
 import { useAuthStore } from '@/stores/auth'
 import PosterTournamentRow from '@/components/poster/PosterTournamentRow.vue'
 import PosterHeader from '@/components/PosterHeader.vue'
+import PlayoffBracket from '@/components/PlayoffBracket.vue'
 import ZoneLeafletMap from '@/components/zone/ZoneLeafletMap.vue'
 import ZonePanel from '@/components/zone/ZonePanel.vue'
 
@@ -712,5 +726,15 @@ onMounted(async () => {
   .leaders__ppg {
     font-size: 40px;
   }
+}
+
+.poster .bracket-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.poster .bracket-link:hover {
+  color: inherit;
 }
 </style>

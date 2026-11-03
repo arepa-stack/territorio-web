@@ -19,6 +19,15 @@ export const CATEGORIES = {
   MIXED: 'Mixta'
 }
 
+// Playoff options when creating a tournament (0 = champion is the leader of the standings)
+export const PLAYOFF_OPTIONS = [
+  { value: 0, label: 'Sin playoffs (campeón = 1.º de la tabla)' },
+  { value: 2, label: 'Final entre los 2 primeros' },
+  { value: 4, label: 'Semifinales con los 4 primeros' },
+  { value: 8, label: 'Cuartos con los 8 primeros' }
+]
+export const PHASE_LABEL = { QF: 'Cuartos de final', SF: 'Semifinales', F: 'Final' }
+
 export const toOptions = map => Object.entries(map).map(([value, label]) => ({ value, label }))
 
 // Dates are stored as UTC calendar days: format in UTC or Venezuela (UTC-4) shows the day before.

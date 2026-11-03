@@ -74,7 +74,7 @@
 
         <div class="tabs" role="tablist" aria-label="Secciones del torneo">
           <button
-            v-for="t in tabs"
+            v-for="t in visibleTabs"
             :key="t.value"
             type="button"
             role="tab"
@@ -83,6 +83,8 @@
             @click="tab = t.value"
           >{{ t.label }}</button>
         </div>
+
+        <PlayoffBracket v-if="tab === 'playoffs' && bracket" :bracket="bracket" subtitle="Playoffs" :title="tournament.name" />
 
         <div v-if="tab === 'standings'" class="table-box">
           <table class="standings">
@@ -113,7 +115,7 @@
         <div v-if="tab === 'fixture'" class="block">
           <p v-if="!rounds.length" class="page__empty">El fixture todavía no se generó.</p>
           <div v-for="r in rounds" :key="r.round" class="round">
-            <h2 class="mono round__title">Jornada {{ r.round }}</h2>
+            <h2 class="mono round__title">{{ PHASE_LABEL[r.matches[0].phase] || `Jornada ${r.round}` }}</h2>
             <div v-for="m in r.matches" :key="m.id" class="fx">
               <span class="mono fx__when">{{ shortDay(m.matchDate) }} · {{ m.matchTime }}</span>
               <span class="display fx__teams">{{ m.homeTeam.name }} <span class="fx__vs">vs</span> {{ m.awayTeam.name }}</span>
@@ -169,7 +171,8 @@ import matchesService from '@/services/matches'
 import { useAuthStore } from '@/stores/auth'
 import '@/styles/poster.css'
 import PosterHeader from '@/components/PosterHeader.vue'
-import { CATEGORIES, POSTER_STATUS, formatDate } from '@/utils/labels'
+import { CATEGORIES, POSTER_STATUS, PHASE_LABEL, formatDate } from '@/utils/labels'
+import PlayoffBracket from '@/components/PlayoffBracket.vue'
 import RecruitingTeamCard from '@/components/tournament/RecruitingTeamCard.vue'
 import teamsService from '@/services/teams'
 import { ctaLink } from '@/router/navigation'
@@ -189,6 +192,9 @@ const leaderCategories = [
   { key: 'assists', title: 'Asistencias', unit: 'AST', field: 'assists', perGameField: 'assistsPerGame' },
   { key: 'threePointers', title: 'Triples', unit: '3P', field: 'threePointers', perGameField: 'threePointersPerGame' }
 ]
+
+const bracket = ref(null)
+const visibleTabs = computed(() => (bracket.value ? [{ value: 'playoffs', label: 'Playoffs' }, ...tabs] : tabs))
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -247,6 +253,11 @@ onMounted(async () => {
     leaders.value = l.value.data
   }
   recruiting.value = rec.status === 'fulfilled' ? rec.value.data || [] : []
+  // Tournaments with playoffs open on the bracket
+  if (tournament.value?.playoffTeams) {
+    bracket.value = (await tournamentsService.getBracket(id).catch(() => ({ data: null }))).data
+    if (bracket.value) tab.value = 'playoffs'
+  }
   loading.value = false
 })
 </script>

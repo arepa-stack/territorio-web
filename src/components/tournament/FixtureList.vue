@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-space-md">
     <p v-if="!rounds.length" class="m-0 text-body-md text-on-surface-variant">El fixture todavía no se generó.</p>
     <div v-for="r in rounds" :key="r.round" class="flex flex-col gap-space-xs">
-      <h3 class="label-tactical m-0 text-on-surface-variant">Jornada {{ r.round }}</h3>
+      <h3 class="label-tactical m-0 text-on-surface-variant">{{ r.label }}</h3>
       <component
         :is="linkFor ? 'router-link' : 'div'"
         v-for="m in r.matches"
@@ -25,7 +25,7 @@
 </template>
 
 <script setup>
-import { formatDate } from '@/utils/labels'
+import { formatDate, PHASE_LABEL } from '@/utils/labels'
 import { computed } from 'vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
 
@@ -41,6 +41,6 @@ const rounds = computed(() => {
   for (const m of props.matches) (byRound[m.round] ||= []).push(m)
   return Object.keys(byRound)
     .sort((a, b) => a - b)
-    .map(r => ({ round: r, matches: byRound[r] }))
+    .map(r => ({ round: r, label: PHASE_LABEL[byRound[r][0].phase] || `Jornada ${r}`, matches: byRound[r] }))
 })
 </script>
