@@ -15,9 +15,11 @@ const colorNames = [
   'error', 'on-error', 'error-container', 'on-error-container'
 ]
 
-const display = ['"Barlow Condensed"', '"Arial Narrow"', 'sans-serif']
-const body = ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif']
-const mono = ['"JetBrains Mono"', 'ui-monospace', 'monospace']
+// Families and radii are CSS variables too (src/styles/tailwind.css) so the "cancha" theme can swap them
+const display = ['var(--f-display)']
+const label = ['var(--f-label)']
+const body = ['var(--f-body)']
+const mono = ['var(--f-mono)']
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -26,7 +28,7 @@ export default {
   theme: {
     extend: {
       colors: Object.fromEntries(colorNames.map(n => [n, `rgb(var(--c-${n}) / <alpha-value>)`])),
-      borderRadius: { sm: '0.125rem', DEFAULT: '0.25rem', md: '0.375rem', lg: '0.5rem', xl: '0.75rem' },
+      borderRadius: { sm: 'var(--r-sm)', DEFAULT: 'var(--r)', md: 'var(--r-md)', lg: 'var(--r-lg)', xl: 'var(--r-xl)' },
       spacing: {
         'space-xs': '0.25rem', 'space-sm': '0.5rem', 'space-md': '0.75rem', 'space-lg': '1.25rem', 'space-xl': '2rem',
         gutter: '1rem', 'gutter-md': '1.5rem', 'gutter-lg': '2rem',
@@ -35,7 +37,7 @@ export default {
       fontFamily: {
         display, body, mono,
         'display-xl': display, 'display-xl-mobile': display, 'headline-lg': display, 'headline-lg-mobile': display,
-        'headline-md': display, 'label-tactical': display,
+        'headline-md': display, 'label-tactical': label,
         'title-sm': body, 'body-md': body, 'body-sm': body,
         'stat-mono': mono, 'scoreboard-num': mono
       },

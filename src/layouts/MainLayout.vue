@@ -179,13 +179,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useAuthStore } from '@/stores/auth'
 import { useColorMode } from '@/composables/useColorMode'
 import { NAV_BY_ROLE, HOME_BY_ROLE, ROLE_LABEL } from '@/router/navigation'
-import notificationsService from '@/services/notifications'
+import { useNotifications } from '@/composables/useNotifications'
 
 const route = useRoute()
 const router = useRouter()
@@ -195,47 +195,12 @@ const { isDark, toggle: toggleTheme } = useColorMode()
 
 const menuOpen = ref(false)
 const notifDetails = ref(null)
-const notifications = ref([])
-let notifTimer = null
+const { notifications, unreadCount, open, markAllRead: markAllNotificationsRead } = useNotifications()
 
-const unreadCount = computed(() => notifications.value.filter(n => !n.read).length)
-
-const loadNotifications = async () => {
-  if (!authStore.isAuthenticated) return
-  try {
-    const { data } = await notificationsService.getMyNotifications()
-    notifications.value = Array.isArray(data) ? data : []
-  } catch {
-    // Silenciar errores de polling en segundo plano
-  }
-}
-
-const openNotification = async n => {
-  if (!n.read) {
-    n.read = true
-    notificationsService.markAsRead(n.id).catch(() => {})
-  }
+const openNotification = n => {
   if (notifDetails.value) notifDetails.value.open = false
-  if (n.link) router.push(n.link)
+  open(n)
 }
-
-const markAllNotificationsRead = async () => {
-  notifications.value.forEach(n => { n.read = true })
-  try {
-    await notificationsService.markAllAsRead()
-  } catch {
-    await loadNotifications()
-  }
-}
-
-onMounted(() => {
-  loadNotifications()
-  notifTimer = setInterval(loadNotifications, 60000)
-})
-
-onUnmounted(() => {
-  if (notifTimer) clearInterval(notifTimer)
-})
 
 const navItems = computed(() => NAV_BY_ROLE[authStore.userRole] || [])
 const homeRoute = computed(() => HOME_BY_ROLE[authStore.userRole] || '/')
