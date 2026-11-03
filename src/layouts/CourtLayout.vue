@@ -6,9 +6,9 @@
         <span class="shell__mark">Basketball<span class="shell__mvp">MVP</span></span>
       </router-link>
       <div class="shell__top-actions">
-        <router-link to="/app/notifications" class="shell__bell" :aria-label="`Notificaciones, ${unreadCount} sin leer`">
+        <button type="button" class="shell__bell" :aria-label="`Notificaciones, ${unreadCount} sin leer`" @click="openPanel">
           Avisos<span v-if="unreadCount" class="shell__count">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
-        </router-link>
+        </button>
         <button type="button" class="shell__menu" :aria-expanded="drawer" aria-controls="court-nav" @click="drawer = !drawer">
           {{ drawer ? 'Cerrar' : 'Menú' }}
         </button>
@@ -36,10 +36,11 @@
       </nav>
 
       <div class="side__foot">
-        <router-link to="/app/notifications" class="side__bell" @click="drawer = false">
+        <button type="button" class="side__bell" @click="openPanel">
+          <span class="icon">notifications</span>
           Notificaciones
           <span v-if="unreadCount" class="shell__count">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
-        </router-link>
+        </button>
         <div class="side__user">
           <span class="side__initials">{{ initials }}</span>
           <span class="side__who">
@@ -55,29 +56,41 @@
     <main class="shell__main">
       <router-view />
     </main>
+
+    <NotificationsPanel ref="panel" :notifications="notifications" :unread-count="unreadCount" @open="open" @mark-all="markAllRead" />
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useAuthStore } from '@/stores/auth'
 import { useNotifications } from '@/composables/useNotifications'
+import NotificationsPanel from '@/components/NotificationsPanel.vue'
 import { NAV_BY_ROLE, HOME_BY_ROLE, ROLE_LABEL } from '@/router/navigation'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
-const { unreadCount } = useNotifications()
+const { notifications, unreadCount, open, markAllRead } = useNotifications()
 const drawer = ref(false)
+const panel = ref(null)
+const openPanel = () => {
+  drawer.value = false
+  panel.value?.open()
+}
+
+// The "cancha" theme goes on <html> so dialogs and toasts mounted outside the shell take it too
+document.documentElement.classList.add('court')
+onUnmounted(() => document.documentElement.classList.remove('court'))
 
 const navItems = computed(() => NAV_BY_ROLE[authStore.userRole] || [])
 const homeRoute = computed(() => HOME_BY_ROLE[authStore.userRole] || '/')
 const roleLabel = computed(() => ROLE_LABEL[authStore.userRole])
-// The player nav already has "Perfil"; the captain reaches it from here
-const showProfileLink = computed(() => !navItems.value.some(i => i.to === '/app/player/profile'))
+// The player nav already has "Perfil"; the captain reaches it from here (other roles have no profile screen yet)
+const showProfileLink = computed(() => authStore.userRole === 'TEAM_CAPTAIN')
 const initials = computed(() =>
   (authStore.userName || '?')
     .split(' ')
@@ -229,7 +242,15 @@ const logout = async () => {
 
 .side__bell {
   display: flex;
+  min-height: 44px;
   align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -338,6 +359,15 @@ const logout = async () => {
     display: flex;
     align-items: center;
     gap: 16px;
+  }
+
+  .shell__bell {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-family: inherit;
+    cursor: pointer;
   }
 
   .shell__bell,

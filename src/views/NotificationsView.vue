@@ -1,94 +1,49 @@
 <template>
-  <div class="flex flex-col gap-space-lg">
-    <div class="flex flex-col gap-space-sm sm:flex-row sm:items-end sm:justify-between">
+  <div class="nv">
+    <div class="nv__head">
       <div>
-        <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">
-          Notificaciones
-        </h1>
-        <p class="m-0 mt-1 text-body-md text-on-surface-variant">
-          Avisos sobre tus equipos, partidos, torneos y sanciones ({{ unreadCount }} sin leer).
-        </p>
+        <h1 class="nv__title">Notificaciones</h1>
+        <p class="nv__lead">Avisos de tus equipos, partidos, torneos y sanciones · {{ unreadCount }} sin leer</p>
       </div>
-      <div class="flex flex-wrap items-center gap-space-xs">
-        <button
-          type="button"
-          class="filter-chip"
-          :aria-pressed="filter === 'ALL'"
-          @click="setFilter('ALL')"
-        >
-          Todas
-        </button>
-        <button
-          type="button"
-          class="filter-chip"
-          :aria-pressed="filter === 'UNREAD'"
-          @click="setFilter('UNREAD')"
-        >
-          No leídas ({{ unreadCount }})
-        </button>
-        <button
-          v-if="unreadCount > 0"
-          type="button"
-          class="btn-secondary text-body-sm"
-          :disabled="markingAll"
-          @click="markAll"
-        >
-          <span class="icon text-[18px]">done_all</span>
-          {{ markingAll ? 'Marcando…' : 'Marcar todas como leídas' }}
-        </button>
-      </div>
-    </div>
-
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando notificaciones…</p>
-    <p v-else-if="!items.length" class="card p-space-lg text-body-md text-on-surface-variant">
-      No tienes notificaciones {{ filter === 'UNREAD' ? 'sin leer' : 'registradas' }}.
-    </p>
-
-    <div v-else class="flex flex-col gap-space-xs">
-      <article
-        v-for="n in items"
-        :key="n.id"
-        class="card flex cursor-pointer items-start justify-between gap-space-md p-space-md transition-colors hover:bg-surface-container-high"
-        :class="{ 'border-l-4 border-l-primary-container': !n.read }"
-        @click="openNotification(n)"
-      >
-        <div class="flex items-start gap-space-sm">
-          <span class="icon mt-0.5 text-secondary">{{ n.read ? 'notifications_none' : 'notifications_active' }}</span>
-          <div class="flex flex-col gap-0.5">
-            <h2 class="m-0 font-title-sm text-title-sm" :class="{ 'font-bold text-on-surface': !n.read }">
-              {{ n.title }}
-            </h2>
-            <p class="m-0 text-body-sm text-on-surface-variant">{{ n.message }}</p>
-            <span class="mt-1 font-stat-mono text-label-sm text-on-surface-variant">
-              {{ formatDateTime(n.createdAt) }}
-            </span>
-          </div>
-        </div>
-        <span v-if="n.link" class="icon text-on-surface-variant">chevron_right</span>
-      </article>
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="flex items-center justify-between gap-space-sm">
-      <button type="button" class="btn-secondary" :disabled="page <= 1 || loading" @click="changePage(page - 1)">
-        Anterior
-      </button>
-      <span class="font-stat-mono text-body-sm text-on-surface-variant">
-        Página {{ page }} de {{ totalPages }}
-      </span>
-      <button type="button" class="btn-secondary" :disabled="page >= totalPages || loading" @click="changePage(page + 1)">
-        Siguiente
+      <button v-if="unreadCount > 0" type="button" class="btn-secondary" :disabled="markingAll" @click="markAll">
+        <span class="icon">done_all</span> {{ markingAll ? 'Marcando…' : 'Marcar todas como leídas' }}
       </button>
     </div>
+
+    <div class="nv__tabs" role="group" aria-label="Filtro">
+      <button type="button" class="filter-chip" :aria-pressed="filter === 'ALL'" @click="setFilter('ALL')">Todas</button>
+      <button type="button" class="filter-chip" :aria-pressed="filter === 'UNREAD'" @click="setFilter('UNREAD')">No leídas · {{ unreadCount }}</button>
+    </div>
+
+    <p v-if="loading" class="nv__lead">Cargando notificaciones…</p>
+    <div v-else-if="!items.length" class="nv__empty">
+      <span class="icon">notifications_off</span>
+      {{ filter === 'UNREAD' ? 'Estás al día: nada sin leer.' : 'Todavía no tienes notificaciones.' }}
+    </div>
+
+    <div v-else class="nv__list">
+      <section v-for="g in groups" :key="g.label">
+        <h2 class="nv__group">{{ g.label }}</h2>
+        <NotificationItem v-for="n in g.items" :key="n.id" :n="n" @open="openNotification" />
+      </section>
+    </div>
+
+    <nav v-if="totalPages > 1" class="nv__pager" aria-label="Paginación">
+      <button type="button" class="filter-chip" :disabled="page <= 1 || loading" @click="changePage(page - 1)">Anterior</button>
+      <span class="label-tactical text-on-surface-variant">Página {{ page }} de {{ totalPages }}</span>
+      <button type="button" class="filter-chip" :disabled="page >= totalPages || loading" @click="changePage(page + 1)">Siguiente</button>
+    </nav>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import notificationsService from '@/services/notifications'
 import { handleApiError } from '@/services/api'
+import { groupByDay } from '@/utils/notifications'
+import NotificationItem from '@/components/NotificationItem.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -102,7 +57,7 @@ const limit = 20
 const totalPages = ref(1)
 const unreadCount = ref(0)
 
-const formatDateTime = d => (d ? new Date(d).toLocaleString() : '')
+const groups = computed(() => groupByDay(items.value))
 
 const loadNotifications = async () => {
   loading.value = true
@@ -161,3 +116,81 @@ const openNotification = async n => {
 
 onMounted(() => loadNotifications())
 </script>
+
+<style scoped>
+.nv {
+  display: flex;
+  max-width: 820px;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.nv__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nv__title {
+  margin: 0;
+  font-family: var(--f-display);
+  font-size: clamp(44px, 5vw, 72px);
+  font-weight: 400;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.nv__lead {
+  margin: 8px 0 0;
+  color: rgb(var(--c-on-surface-variant));
+}
+
+.nv__tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.nv__list {
+  border-top: 3px solid rgb(var(--c-on-surface));
+}
+
+.nv__group {
+  margin: 0;
+  padding: 16px 12px 6px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--c-secondary));
+}
+
+.nv__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 56px 20px;
+  border: 2px dashed rgb(var(--c-outline-variant));
+  color: rgb(var(--c-on-surface-variant));
+  text-align: center;
+}
+
+.nv__empty .icon {
+  font-size: 40px;
+}
+
+.nv__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nv__pager .filter-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+</style>

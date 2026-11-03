@@ -4,7 +4,7 @@ import { HOME_BY_ROLE } from './navigation'
 
 // Layouts
 import AuthLayout from '@/layouts/AuthLayout.vue'
-import AppShell from '@/layouts/AppShell.vue'
+import CourtLayout from '@/layouts/CourtLayout.vue'
 
 // Auth Views
 import LoginView from '@/views/auth/LoginView.vue'
@@ -125,7 +125,7 @@ const routes = [
   },
   {
     path: '/app',
-    component: AppShell,
+    component: CourtLayout,
     meta: { requiresAuth: false },
     children: [
       // Player Dashboard
