@@ -53,9 +53,12 @@
               v-for="m in c.matches"
               :key="m.id"
               class="cal__ev"
-              :class="m.status === 'SCHEDULED' ? 'is-next' : 'is-played'"
+              :class="`is-${stateOf(m)}`"
             >
-              <span class="cal__time">{{ m.matchTime }}</span>
+              <span class="cal__time">
+                <template v-if="resultOf(m)">{{ resultOf(m).code }} {{ resultOf(m).score }}</template>
+                <template v-else>{{ m.matchTime }}</template>
+              </span>
               <span class="cal__vs">vs {{ rivalOf(m) }}</span>
             </span>
           </button>
@@ -70,7 +73,10 @@
           <router-link :to="`/app/matches/${m.id}`" class="day__card">
             <span class="day__row">
               <span class="day__time">{{ m.matchTime }}</span>
-              <span v-if="m.status === 'FINISHED' || m.status === 'FORFEIT'" class="day__score">{{ m.homeScore }}–{{ m.awayScore }}</span>
+              <span v-if="resultOf(m)" class="day__result" :class="`is-${stateOf(m)}`">
+                {{ resultOf(m).code === 'W' ? 'Ganado' : 'Perdido' }} {{ resultOf(m).score }}{{ m.status === 'FORFEIT' ? ' · W.O.' : '' }}
+              </span>
+              <span v-else-if="stateOf(m) === 'pending'" class="day__result is-pending">Sin resultado</span>
               <StatusChip v-else :status="m.status" />
             </span>
             <span class="day__team" :class="{ 'is-mine': m.homeTeamId === myTeamIn(m)?.team.id }">{{ m.homeTeam.name }}</span>
@@ -78,7 +84,8 @@
             <span class="day__meta">{{ m.tournament.name }} · Jornada {{ m.round }}</span>
           </router-link>
           <VenueLocation :name="m.venue" />
-          <div v-if="m.status === 'SCHEDULED'" class="day__att">
+          <!-- Attendance only for games still to be played -->
+          <div v-if="stateOf(m) === 'next'" class="day__att">
             <span class="label-tactical text-on-surface-variant">Tu asistencia</span>
             <div class="flex gap-space-xs">
               <button
@@ -189,6 +196,22 @@ const monthLabel = computed(() =>
 )
 const selectedMatches = computed(() => byDay.value[selectedKey.value] || [])
 const selectedLabel = computed(() => formatDay(`${selectedKey.value}T00:00:00Z`))
+
+// W/L from my team's side; a forfeit is lost by the team that didn't show up
+const resultOf = m => {
+  const mine = myTeamIn(m)?.team.id
+  if (!mine || !['FINISHED', 'FORFEIT'].includes(m.status)) return null
+  const home = m.homeTeamId === mine
+  const [my, rival] = home ? [m.homeScore, m.awayScore] : [m.awayScore, m.homeScore]
+  const won = m.status === 'FORFEIT' ? m.forfeitTeamId !== mine : my > rival
+  return { code: won ? 'W' : 'L', score: my != null && rival != null ? `${my}-${rival}` : '' }
+}
+// next: still to play · win / loss: played · pending: date passed with no result
+const stateOf = m => {
+  const r = resultOf(m)
+  if (r) return r.code === 'W' ? 'win' : 'loss'
+  return m.status === 'SCHEDULED' && dayKey(m.matchDate) >= todayKey ? 'next' : 'pending'
+}
 
 const rivalOf = m => {
   const mine = myTeamIn(m)?.team.id
@@ -376,7 +399,17 @@ onMounted(() => load())
   background: rgb(var(--c-primary-container) / 0.16);
 }
 
-.cal__ev.is-played {
+.cal__ev.is-win {
+  border-color: rgb(var(--c-tertiary));
+  background: rgb(var(--c-tertiary) / 0.14);
+}
+
+.cal__ev.is-loss {
+  border-color: rgb(var(--c-error));
+  background: rgb(var(--c-error) / 0.14);
+}
+
+.cal__ev.is-pending {
   border-color: rgb(var(--c-on-surface-variant));
   background: rgb(var(--c-surface-container-highest) / 0.6);
   color: rgb(var(--c-on-surface-variant));
@@ -443,8 +476,29 @@ onMounted(() => load())
   margin-bottom: 4px;
 }
 
-.day__time,
-.day__score {
+.day__result {
+  padding: 4px 8px;
+  border: 2px solid;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.day__result.is-win {
+  color: rgb(var(--c-tertiary));
+}
+
+.day__result.is-loss {
+  color: rgb(var(--c-error));
+}
+
+.day__result.is-pending {
+  color: rgb(var(--c-on-surface-variant));
+}
+
+.day__time {
   font-family: var(--f-mono);
   font-size: 22px;
   font-weight: 700;
