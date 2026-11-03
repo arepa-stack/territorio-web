@@ -62,12 +62,13 @@
 </template>
 
 <script setup>
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { useAuthStore } from '@/stores/auth'
 import { useNotifications } from '@/composables/useNotifications'
 import NotificationsPanel from '@/components/NotificationsPanel.vue'
+import { useCourtTheme } from '@/composables/useCourtTheme'
 import { NAV_BY_ROLE, HOME_BY_ROLE, ROLE_LABEL } from '@/router/navigation'
 
 const route = useRoute()
@@ -83,8 +84,7 @@ const openPanel = () => {
 }
 
 // The "cancha" theme goes on <html> so dialogs and toasts mounted outside the shell take it too
-document.documentElement.classList.add('court')
-onUnmounted(() => document.documentElement.classList.remove('court'))
+useCourtTheme()
 
 const navItems = computed(() => NAV_BY_ROLE[authStore.userRole] || [])
 const homeRoute = computed(() => HOME_BY_ROLE[authStore.userRole] || '/')
