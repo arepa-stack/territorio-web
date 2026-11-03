@@ -76,8 +76,8 @@
             <span class="day__team" :class="{ 'is-mine': m.homeTeamId === myTeamIn(m)?.team.id }">{{ m.homeTeam.name }}</span>
             <span class="day__team" :class="{ 'is-mine': m.awayTeamId === myTeamIn(m)?.team.id }"><span class="day__vs">vs</span> {{ m.awayTeam.name }}</span>
             <span class="day__meta">{{ m.tournament.name }} · Jornada {{ m.round }}</span>
-            <span class="day__meta">{{ m.venue || 'Cancha por definir' }}</span>
           </router-link>
+          <VenueLocation :name="m.venue" />
           <div v-if="m.status === 'SCHEDULED'" class="day__att">
             <span class="label-tactical text-on-surface-variant">Tu asistencia</span>
             <div class="flex gap-space-xs">
@@ -106,6 +106,7 @@ import { formatDay } from '@/utils/labels'
 import matchesService from '@/services/matches'
 import { handleApiError } from '@/services/api'
 import StatusChip from '@/components/ui/StatusChip.vue'
+import VenueLocation from '@/components/VenueLocation.vue'
 import { downloadIcs } from '@/utils/ics'
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']

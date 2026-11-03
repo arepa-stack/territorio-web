@@ -366,3 +366,8 @@
 .court .rounded-full[class*='px-'] {
   border-radius: 0;
 }
+
+/* Dark streets on small maps in the "cancha" theme, like the zone maps */
+.court .vl__map .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) brightness(0.62) contrast(1.15);
+}

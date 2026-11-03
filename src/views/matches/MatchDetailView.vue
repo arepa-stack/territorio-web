@@ -23,6 +23,11 @@
         <StatusChip v-if="match.status === 'FORFEIT'" status="FORFEIT" />
       </section>
 
+      <section v-if="match.venue" class="card p-space-md">
+        <SectionHeader title="Ubicación" icon="location_on" />
+        <VenueLocation :name="match.venue" />
+      </section>
+
       <!-- Box score -->
       <section v-for="side in boxScore" :key="side.team.id">
         <SectionHeader :title="side.team.name" icon="sports_basketball" />
@@ -127,6 +132,7 @@
 </template>
 
 <script setup>
+import VenueLocation from '@/components/VenueLocation.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
