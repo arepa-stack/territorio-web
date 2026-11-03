@@ -1,28 +1,25 @@
 <template>
-  <div class="flex flex-col gap-space-lg">
-    <div class="flex flex-col gap-space-md md:flex-row md:items-end md:justify-between">
+  <div class="cat">
+    <div class="cat__head">
       <div>
-        <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Torneos</h1>
-        <p class="m-0 mt-1 text-body-md text-on-surface-variant">Torneos de la liga, con sus cupos y canchas.</p>
+        <h1 class="cat__title">Torneos</h1>
+        <p class="cat__lead">Torneos de la liga, con sus cupos y canchas.</p>
       </div>
-      <router-link v-if="isOrganizer" to="/app/organizer" class="btn-secondary">
-        <span class="icon">dashboard</span> Gestionar mis torneos
-      </router-link>
+      <router-link v-if="isOrganizer" to="/app/organizer" class="btn-secondary">Gestionar mis torneos</router-link>
     </div>
 
     <!-- Captain without a team -->
-    <div v-if="isCaptain && !loadingTeam && !myTeam" class="card flex flex-col gap-space-sm p-space-md md:flex-row md:items-center md:justify-between">
-      <p class="m-0 text-body-md">Para inscribirte primero crea tu equipo.</p>
+    <div v-if="isCaptain && !loadingTeam && !myTeam" class="cat__notice">
+      <p class="m-0">Para inscribirte primero crea tu equipo.</p>
       <router-link to="/app/captain" class="btn-primary">Crear mi equipo</router-link>
     </div>
 
-    <div class="flex flex-col gap-space-sm">
-      <div class="relative">
-        <label class="sr-only" for="tournament-search">Buscar torneo</label>
-        <span class="icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-        <input id="tournament-search" v-model="search" class="input pl-10" placeholder="Buscar por nombre o cancha" />
+    <div class="cat__filters">
+      <div class="cat__search">
+        <label class="field-label" for="tournament-search">Buscar</label>
+        <input id="tournament-search" v-model="search" class="input" placeholder="Nombre o cancha" />
       </div>
-      <div class="-mx-gutter flex gap-space-xs overflow-x-auto px-gutter pb-1 md:mx-0 md:px-0">
+      <div class="cat__chips" role="group" aria-label="Estado">
         <button
           v-for="f in statusFilters"
           :key="f.value"
@@ -30,114 +27,94 @@
           class="filter-chip"
           :aria-pressed="status === f.value"
           @click="status = f.value"
-        >{{ f.label }} ({{ countStatus(f.value) }})</button>
+        >{{ f.label }} · {{ countStatus(f.value) }}</button>
       </div>
     </div>
 
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando torneos…</p>
-    <p v-else-if="!filtered.length" class="text-body-md text-on-surface-variant">No hay torneos con este filtro.</p>
+    <p v-if="loading" class="cat__lead">Cargando torneos…</p>
+    <p v-else-if="!filtered.length" class="cat__empty">No hay torneos con este filtro.</p>
 
-    <div class="grid gap-space-md md:grid-cols-2 xl:grid-cols-3">
-      <article v-for="t in filtered" :key="t.id" class="card group flex flex-col gap-space-md overflow-hidden p-space-md">
-        <!-- Cover: court photo bleeding to the card edges, title over a dark gradient -->
-        <TournamentCover :src="t.coverPhoto" :alt="`Cancha de ${t.name}`" class="-mx-space-md -mt-space-md h-48">
-          <StatusChip :status="t.status" class="absolute right-space-sm top-space-sm" />
-          <span class="label-tactical text-secondary">{{ categoryLabel(t.category) }}</span>
-          <h2 class="m-0 font-headline-md text-headline-md uppercase text-white">{{ t.name }}</h2>
-        </TournamentCover>
-
-        <div class="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-          <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ t.location }}</span>
-          <span class="flex items-center gap-space-xs">
-            <span class="icon text-[18px]">calendar_month</span>{{ formatDate(t.startDate) }} – {{ formatDate(t.endDate) }}
-          </span>
-          <span class="flex items-center gap-space-xs">
-            <span class="icon text-[18px]">payments</span>Inscripción
-            <span class="font-stat-mono tabular text-on-surface">{{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}</span>
-          </span>
+    <div v-else class="cat__list">
+      <article v-for="t in filtered" :key="t.id" class="row">
+        <div class="row__main">
+          <img v-if="t.coverPhoto" :src="t.coverPhoto" :alt="`Cancha de ${t.name}`" class="row__photo" />
+          <span v-else class="row__photo row__photo--empty" aria-hidden="true" />
+          <div class="row__name-box">
+            <span class="row__tags">
+              <span class="row__status" :style="{ color: statusOf(t).color, borderColor: statusOf(t).color }">{{ statusOf(t).label }}</span>
+              <span class="row__cat">{{ categoryLabel(t.category) }}</span>
+            </span>
+            <router-link :to="`/torneo/${t.id}`" class="row__name">{{ t.name }}</router-link>
+            <span class="row__place">{{ t.location || 'Cancha por definir' }}</span>
+          </div>
+          <div class="row__fact">
+            <span class="row__label">Fechas</span>
+            <span class="row__value">{{ formatDate(t.startDate) }}<br />{{ formatDate(t.endDate) }}</span>
+          </div>
+          <div class="row__fact">
+            <span class="row__label">Inscripción</span>
+            <span class="row__value">{{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}</span>
+          </div>
+          <div class="row__fact row__slots">
+            <span class="row__label row__slots-head">
+              <span>Cupos</span>
+              <span :class="{ 'row__last': t.status === 'REGISTRATION' && t.maxTeams - t.registeredTeams === 1 }">{{ t.registeredTeams }}/{{ t.maxTeams }}</span>
+            </span>
+            <span class="row__track"><span class="row__fill" :style="{ width: Math.min(100, (t.registeredTeams / t.maxTeams) * 100) + '%' }" /></span>
+          </div>
         </div>
 
-        <div>
-          <div class="mb-1 flex justify-between">
-            <span class="label-tactical text-on-surface-variant">Cupos</span>
-            <span class="font-stat-mono text-stat-mono tabular">{{ t.registeredTeams }}/{{ t.maxTeams }}</span>
-          </div>
-          <div class="h-1.5 overflow-hidden rounded-full bg-surface-container-highest">
-            <div class="h-full bg-secondary-container" :style="{ width: Math.min(100, (t.registeredTeams / t.maxTeams) * 100) + '%' }" />
-          </div>
-        </div>
+        <!-- Actions and the viewer's own status in this tournament -->
+        <div class="row__bar">
+          <!-- Player: their team plays here, and the waiver -->
+          <template v-if="isPlayer && playerRegistrationOf(t)">
+            <span class="row__mine">Juegas con {{ playerRegistrationOf(t).teamName }}</span>
+            <StatusChip :status="playerRegistrationOf(t).status" />
+            <span v-if="playerRegistrationOf(t).waiverAcceptedAt" class="row__ok">Reglamento aceptado</span>
+          </template>
 
-        <div class="flex flex-wrap items-center gap-space-xs">
-          <TournamentInfoButton :tournament="t" />
-          <router-link :to="`/torneo/${t.id}`" class="btn-ghost text-body-sm">
-            <span class="icon text-[18px]">emoji_events</span> Ver fixture y tabla
-          </router-link>
-        </div>
-
-        <!-- Player participation indicator & waiver -->
-        <template v-if="isPlayer && playerRegistrationOf(t)">
-          <div class="flex flex-col gap-space-xs rounded-lg bg-surface-container-low p-space-sm">
-            <div class="flex flex-wrap items-center justify-between gap-space-xs">
-              <router-link
-                :to="`/torneo/${t.id}`"
-                class="inline-flex items-center gap-1 rounded-full bg-primary-container px-2.5 py-1 text-label-sm font-bold uppercase text-white no-underline"
-              >
-                <span class="icon text-[16px]">sports_basketball</span> Mi equipo juega aquí ({{ playerRegistrationOf(t).teamName }})
-              </router-link>
-              <StatusChip :status="playerRegistrationOf(t).status" />
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-space-xs pt-1">
-              <span v-if="playerRegistrationOf(t).waiverAcceptedAt" class="flex items-center gap-1 text-body-sm text-secondary">
-                <span class="icon text-[16px]">verified</span> Reglamento y deslinde aceptado
-              </span>
-              <button
-                v-else
-                type="button"
-                class="btn-secondary text-body-sm"
-                :disabled="acceptingWaiver === t.id"
-                @click="acceptWaiver(t)"
-              >
-                <span class="icon text-[18px]">fact_check</span>
-                {{ acceptingWaiver === t.id ? 'Aceptando…' : 'Aceptar reglamento y deslinde' }}
-              </button>
-            </div>
-          </div>
-        </template>
-
-        <!-- Captain actions -->
-        <template v-if="isCaptain && myTeam">
-          <div v-if="registrationOf(t)" class="flex flex-wrap items-center gap-space-xs">
-            <span class="text-body-sm text-on-surface-variant">{{ myTeam.name }}:</span>
+          <!-- Captain: registration status of their team -->
+          <template v-if="isCaptain && myTeam && registrationOf(t)">
+            <span class="row__mine">{{ myTeam.name }}</span>
             <StatusChip :status="registrationOf(t).status" />
+          </template>
+
+          <div class="row__actions">
+            <TournamentInfoButton :tournament="t" />
+            <router-link :to="`/torneo/${t.id}`" class="btn-ghost">Fixture y tabla</router-link>
             <button
-              v-if="registrationOf(t).status === 'REJECTED' && t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams && confirming !== t.id"
+              v-if="isPlayer && playerRegistrationOf(t) && !playerRegistrationOf(t).waiverAcceptedAt"
               type="button"
               class="btn-secondary"
-              @click="confirming = t.id"
-            >
-              <span class="icon">replay</span> Volver a inscribir
-            </button>
+              :disabled="acceptingWaiver === t.id"
+              @click="acceptWaiver(t)"
+            >{{ acceptingWaiver === t.id ? 'Aceptando…' : 'Aceptar reglamento' }}</button>
+            <template v-if="isCaptain && myTeam && confirming !== t.id">
+              <button
+                v-if="registrationOf(t)?.status === 'REJECTED' && t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams"
+                type="button"
+                class="btn-secondary"
+                @click="confirming = t.id"
+              >Volver a inscribir</button>
+              <button
+                v-else-if="!registrationOf(t) && t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams"
+                type="button"
+                class="btn-primary"
+                @click="confirming = t.id"
+              >Inscribir mi equipo</button>
+            </template>
           </div>
-          <div v-if="confirming === t.id" class="flex flex-col gap-space-sm rounded-lg bg-surface-container-low p-space-md">
-            <p class="m-0 text-body-sm">Inscribir a <strong>{{ myTeam.name }}</strong>. Estado de tu plantel:</p>
+
+          <div v-if="isCaptain && myTeam && confirming === t.id" class="row__confirm">
+            <p class="m-0">Inscribir a <strong>{{ myTeam.name }}</strong>. Estado de tu plantel:</p>
             <RosterChip v-if="myTeam.roster" :roster="myTeam.roster" class="self-start" />
-            <p v-if="myTeam.roster?.status === 'NOT_VALIDATED'" class="m-0 text-body-sm text-on-surface-variant">
-              Puedes inscribirte igual; la inscripción se valida al llegar a 5 jugadores.
-            </p>
-            <div class="flex gap-space-sm">
-              <button type="button" class="btn-ghost flex-1" @click="confirming = null">Cancelar</button>
-              <button type="button" class="btn-primary flex-1" :disabled="registering" @click="register(t)">Confirmar</button>
+            <p v-if="myTeam.roster?.status === 'NOT_VALIDATED'" class="row__note">Puedes inscribirte igual; la inscripción se valida al llegar a 5 jugadores.</p>
+            <div class="row__actions">
+              <button type="button" class="btn-ghost" @click="confirming = null">Cancelar</button>
+              <button type="button" class="btn-primary" :disabled="registering" @click="register(t)">Confirmar</button>
             </div>
           </div>
-          <button
-            v-else-if="!registrationOf(t) && t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams"
-            type="button"
-            class="btn-primary"
-            @click="confirming = t.id"
-          >
-            <span class="icon">how_to_reg</span> Inscribir mi equipo
-          </button>
-        </template>
+        </div>
       </article>
     </div>
     <PaymentDialog ref="paymentDialog" />
@@ -145,7 +122,7 @@
 </template>
 
 <script setup>
-import { formatDate } from '@/utils/labels'
+import { CATEGORIES, POSTER_STATUS, formatDate } from '@/utils/labels'
 import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
@@ -156,7 +133,6 @@ import { useAuthStore } from '@/stores/auth'
 import { usePlayerOverview } from '@/composables/usePlayerOverview'
 import { useConfirm } from '@/composables/useConfirm'
 import StatusChip from '@/components/ui/StatusChip.vue'
-import TournamentCover from '@/components/tournament/TournamentCover.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
 import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
 import PaymentDialog from '@/components/tournament/PaymentDialog.vue'
@@ -166,10 +142,6 @@ const confirm = useConfirm()
 const authStore = useAuthStore()
 const playerOverview = usePlayerOverview()
 
-const CATEGORIES = {
-  OPEN: 'Libre', SUB_13: 'Sub-13', SUB_15: 'Sub-15', SUB_17: 'Sub-17', SUB_19: 'Sub-19',
-  VETERANS: 'Veteranos +35', FEMALE: 'Femenina', MIXED: 'Mixta'
-}
 const statusFilters = [
   { value: 'REGISTRATION', label: 'Inscripciones' },
   { value: 'IN_PROGRESS', label: 'En curso' },
@@ -193,6 +165,7 @@ const acceptingWaiver = ref(null)
 const paymentDialog = ref(null)
 
 const categoryLabel = c => CATEGORIES[c] || c
+const statusOf = t => POSTER_STATUS[t.status] || { label: t.status, color: '#8C877C' }
 const countStatus = s => (s === 'ALL' ? tournaments.value.length : tournaments.value.filter(t => t.status === s).length)
 const registrationOf = t => myTeam.value?.registrations?.find(r => r.tournament.id === t.id)
 
@@ -290,3 +263,278 @@ onMounted(() => {
   Promise.all(tasks)
 })
 </script>
+
+<style scoped>
+/* Poster rows built on theme tokens: "cancha" for player/captain, classic palette for the other roles */
+.cat {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.cat__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cat__title {
+  margin: 0;
+  font-family: var(--f-display);
+  font-size: clamp(48px, 6vw, 88px);
+  font-weight: 400;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.cat__lead {
+  margin: 10px 0 0;
+  font-size: 16px;
+  color: rgb(var(--c-on-surface-variant));
+}
+
+.cat__notice,
+.cat__empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 20px;
+  border: 2px dashed rgb(var(--c-outline-variant));
+  color: rgb(var(--c-on-surface-variant));
+}
+
+.cat__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cat__search {
+  max-width: 560px;
+}
+
+.cat__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cat__list {
+  border-top: 3px solid rgb(var(--c-on-surface));
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 0;
+  border-bottom: 1px solid rgb(var(--c-outline-variant) / 0.7);
+}
+
+.row__main {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr) 130px 110px 180px;
+  align-items: center;
+  gap: 24px;
+}
+
+.row__photo {
+  width: 128px;
+  height: 84px;
+  object-fit: cover;
+}
+
+.row__photo--empty {
+  display: block;
+  background: repeating-linear-gradient(135deg, rgb(var(--c-surface-container-high)) 0 10px, rgb(var(--c-surface-container)) 10px 20px);
+}
+
+.row__name-box,
+.row__fact {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.row__status {
+  padding: 3px 8px;
+  border: 2px solid;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.row__cat,
+.row__label {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(var(--c-on-surface-variant));
+}
+
+.row__cat {
+  color: rgb(var(--c-secondary));
+}
+
+.row__name {
+  font-family: var(--f-display);
+  font-size: 32px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgb(var(--c-on-surface));
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.row__name:hover {
+  color: rgb(var(--c-primary-container));
+}
+
+.row__place {
+  font-size: 14px;
+  color: rgb(var(--c-on-surface-variant));
+}
+
+.row__value {
+  font-family: var(--f-mono);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.row__slots-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.row__last {
+  color: rgb(var(--c-error));
+}
+
+.row__track {
+  display: block;
+  height: 6px;
+  background: rgb(var(--c-surface-container-highest));
+}
+
+.row__fill {
+  display: block;
+  height: 6px;
+  background: rgb(var(--c-primary-container));
+}
+
+.row__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-left: 152px;
+}
+
+.row__mine {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.row__ok {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--c-tertiary));
+}
+
+.row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.row__confirm {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 2px solid rgb(var(--c-primary-container));
+  background: rgb(var(--c-surface-container));
+}
+
+.row__confirm .row__actions {
+  margin-left: 0;
+}
+
+.row__note {
+  margin: 0;
+  font-size: 13px;
+  color: rgb(var(--c-on-surface-variant));
+}
+
+@media (max-width: 1100px) {
+  .row__main {
+    grid-template-columns: 112px minmax(0, 1fr) 120px;
+  }
+
+  .row__photo {
+    width: 112px;
+    height: 76px;
+  }
+
+  .row__slots {
+    grid-column: 2 / -1;
+  }
+
+  .row__fact:nth-of-type(3) {
+    display: none;
+  }
+
+  .row__bar {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .row__main {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .row__photo {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 150px;
+  }
+
+  .row__name-box,
+  .row__slots {
+    grid-column: 1 / -1;
+  }
+
+  .row__fact:nth-of-type(3) {
+    display: flex;
+  }
+
+  .row__actions {
+    margin-left: 0;
+  }
+}
+</style>
