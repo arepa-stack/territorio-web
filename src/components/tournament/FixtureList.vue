@@ -25,6 +25,7 @@
 </template>
 
 <script setup>
+import { formatDate } from '@/utils/labels'
 import { computed } from 'vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
 
@@ -34,7 +35,6 @@ const props = defineProps({
   linkFor: { type: Function, default: null }
 })
 
-const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 
 const rounds = computed(() => {
   const byRound = {}

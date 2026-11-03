@@ -1,122 +1,153 @@
 <template>
-  <div class="min-h-screen bg-surface font-body text-on-surface">
-    <PublicHeader />
+  <div class="poster">
+    <PosterHeader />
 
-    <main class="mx-auto flex max-w-[1200px] flex-col gap-space-lg px-gutter py-space-lg md:px-margin-md">
-      <router-link to="/torneos" class="btn-ghost self-start px-0"><span class="icon">arrow_back</span> Torneos</router-link>
+    <p v-if="loading" class="wrap page page__lead">Cargando torneo…</p>
+    <p v-else-if="!tournament" class="wrap page page__lead">No encontramos este torneo.</p>
 
-      <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando torneo…</p>
-      <p v-else-if="!tournament" class="text-body-md text-on-surface-variant">No encontramos este torneo.</p>
-
-      <template v-else>
-        <header class="card flex flex-col gap-space-md overflow-hidden p-space-lg">
-          <TournamentCover :src="tournament.coverPhoto" :alt="`Cancha de ${tournament.name}`" class="-mx-space-lg -mt-space-lg h-56 md:h-80">
-            <StatusChip :status="tournament.status" class="absolute right-space-md top-space-md" />
-            <span class="label-tactical text-secondary">{{ categoryLabel }}</span>
-            <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase text-white md:font-headline-lg md:text-headline-lg">{{ tournament.name }}</h1>
-          </TournamentCover>
-          <p v-if="tournament.description" class="m-0 max-w-[65ch] text-body-md text-on-surface-variant">{{ tournament.description }}</p>
-          <div class="flex flex-wrap gap-x-space-lg gap-y-1 text-body-sm text-on-surface-variant">
-            <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ venueLabel }}</span>
-            <span class="flex items-center gap-space-xs">
-              <span class="icon text-[18px]">calendar_month</span>{{ formatDate(tournament.startDate) }} – {{ formatDate(tournament.endDate) }}
-            </span>
-            <span class="flex items-center gap-space-xs">
-              <span class="icon text-[18px]">payments</span>Inscripción
-              <span class="font-stat-mono text-on-surface">{{ Number(tournament.entryFee) > 0 ? `$${tournament.entryFee}` : 'Gratis' }}</span>
-            </span>
+    <template v-else>
+      <!-- Hero: grayscale court photo with the name on top -->
+      <header class="hero">
+        <img v-if="tournament.coverPhoto" :src="tournament.coverPhoto" :alt="`Cancha de ${tournament.name}`" class="hero__photo" />
+        <div class="hero__shade" />
+        <div class="wrap hero__body">
+          <router-link to="/torneos" class="mono page__back">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M19 12H5M11 5l-7 7 7 7" /></svg>
+            Torneos
+          </router-link>
+          <div class="hero__tags">
+            <span class="mono hero__status" :style="{ color: status.color, borderColor: status.color }">{{ status.label }}</span>
+            <span class="mono hero__cat">{{ categoryLabel }}</span>
           </div>
-          <div>
-            <div class="mb-1 flex justify-between">
-              <span class="label-tactical text-on-surface-variant">Cupos</span>
-              <span class="font-stat-mono text-stat-mono tabular">{{ tournament.registeredTeams }}/{{ tournament.maxTeams }}</span>
-            </div>
-            <div class="h-1.5 overflow-hidden rounded-full bg-surface-container-highest">
-              <div class="h-full bg-secondary-container" :style="{ width: Math.min(100, (tournament.registeredTeams / tournament.maxTeams) * 100) + '%' }" />
-            </div>
-          </div>
-          <div v-if="showTeamCta || showPlayerCta" class="flex flex-col gap-space-sm sm:flex-row">
-            <router-link v-if="showTeamCta" :to="ctaLink(authStore.isAuthenticated, 'TEAM_CAPTAIN', '/app/tournaments')" class="btn-primary">
-              <span class="icon">how_to_reg</span> Inscribir mi equipo
-            </router-link>
-            <a v-if="showPlayerCta && recruitingHere.length" href="#buscan-jugadores" class="btn-secondary">
-              <span class="icon">person_search</span> Quiero jugar aquí ({{ recruitingHere.length }} {{ recruitingHere.length === 1 ? 'equipo busca' : 'equipos buscan' }} jugadores)
-            </a>
-            <router-link v-else-if="showPlayerCta" :to="ctaLink(authStore.isAuthenticated, 'PLAYER', '/app/player/recruiting')" class="btn-secondary">
-              <span class="icon">person_search</span> No tengo equipo
-            </router-link>
-          </div>
-          <p v-if="!authStore.isAuthenticated" class="m-0 text-body-sm text-on-surface-variant">
-            Para inscribirte o postularte necesitas una cuenta; al crearla vuelves directo a este paso.
-          </p>
-        </header>
+          <h1 class="display hero__name">{{ tournament.name }}</h1>
+          <p v-if="tournament.description" class="hero__desc">{{ tournament.description }}</p>
+        </div>
+      </header>
 
-        <section v-if="showPlayerCta && recruitingHere.length" id="buscan-jugadores" class="scroll-mt-20">
-          <h2 class="m-0 mb-space-sm font-headline-md text-headline-md uppercase">Equipos de este torneo que buscan jugadores</h2>
-          <div class="grid gap-space-md md:grid-cols-2 lg:grid-cols-3">
+      <section class="facts" aria-label="Datos del torneo">
+        <div class="wrap facts__grid">
+          <div class="facts__cell">
+            <span class="mono facts__label">Cancha</span>
+            <span class="facts__value">{{ venueLabel || 'Por definir' }}</span>
+          </div>
+          <div class="facts__cell">
+            <span class="mono facts__label">Fechas</span>
+            <span class="mono facts__value">{{ formatDate(tournament.startDate) }} – {{ formatDate(tournament.endDate) }}</span>
+          </div>
+          <div class="facts__cell">
+            <span class="mono facts__label">Inscripción</span>
+            <span class="mono facts__value">{{ Number(tournament.entryFee) > 0 ? `$${tournament.entryFee}` : 'Gratis' }}</span>
+          </div>
+          <div class="facts__cell">
+            <span class="mono facts__label facts__slots"><span>Cupos</span><span>{{ tournament.registeredTeams }}/{{ tournament.maxTeams }}</span></span>
+            <span class="facts__track"><span class="facts__fill" :style="{ width: Math.min(100, (tournament.registeredTeams / tournament.maxTeams) * 100) + '%' }" /></span>
+          </div>
+        </div>
+      </section>
+
+      <main class="wrap page">
+        <div v-if="showTeamCta || showPlayerCta" class="ctas">
+          <router-link v-if="showTeamCta" :to="ctaLink(authStore.isAuthenticated, 'TEAM_CAPTAIN', '/app/tournaments')" class="btn-blaze">Inscribir mi equipo</router-link>
+          <a v-if="showPlayerCta && recruitingHere.length" href="#buscan-jugadores" class="btn-line">
+            Quiero jugar aquí · {{ recruitingHere.length }} {{ recruitingHere.length === 1 ? 'equipo busca' : 'equipos buscan' }} jugadores
+          </a>
+          <router-link v-else-if="showPlayerCta" :to="ctaLink(authStore.isAuthenticated, 'PLAYER', '/app/player/recruiting')" class="btn-line">No tengo equipo</router-link>
+          <p v-if="!authStore.isAuthenticated" class="ctas__note">Para inscribirte o postularte necesitas una cuenta; al crearla vuelves directo a este paso.</p>
+        </div>
+
+        <section v-if="showPlayerCta && recruitingHere.length" id="buscan-jugadores" class="block">
+          <h2 class="display block__title">Equipos de este torneo que buscan jugadores</h2>
+          <div class="r-grid">
             <RecruitingTeamCard v-for="t in recruitingHere" :key="t.id" :team="t" />
           </div>
         </section>
 
-        <div class="flex gap-space-xs overflow-x-auto border-0 border-b border-solid border-outline-variant/40" role="tablist">
+        <div class="tabs" role="tablist" aria-label="Secciones del torneo">
           <button
             v-for="t in tabs"
             :key="t.value"
             type="button"
             role="tab"
+            class="p-tab"
             :aria-selected="tab === t.value"
-            class="label-tactical cursor-pointer whitespace-nowrap border-0 border-b-2 border-solid bg-transparent px-space-md py-space-sm text-[14px]"
-            :class="tab === t.value ? 'border-primary-container text-primary' : 'border-transparent text-on-surface-variant'"
             @click="tab = t.value"
           >{{ t.label }}</button>
         </div>
 
-        <StandingsTable v-if="tab === 'standings'" :standings="standings" />
-        <FixtureList v-if="tab === 'fixture'" :matches="matches" />
+        <div v-if="tab === 'standings'" class="table-box">
+          <table class="standings">
+            <thead>
+              <tr class="mono">
+                <th v-for="h in STANDING_HEADERS" :key="h" scope="col">{{ h }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="s in standings" :key="s.teamId" :class="{ 'is-first': s.position === 1 }">
+                <td class="mono standings__pos">{{ String(s.position).padStart(2, '0') }}</td>
+                <td class="standings__team">{{ s.teamName }}</td>
+                <td class="mono">{{ s.gamesPlayed }}</td>
+                <td class="mono">{{ s.wins }}</td>
+                <td class="mono">{{ s.losses }}</td>
+                <td class="mono">{{ s.pointsFor }}</td>
+                <td class="mono">{{ s.pointsAgainst }}</td>
+                <td class="mono">{{ s.pointDifferential > 0 ? '+' : '' }}{{ s.pointDifferential }}</td>
+                <td class="mono standings__pts">{{ s.points }}</td>
+              </tr>
+              <tr v-if="!standings.length">
+                <td :colspan="STANDING_HEADERS.length" class="standings__none">La tabla aparece cuando hay equipos aprobados.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-        <!-- Statistical Leaders (Task 12) -->
-        <div v-if="tab === 'leaders'" class="grid gap-space-md md:grid-cols-2">
-          <article v-for="cat in leaderCategories" :key="cat.key" class="card flex flex-col gap-space-sm p-space-lg">
-            <div class="flex items-center justify-between">
-              <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ cat.title }}</h2>
-              <span class="label-tactical text-secondary">{{ cat.unit }}</span>
+        <div v-if="tab === 'fixture'" class="block">
+          <p v-if="!rounds.length" class="page__empty">El fixture todavía no se generó.</p>
+          <div v-for="r in rounds" :key="r.round" class="round">
+            <h2 class="mono round__title">Jornada {{ r.round }}</h2>
+            <div v-for="m in r.matches" :key="m.id" class="fx">
+              <span class="mono fx__when">{{ shortDay(m.matchDate) }} · {{ m.matchTime }}</span>
+              <span class="display fx__teams">{{ m.homeTeam.name }} <span class="fx__vs">vs</span> {{ m.awayTeam.name }}</span>
+              <span class="fx__where">{{ m.venue }}</span>
+              <span v-if="m.status === 'FINISHED'" class="display fx__score">{{ m.homeScore }}–{{ m.awayScore }}</span>
+              <span v-else class="mono fx__status" :style="{ color: matchStatus(m).color }">{{ matchStatus(m).label }}</span>
             </div>
-            <p v-if="!leaders[cat.key]?.length" class="m-0 text-body-sm text-on-surface-variant">
-              Sin estadísticas registradas todavía.
-            </p>
-            <div v-else class="flex flex-col gap-space-xs">
-              <div
-                v-for="(item, idx) in leaders[cat.key].slice(0, 5)"
-                :key="item.userId || idx"
-                class="flex items-center justify-between gap-space-sm rounded bg-surface-container-low px-space-sm py-2"
-              >
-                <div class="flex min-w-0 items-center gap-space-sm">
-                  <span class="w-6 text-center font-scoreboard-num text-[20px] text-primary">{{ idx + 1 }}</span>
-                  <div class="min-w-0">
-                    <p class="m-0 truncate font-title-sm text-title-sm">{{ item.fullName }}</p>
-                    <p class="m-0 truncate text-body-sm text-on-surface-variant">
-                      {{ item.teamName }} · {{ item.gamesPlayed }} PJ
-                    </p>
-                  </div>
-                </div>
-                <div class="text-right font-stat-mono tabular">
-                  <span class="text-title-sm font-bold text-primary">{{ item[cat.field] }}</span>
-                  <span class="ml-1 text-body-sm text-on-surface-variant">({{ item[cat.perGameField] }}/P)</span>
-                </div>
-              </div>
+          </div>
+        </div>
+
+        <div v-if="tab === 'leaders'" class="leaders">
+          <article v-for="cat in leaderCategories" :key="cat.key" class="leaders__box">
+            <div class="leaders__head">
+              <h2 class="display leaders__title">{{ cat.title }}</h2>
+              <span class="mono leaders__unit">{{ cat.unit }}</span>
             </div>
+            <p v-if="!leaders[cat.key]?.length" class="leaders__none">Sin estadísticas registradas todavía.</p>
+            <ol v-else class="leaders__list">
+              <li v-for="(item, idx) in leaders[cat.key].slice(0, 5)" :key="item.userId || idx" class="leaders__row" :class="{ 'is-first': idx === 0 }">
+                <span class="display leaders__rank">{{ idx + 1 }}</span>
+                <span class="leaders__who">
+                  <span class="leaders__name">{{ item.fullName }}</span>
+                  <span class="mono leaders__team">{{ item.teamName }} · {{ item.gamesPlayed }} PJ</span>
+                </span>
+                <span class="leaders__val">
+                  <span class="display leaders__total">{{ item[cat.field] }}</span>
+                  <span class="mono leaders__pg">{{ item[cat.perGameField] }}/P</span>
+                </span>
+              </li>
+            </ol>
           </article>
         </div>
 
-        <div v-if="tab === 'teams'" class="grid gap-space-sm md:grid-cols-2">
-          <p v-if="!standings.length" class="m-0 text-body-md text-on-surface-variant">Todavía no hay equipos aprobados.</p>
-          <article v-for="s in standings" :key="s.teamId" class="card flex items-center gap-space-md p-space-md">
-            <span class="flex h-10 w-10 items-center justify-center rounded bg-primary-container font-headline-md text-white">{{ s.teamName.charAt(0) }}</span>
-            <span class="font-title-sm text-title-sm">{{ s.teamName }}</span>
-          </article>
+        <div v-if="tab === 'teams'" class="block">
+          <p v-if="!standings.length" class="page__empty">Todavía no hay equipos aprobados.</p>
+          <div v-else class="teams">
+            <div v-for="s in standings" :key="s.teamId" class="teams__item">
+              <span class="display teams__badge">{{ s.teamName.charAt(0) }}</span>
+              <span class="teams__name">{{ s.teamName }}</span>
+            </div>
+          </div>
         </div>
-      </template>
-    </main>
+      </main>
+    </template>
   </div>
 </template>
 
@@ -126,25 +157,21 @@ import { useRoute } from 'vue-router'
 import tournamentsService from '@/services/tournaments'
 import matchesService from '@/services/matches'
 import { useAuthStore } from '@/stores/auth'
-import PublicHeader from '@/components/PublicHeader.vue'
-import StatusChip from '@/components/ui/StatusChip.vue'
-import TournamentCover from '@/components/tournament/TournamentCover.vue'
-import FixtureList from '@/components/tournament/FixtureList.vue'
-import StandingsTable from '@/components/tournament/StandingsTable.vue'
+import '@/styles/poster.css'
+import PosterHeader from '@/components/PosterHeader.vue'
+import { CATEGORIES, POSTER_STATUS, formatDate } from '@/utils/labels'
 import RecruitingTeamCard from '@/components/tournament/RecruitingTeamCard.vue'
 import teamsService from '@/services/teams'
 import { ctaLink } from '@/router/navigation'
 
-const CATEGORIES = {
-  OPEN: 'Libre', SUB_13: 'Sub-13', SUB_15: 'Sub-15', SUB_17: 'Sub-17', SUB_19: 'Sub-19',
-  VETERANS: 'Veteranos +35', FEMALE: 'Femenina', MIXED: 'Mixta'
-}
 const tabs = [
   { value: 'standings', label: 'Tabla' },
   { value: 'fixture', label: 'Fixture' },
   { value: 'leaders', label: 'Líderes' },
   { value: 'teams', label: 'Equipos' }
 ]
+
+const STANDING_HEADERS = ['Pos', 'Equipo', 'PJ', 'PG', 'PP', 'PF', 'PC', 'DIF', 'PTS']
 
 const leaderCategories = [
   { key: 'points', title: 'Anotadores', unit: 'PTS', field: 'points', perGameField: 'pointsPerGame' },
@@ -183,7 +210,16 @@ const venueLabel = computed(() => {
   const zones = tournament.value?.zones?.map(z => z.name).join(', ')
   return [venues || tournament.value?.location, zones && `zona ${zones}`].filter(Boolean).join(' · ')
 })
-const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
+const shortDay = d => new Date(d).toLocaleDateString('es-VE', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' })
+const status = computed(() => POSTER_STATUS[tournament.value?.status] || { label: tournament.value?.status, color: '#8C877C' })
+const matchStatus = m => POSTER_STATUS[m.status] || { label: m.status, color: '#A8A397' }
+const rounds = computed(() => {
+  const byRound = {}
+  for (const m of matches.value) (byRound[m.round] ||= []).push(m)
+  return Object.keys(byRound)
+    .sort((a, b) => a - b)
+    .map(r => ({ round: r, matches: byRound[r] }))
+})
 
 onMounted(async () => {
   const id = route.params.id
@@ -204,3 +240,434 @@ onMounted(async () => {
   loading.value = false
 })
 </script>
+
+<style scoped>
+.hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 420px;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+  background: repeating-linear-gradient(135deg, #1c1b17 0 14px, #141411 14px 28px);
+}
+
+.hero__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.15) brightness(0.7);
+}
+
+.hero__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--asphalt) 0%, rgb(13 13 11 / 0.55) 55%, rgb(13 13 11 / 0.2) 100%);
+}
+
+.hero__body {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 40px;
+  padding-bottom: 48px;
+}
+
+.hero__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.hero__status {
+  padding: 6px 10px;
+  border: 2px solid;
+  background: var(--asphalt);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero__cat {
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.hero__name {
+  max-width: 16ch;
+  font-size: clamp(56px, 8vw, 120px);
+  overflow-wrap: anywhere;
+}
+
+.hero__desc {
+  max-width: 65ch;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+}
+
+.facts {
+  border-bottom: 1px solid var(--line);
+  background: var(--asphalt-2);
+}
+
+.facts__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+}
+
+.facts__cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 24px 24px 0;
+}
+
+.facts__cell + .facts__cell {
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+
+.facts__label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.facts__value {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.facts__slots {
+  display: flex;
+  justify-content: space-between;
+}
+
+.facts__track {
+  display: block;
+  height: 6px;
+  margin-top: 6px;
+  background: var(--line);
+}
+
+.facts__fill {
+  display: block;
+  height: 6px;
+  background: var(--blaze);
+}
+
+.ctas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.ctas__note {
+  flex-basis: 100%;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  scroll-margin-top: 96px;
+}
+
+.block__title {
+  font-size: 40px;
+}
+
+.r-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.table-box {
+  overflow-x: auto;
+  border-top: 3px solid var(--chalk);
+}
+
+.standings {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.standings th {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.standings td {
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.standings__pos {
+  color: var(--muted);
+}
+
+.standings__team {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.standings__pts {
+  font-weight: 700;
+  color: var(--blaze);
+}
+
+.standings .is-first .standings__pos,
+.standings .is-first .standings__pts {
+  color: var(--gold);
+}
+
+.standings__none {
+  color: var(--muted);
+}
+
+.round {
+  border-top: 3px solid var(--chalk);
+}
+
+.round__title {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.fx {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 200px 120px;
+  align-items: center;
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.fx__when {
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blaze);
+}
+
+.fx__teams {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.fx__vs {
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.fx__where {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.fx__score {
+  font-size: 32px;
+  text-align: right;
+  color: var(--gold);
+}
+
+.fx__status {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.leaders {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.leaders__box {
+  padding: 24px;
+  border: 1px solid var(--line);
+  background: var(--asphalt-2);
+}
+
+.leaders__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 3px solid var(--chalk);
+}
+
+.leaders__title {
+  font-size: 32px;
+}
+
+.leaders__unit {
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.leaders__none {
+  padding-top: 16px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.leaders__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaders__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.leaders__rank {
+  width: 32px;
+  font-size: 28px;
+  color: var(--muted);
+}
+
+.leaders__who {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.leaders__name {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaders__team,
+.leaders__pg {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.leaders__val {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.leaders__total {
+  font-size: 28px;
+}
+
+.leaders__row.is-first .leaders__rank,
+.leaders__row.is-first .leaders__total {
+  color: var(--gold);
+}
+
+.teams {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  border-top: 3px solid var(--chalk);
+}
+
+.teams__item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.teams__badge {
+  display: flex;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--blaze);
+  color: var(--asphalt);
+  font-size: 28px;
+}
+
+.teams__name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    min-height: 340px;
+  }
+
+  .facts__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .facts__cell,
+  .facts__cell + .facts__cell {
+    padding: 18px 16px 18px 0;
+    border-left: 0;
+  }
+
+  .facts__cell:nth-child(even) {
+    padding-left: 16px;
+    border-left: 1px solid var(--line);
+  }
+
+  .fx {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 16px;
+  }
+
+  .fx__when,
+  .fx__where {
+    grid-column: 1 / -1;
+  }
+
+  .fx__teams {
+    font-size: 22px;
+  }
+
+  .leaders {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .r-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

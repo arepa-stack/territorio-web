@@ -105,6 +105,7 @@
 </template>
 
 <script setup>
+import { formatDate } from '@/utils/labels'
 import { computed, onMounted, ref } from 'vue'
 import { usePlayerOverview } from '@/composables/usePlayerOverview'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
@@ -171,7 +172,6 @@ const filteredPerGame = key => {
   return (s[key] / s.gamesPlayed).toFixed(1)
 }
 
-const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 
 onMounted(() => load())
 </script>

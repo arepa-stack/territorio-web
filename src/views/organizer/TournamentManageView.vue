@@ -332,7 +332,7 @@ import PaymentInfoFields from '@/components/tournament/PaymentInfoFields.vue'
 import paymentsService from '@/services/payments'
 import { handleApiError } from '@/services/api'
 import { useConfirm } from '@/composables/useConfirm'
-import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload } from '@/utils/labels'
+import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload, formatDate } from '@/utils/labels'
 
 const route = useRoute()
 const toast = useToast()
@@ -401,7 +401,6 @@ const fixtureBlocker = computed(() => {
   return ''
 })
 
-const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 
 const load = async () => {
   try {

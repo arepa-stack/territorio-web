@@ -1,23 +1,18 @@
 <template>
-  <article class="card flex flex-col gap-space-sm p-space-md">
-    <div class="flex items-start justify-between gap-space-sm">
-      <div class="min-w-0">
-        <span class="label-tactical text-secondary">{{ CATEGORIES[team.category] || team.category || 'Libre' }}</span>
-        <h3 class="m-0 truncate font-headline-md text-headline-md uppercase">{{ team.name }}</h3>
+  <!-- Team looking for players, "cartel de cancha" style (public pages only) -->
+  <article class="r-card">
+    <div class="r-card__head">
+      <div class="r-card__title">
+        <span class="mono r-card__cat">{{ CATEGORIES[team.category] || team.category || 'Libre' }}</span>
+        <h3 class="display r-card__name">{{ team.name }}</h3>
       </div>
-      <span class="shrink-0 rounded bg-secondary-container/20 px-2 py-0.5 font-stat-mono text-body-sm text-secondary">
-        {{ team.openSpots }} {{ team.openSpots === 1 ? 'cupo' : 'cupos' }}
-      </span>
+      <span class="mono r-card__spots">{{ team.openSpots }} {{ team.openSpots === 1 ? 'cupo' : 'cupos' }}</span>
     </div>
-    <p v-if="team.city" class="m-0 flex items-center gap-1 text-body-sm text-on-surface-variant">
-      <span class="icon text-[16px]">location_on</span> {{ team.city }}
-    </p>
-    <p v-if="team.description" class="m-0 line-clamp-2 text-body-sm text-on-surface-variant">{{ team.description }}</p>
-    <div class="mt-auto flex flex-wrap gap-space-xs pt-space-xs">
-      <router-link :to="ctaLink(authStore.isAuthenticated, 'PLAYER', `/app/player/recruiting?equipo=${team.id}`)" class="btn-primary flex-1">
-        <span class="icon">how_to_reg</span> Postularme
-      </router-link>
-      <router-link :to="`/app/teams/${team.id}/history`" class="btn-ghost" v-if="authStore.isAuthenticated">Historial</router-link>
+    <p v-if="team.city" class="mono r-card__city">{{ team.city }}</p>
+    <p v-if="team.description" class="r-card__desc">{{ team.description }}</p>
+    <div class="r-card__actions">
+      <router-link :to="ctaLink(authStore.isAuthenticated, 'PLAYER', `/app/player/recruiting?equipo=${team.id}`)" class="btn-blaze r-card__apply">Postularme</router-link>
+      <router-link v-if="authStore.isAuthenticated" :to="`/app/teams/${team.id}/history`" class="link-under">Historial</router-link>
     </div>
   </article>
 </template>
@@ -30,3 +25,73 @@ import { CATEGORIES } from '@/utils/labels'
 defineProps({ team: { type: Object, required: true } })
 const authStore = useAuthStore()
 </script>
+
+<style scoped>
+.r-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-top: 6px solid var(--blaze);
+  background: var(--asphalt-2);
+}
+
+.r-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.r-card__title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.r-card__cat,
+.r-card__city {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.r-card__name {
+  font-size: 34px;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.r-card__spots {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 2px solid var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.r-card__desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+}
+
+.r-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.r-card__apply {
+  flex: 1;
+}
+</style>

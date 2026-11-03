@@ -104,31 +104,7 @@
           <router-link to="/torneos?estado=IN_PROGRESS" class="link-under">Ver torneos en curso</router-link>
         </div>
         <div v-else class="t-list">
-          <router-link v-for="t in openTournaments" :key="t.id" :to="`/torneo/${t.id}`" class="t-row">
-            <img v-if="t.coverPhoto" :src="t.coverPhoto" :alt="`Cancha de ${t.name}`" class="t-row__photo" />
-            <span v-else class="t-row__photo t-row__photo--empty" aria-hidden="true" />
-            <span class="t-row__main">
-              <span class="display t-row__name">{{ t.name }}</span>
-              <span class="t-row__place">{{ t.location || 'Cancha por definir' }} · {{ CATEGORIES[t.category] || t.category }}</span>
-            </span>
-            <span class="t-row__fact">
-              <span class="mono t-row__label">Arranca</span>
-              <span class="mono t-row__value">{{ calendarDay(t.startDate) }}</span>
-            </span>
-            <span class="t-row__fact">
-              <span class="mono t-row__label">Inscripción</span>
-              <span class="mono t-row__value">{{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}</span>
-            </span>
-            <span class="t-row__slots">
-              <span class="mono t-row__slots-head">
-                <span class="t-row__label">Cupos</span>
-                <span :class="{ 'text-hot': t.maxTeams - t.registeredTeams === 1 }">
-                  {{ t.registeredTeams }}/{{ t.maxTeams }}{{ t.maxTeams - t.registeredTeams === 1 ? ' · Último cupo' : '' }}
-                </span>
-              </span>
-              <span class="t-row__track"><span class="t-row__fill" :style="{ width: Math.min(100, (t.registeredTeams / t.maxTeams) * 100) + '%' }" /></span>
-            </span>
-          </router-link>
+          <PosterTournamentRow v-for="t in openTournaments" :key="t.id" :tournament="t" />
         </div>
       </div>
     </section>
@@ -196,7 +172,7 @@ import '@/styles/poster.css'
 import tournamentsService from '@/services/tournaments'
 import zonesService from '@/services/zones'
 import { useAuthStore } from '@/stores/auth'
-import { CATEGORIES } from '@/utils/labels'
+import PosterTournamentRow from '@/components/poster/PosterTournamentRow.vue'
 import PosterHeader from '@/components/PosterHeader.vue'
 import ZoneLeafletMap from '@/components/zone/ZoneLeafletMap.vue'
 import ZonePanel from '@/components/zone/ZonePanel.vue'
@@ -233,7 +209,6 @@ const counters = computed(() => [
 ])
 // Dates are stored as UTC calendar days; reading them in local time (UTC-4) shows the day before
 const shortDay = d => new Date(d).toLocaleDateString('es-VE', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' })
-const calendarDay = d => new Date(d).toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 
 onMounted(async () => {
   const [t, s, z] = await Promise.allSettled([
@@ -541,86 +516,6 @@ onMounted(async () => {
   gap: 24px;
 }
 
-/* Tournaments */
-.t-list {
-  border-top: 3px solid var(--chalk);
-}
-
-.poster .t-row {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr) 150px 120px 200px;
-  align-items: center;
-  gap: 24px;
-  padding: 28px 0;
-  border-bottom: 1px solid var(--line);
-  text-decoration: none;
-}
-
-.poster .t-row:hover .t-row__name {
-  color: var(--blaze);
-}
-
-.t-row__photo {
-  width: 120px;
-  height: 80px;
-  object-fit: cover;
-  filter: grayscale(1) contrast(1.15);
-}
-
-.t-row__photo--empty {
-  display: block;
-  background: repeating-linear-gradient(135deg, #1c1b17 0 10px, #141411 10px 20px);
-}
-
-.t-row__main,
-.t-row__fact,
-.t-row__slots {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.t-row__name {
-  font-size: 34px;
-  line-height: 1;
-}
-
-.t-row__place {
-  font-size: 15px;
-  color: var(--muted);
-}
-
-.t-row__label {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.t-row__value {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.t-row__slots-head {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.t-row__track {
-  display: block;
-  height: 6px;
-  background: var(--line);
-}
-
-.t-row__fill {
-  display: block;
-  height: 6px;
-  background: var(--blaze);
-}
-
 /* Leaders */
 .leaders {
   margin: 0;
@@ -788,15 +683,9 @@ onMounted(async () => {
     align-items: flex-start;
   }
 
-  .poster .match-row,
-  .poster .t-row {
+  .poster .match-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
-  }
-
-  .t-row__photo {
-    width: 100%;
-    height: 140px;
   }
 
   .stats {

@@ -1,39 +1,40 @@
 <template>
-  <div class="min-h-screen bg-surface font-body text-on-surface">
-    <PublicHeader />
-
-    <main class="mx-auto flex max-w-[1200px] flex-col gap-space-lg px-gutter py-space-lg md:px-margin-md">
-      <div>
-        <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Equipos que buscan jugadores</h1>
-        <p class="m-0 mt-1 text-body-md text-on-surface-variant">
-          ¿No tienes equipo? Elige uno, crea tu cuenta de jugador y postúlate. El capitán revisa tu solicitud.
-        </p>
+  <div class="poster">
+    <PosterHeader />
+    <main class="wrap page">
+      <div class="page__head">
+        <div class="page__title">
+          <router-link to="/" class="mono page__back">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M19 12H5M11 5l-7 7 7 7" /></svg>
+            Volver al inicio
+          </router-link>
+          <h1 class="display page__h1">Equipos que<br />buscan jugadores</h1>
+        </div>
+        <p class="page__lead">¿No tienes equipo? Elige uno, crea tu cuenta de jugador y postúlate. El capitán revisa tu solicitud.</p>
       </div>
 
-      <div class="flex flex-col gap-space-sm md:flex-row md:items-end">
-        <div class="flex-1">
-          <label class="field-label" for="pr-city">Ciudad</label>
-          <input id="pr-city" v-model.trim="city" class="input" placeholder="Ej. Caracas" />
+      <div class="p-filters">
+        <div class="p-field p-filters__city">
+          <label class="p-label" for="pr-city">Ciudad</label>
+          <input id="pr-city" v-model.trim="city" class="p-input" placeholder="Ej. Caracas" />
         </div>
-        <div class="md:w-56">
-          <label class="field-label" for="pr-category">Categoría</label>
-          <select id="pr-category" v-model="category" class="input">
+        <div class="p-field p-filters__category">
+          <label class="p-label" for="pr-category">Categoría</label>
+          <select id="pr-category" v-model="category" class="p-input">
             <option value="">Todas</option>
             <option v-for="(label, value) in CATEGORIES" :key="value" :value="value">{{ label }}</option>
           </select>
         </div>
       </div>
 
-      <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando equipos…</p>
-      <div v-else-if="!teams.length" class="card flex flex-col gap-space-sm p-space-lg">
-        <p class="m-0 text-body-md text-on-surface-variant">
-          Ningún equipo está buscando jugadores con estos filtros. Crea tu cuenta igual: un capitán te puede fichar con tu cédula.
-        </p>
-        <router-link :to="ctaLink(authStore.isAuthenticated, 'PLAYER', '/app/player')" class="btn-primary self-start">
+      <p v-if="loading" class="page__lead">Cargando equipos…</p>
+      <div v-else-if="!teams.length" class="page__empty">
+        Ningún equipo está buscando jugadores con estos filtros. Crea tu cuenta igual: un capitán te puede fichar con tu cédula.
+        <router-link :to="ctaLink(authStore.isAuthenticated, 'PLAYER', '/app/player')" class="btn-blaze">
           {{ authStore.isAuthenticated ? 'Ir a mi panel' : 'Crear cuenta de jugador' }}
         </router-link>
       </div>
-      <div v-else class="grid gap-space-md md:grid-cols-2 lg:grid-cols-3">
+      <div v-else class="grid">
         <RecruitingTeamCard v-for="t in teams" :key="t.id" :team="t" />
       </div>
     </main>
@@ -46,7 +47,8 @@ import teamsService from '@/services/teams'
 import { useAuthStore } from '@/stores/auth'
 import { ctaLink } from '@/router/navigation'
 import { CATEGORIES } from '@/utils/labels'
-import PublicHeader from '@/components/PublicHeader.vue'
+import '@/styles/poster.css'
+import PosterHeader from '@/components/PosterHeader.vue'
 import RecruitingTeamCard from '@/components/tournament/RecruitingTeamCard.vue'
 
 const authStore = useAuthStore()
@@ -74,3 +76,32 @@ watch([city, category], () => {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.p-filters__city {
+  flex: 1 1 320px;
+}
+
+.p-filters__category {
+  flex: 0 1 240px;
+}
+
+.page__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 600px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+</style>

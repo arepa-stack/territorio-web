@@ -59,8 +59,8 @@
                 <span v-if="!v.tournaments.length" class="venues__none">Sin torneos todavía.</span>
                 <router-link v-for="t in v.tournaments.slice(0, 4)" :key="t.id" :to="`/torneo/${t.id}`" class="venues__t">
                   <span>{{ t.name }}</span>
-                  <span class="mono venues__chip" :style="{ color: STATUS[t.status]?.color, borderColor: STATUS[t.status]?.color }">
-                    {{ STATUS[t.status]?.label || t.status }}
+                  <span class="mono venues__chip" :style="{ color: POSTER_STATUS[t.status]?.color, borderColor: POSTER_STATUS[t.status]?.color }">
+                    {{ POSTER_STATUS[t.status]?.label || t.status }}
                   </span>
                 </router-link>
               </div>
@@ -81,14 +81,7 @@ import zonesService from '@/services/zones'
 import PosterHeader from '@/components/PosterHeader.vue'
 import ZoneLeafletMap from '@/components/zone/ZoneLeafletMap.vue'
 import ZonePanel from '@/components/zone/ZonePanel.vue'
-
-const STATUS = {
-  REGISTRATION: { label: 'Inscripciones', color: '#FF4F12' },
-  IN_PROGRESS: { label: 'En juego', color: '#4FD18B' },
-  FINISHED: { label: 'Finalizado', color: '#8C877C' },
-  CANCELLED: { label: 'Cancelado', color: '#8C877C' },
-  DRAFT: { label: 'Borrador', color: '#8C877C' }
-}
+import { POSTER_STATUS } from '@/utils/labels'
 
 const route = useRoute()
 const router = useRouter()
@@ -111,55 +104,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-  padding-top: 48px;
-  padding-bottom: 72px;
-}
-
-.page__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.page__title {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.poster .page__back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-}
-
-.page__h1 {
-  font-size: clamp(56px, 7vw, 104px);
-}
-
-.page__lead {
-  max-width: 440px;
-  font-size: 16px;
-  line-height: 1.5;
-  color: var(--chalk-dim);
-}
-
-.page__empty {
-  padding: 28px;
-  border: 2px dashed var(--line);
-  color: var(--chalk-dim);
-}
-
 .layout {
   display: flex;
   flex-wrap: wrap;

@@ -310,7 +310,7 @@ import ChipSelect from '@/components/ui/ChipSelect.vue'
 import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
 import PaymentInfoFields from '@/components/tournament/PaymentInfoFields.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { emptyPaymentInfo, paymentInfoPayload } from '@/utils/labels'
+import { emptyPaymentInfo, paymentInfoPayload, formatDate } from '@/utils/labels'
 
 const authStore = useAuthStore()
 
@@ -427,11 +427,6 @@ const fetchTournaments = async () => {
     } finally {
         isLoading.value = false
     }
-}
-
-const formatDate = (dateString) => {
-    if (!dateString) return '-'
-    return new Date(dateString).toLocaleDateString()
 }
 
 // With zones chosen, only their venues are offered

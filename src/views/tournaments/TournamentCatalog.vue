@@ -145,6 +145,7 @@
 </template>
 
 <script setup>
+import { formatDate } from '@/utils/labels'
 import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
@@ -192,7 +193,6 @@ const acceptingWaiver = ref(null)
 const paymentDialog = ref(null)
 
 const categoryLabel = c => CATEGORIES[c] || c
-const formatDate = d => (d ? new Date(d).toLocaleDateString() : '-')
 const countStatus = s => (s === 'ALL' ? tournaments.value.length : tournaments.value.filter(t => t.status === s).length)
 const registrationOf = t => myTeam.value?.registrations?.find(r => r.tournament.id === t.id)
 

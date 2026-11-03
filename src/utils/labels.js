@@ -21,10 +21,25 @@ export const CATEGORIES = {
 
 export const toOptions = map => Object.entries(map).map(([value, label]) => ({ value, label }))
 
-export const formatDate = d => (d ? new Date(d).toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric' }) : '-')
+// Dates are stored as UTC calendar days: format in UTC or Venezuela (UTC-4) shows the day before.
+// ponytail: timestamps (createdAt) late at night show the next day; add a local formatter if that matters
+export const formatDate = d =>
+  d ? new Date(d).toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '-'
 
 export const formatDay = d =>
-  d ? new Date(d).toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' }) : '-'
+  d ? new Date(d).toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '-'
+
+// Status label and color on the "cartel de cancha" pages
+export const POSTER_STATUS = {
+  REGISTRATION: { label: 'Inscripciones', color: '#FF4F12' },
+  IN_PROGRESS: { label: 'En juego', color: '#4FD18B' },
+  FINISHED: { label: 'Finalizado', color: '#8C877C' },
+  CANCELLED: { label: 'Cancelado', color: '#8C877C' },
+  DRAFT: { label: 'Borrador', color: '#8C877C' },
+  SCHEDULED: { label: 'Programado', color: '#A8A397' },
+  SUSPENDED: { label: 'Suspendido', color: '#F5B21B' },
+  FORFEIT: { label: 'W.O.', color: '#FF7A45' }
+}
 
 export const PAYMENT_METHODS = {
   PAGO_MOVIL: 'Pago Móvil',
