@@ -14,11 +14,14 @@ const app = createApp(App)
 app.use(createPinia())
 app.use(Toast, {
   position: 'top-right',
-  timeout: 5000,
+  timeout: 4500,
   closeOnClick: true,
   pauseOnHover: true,
   hideProgressBar: false,
-  icon: true
+  icon: true,
+  transition: 'Vue-Toastification__fade',
+  maxToasts: 4,
+  newestOnTop: true
 })
 app.use(router)
 

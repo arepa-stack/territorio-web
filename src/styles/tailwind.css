@@ -190,26 +190,6 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Toasts in the design system palette */
-  .Vue-Toastification__toast {
-    @apply rounded-lg font-body text-body-md shadow-xl;
-  }
-
-  .Vue-Toastification__toast--success {
-    @apply bg-tertiary-container text-white;
-  }
-
-  .Vue-Toastification__toast--error {
-    @apply bg-[#b3261e] text-white;
-  }
-
-  .Vue-Toastification__toast--warning {
-    @apply bg-secondary-container text-on-secondary-container;
-  }
-
-  .Vue-Toastification__toast--info {
-    @apply bg-surface-container-highest text-on-surface;
-  }
 
   /* Preflight's img { max-width: 100% } breaks Leaflet tiles and markers */
   .leaflet-container img {
@@ -370,4 +350,79 @@
 /* Dark streets on small maps in the "cancha" theme, like the zone maps */
 .court .vl__map .leaflet-tile-pane {
   filter: grayscale(1) invert(1) brightness(0.62) contrast(1.15);
+}
+
+/* Toasts in the "cartel de cancha" look, fixed colors so they match on every page (landing, admin, app) */
+.Vue-Toastification__container {
+  padding: 12px;
+}
+
+.Vue-Toastification__toast {
+  min-height: 0;
+  max-width: 420px;
+  align-items: flex-start;
+  padding: 14px 16px 16px;
+  border: 1px solid #2a2924;
+  border-left: 5px solid var(--toast-accent);
+  border-radius: 0;
+  background: #141411;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+  color: #ede8dc;
+  font-family: 'Archivo', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.Vue-Toastification__toast--success {
+  --toast-accent: #4fd18b;
+}
+
+.Vue-Toastification__toast--error {
+  --toast-accent: #ff5a3c;
+}
+
+.Vue-Toastification__toast--warning {
+  --toast-accent: #f5b21b;
+}
+
+.Vue-Toastification__toast--info,
+.Vue-Toastification__toast--default {
+  --toast-accent: #ff4f12;
+}
+
+.Vue-Toastification__icon {
+  width: 22px;
+  height: 22px;
+  margin: 0 12px 0 0;
+  color: var(--toast-accent);
+}
+
+.Vue-Toastification__toast-body {
+  align-self: center;
+}
+
+.Vue-Toastification__close-button {
+  align-self: flex-start;
+  padding-left: 12px;
+  color: #a8a397;
+  font-size: 22px;
+  opacity: 1;
+}
+
+.Vue-Toastification__close-button:hover {
+  color: #ede8dc;
+}
+
+.Vue-Toastification__progress-bar {
+  height: 3px;
+  background: var(--toast-accent);
+  opacity: 0.9;
+}
+
+@media (max-width: 600px) {
+  .Vue-Toastification__toast {
+    max-width: none;
+    margin-bottom: 8px;
+  }
 }
