@@ -96,6 +96,33 @@ const routes = [
   },
   // Link sent by the backend email: FRONTEND_URL/reset-password?token=...
   { path: '/reset-password', redirect: to => ({ path: '/auth/reset-password', query: to.query }) },
+  // Admin has its own "cartel de cancha" shell
+  {
+    path: '/app/admin',
+    component: () => import('@/layouts/AdminLayout.vue'),
+    meta: { requiresAuth: true, roles: ['ADMIN'] },
+    children: [
+      { path: '', redirect: '/app/admin/users' },
+      {
+        path: 'users',
+        name: 'AdminUsers',
+        component: () => import('@/views/admin/AdminUsersView.vue'),
+        meta: { requiresAuth: true, roles: ['ADMIN'], title: 'Usuarios' }
+      },
+      {
+        path: 'zones',
+        name: 'AdminZones',
+        component: () => import('@/views/zones/ZoneMapView.vue'),
+        meta: { requiresAuth: true, roles: ['ADMIN'], title: 'Zonas y Canchas' }
+      },
+      {
+        path: 'tournaments',
+        name: 'AdminTournaments',
+        component: () => import('@/views/admin/AdminTournamentsView.vue'),
+        meta: { requiresAuth: true, roles: ['ADMIN'], title: 'Torneos' }
+      }
+    ]
+  },
   {
     path: '/app',
     component: MainLayout,
@@ -275,30 +302,6 @@ const routes = [
           requiresAuth: true,
           roles: ['ORGANIZER'],
           title: 'Mesa técnica'
-        }
-      },
-      {
-        path: 'admin',
-        redirect: '/app/admin/users'
-      },
-      {
-        path: 'admin/users',
-        name: 'AdminUsers',
-        component: () => import('@/views/admin/AdminUsersView.vue'),
-        meta: {
-          requiresAuth: true,
-          roles: ['ADMIN'],
-          title: 'Usuarios'
-        }
-      },
-      {
-        path: 'admin/zones',
-        name: 'AdminZones',
-        component: () => import('@/views/zones/ZoneMapView.vue'),
-        meta: {
-          requiresAuth: true,
-          roles: ['ADMIN'],
-          title: 'Zonas y Canchas'
         }
       }
     ]

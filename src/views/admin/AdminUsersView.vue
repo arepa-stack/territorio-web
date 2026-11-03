@@ -1,128 +1,93 @@
 <template>
-  <div class="flex flex-col gap-space-lg">
-    <div>
-      <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">Permisos y usuarios</h1>
-      <p class="m-0 mt-1 text-body-md text-on-surface-variant">
-        <span class="font-stat-mono tabular">{{ users.length }}</span> usuarios activos. Asigna árbitros, capitanes y moderadores desde aquí.
-      </p>
+  <div class="admin">
+    <div class="page__head">
+      <h1 class="display page__h1">Usuarios</h1>
+      <p class="page__lead"><span class="mono">{{ users.length }}</span> usuarios activos. Asigna árbitros, capitanes y moderadores desde aquí.</p>
     </div>
 
-    <!-- Pending Captain Upgrade Requests (Task 13) -->
-    <section v-if="pendingCaptainRequests.length" class="flex flex-col gap-space-sm">
-      <div class="flex items-center justify-between">
-        <h2 class="m-0 font-headline-md text-headline-md uppercase text-secondary">
-          Solicitudes para ser capitán ({{ pendingCaptainRequests.length }})
-        </h2>
-      </div>
-      <div class="grid gap-space-sm md:grid-cols-2">
-        <article
-          v-for="req in pendingCaptainRequests"
-          :key="req.id"
-          class="card flex flex-col justify-between gap-space-md border-l-4 border-l-secondary p-space-md"
-        >
-          <div class="flex flex-col gap-1">
-            <div class="flex items-center justify-between gap-space-xs">
-              <strong class="font-title-sm text-title-sm">{{ req.user?.fullName || 'Jugador' }}</strong>
-              <span class="font-stat-mono text-body-sm text-on-surface-variant">{{ req.user?.ci || 'Sin CI' }}</span>
-            </div>
-            <p class="m-0 text-body-sm text-on-surface-variant">{{ req.user?.email }}</p>
-            <p class="m-0 mt-1 text-body-sm">
-              Equipo propuesto: <strong>{{ req.teamNameProposal }}</strong> ({{ req.city }} · {{ req.category }})
-            </p>
-            <p v-if="req.reason" class="m-0 text-body-sm italic text-on-surface-variant">"{{ req.reason }}"</p>
+    <!-- Pending captain upgrade requests -->
+    <section v-if="pendingCaptainRequests.length" class="block" aria-labelledby="cap-req">
+      <h2 id="cap-req" class="display block__title">Solicitudes para ser capitán · {{ pendingCaptainRequests.length }}</h2>
+      <div class="req-grid">
+        <article v-for="req in pendingCaptainRequests" :key="req.id" class="req">
+          <div class="req__head">
+            <strong class="req__name">{{ req.user?.fullName || 'Jugador' }}</strong>
+            <span class="mono req__ci">{{ req.user?.ci || 'Sin CI' }}</span>
           </div>
-          <div class="flex gap-space-xs">
-            <button
-              type="button"
-              class="btn-danger flex-1"
-              :disabled="resolvingReq === req.id"
-              @click="resolveCaptainReq(req, 'REJECTED')"
-            >
-              Rechazar
-            </button>
-            <button
-              type="button"
-              class="btn-primary flex-1"
-              :disabled="resolvingReq === req.id"
-              @click="resolveCaptainReq(req, 'APPROVED')"
-            >
-              Aprobar capitán
-            </button>
+          <p class="req__email">{{ req.user?.email }}</p>
+          <p class="req__team">
+            Equipo propuesto: <strong>{{ req.teamNameProposal }}</strong>
+            <span class="req__meta">{{ req.city }} · {{ CATEGORIES[req.category] || req.category }}</span>
+          </p>
+          <p v-if="req.reason" class="req__reason">“{{ req.reason }}”</p>
+          <div class="req__actions">
+            <button type="button" class="btn-line" :disabled="resolvingReq === req.id" @click="resolveCaptainReq(req, 'REJECTED')">Rechazar</button>
+            <button type="button" class="btn-blaze" :disabled="resolvingReq === req.id" @click="resolveCaptainReq(req, 'APPROVED')">Aprobar capitán</button>
           </div>
         </article>
       </div>
     </section>
 
-    <div class="flex flex-col gap-space-sm">
-      <label class="sr-only" for="user-search">Buscar</label>
-      <div class="relative">
-        <span class="icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-        <input id="user-search" v-model="search" class="input pl-10" placeholder="Buscar por nombre, email o cédula" />
-      </div>
-      <div class="-mx-gutter flex gap-space-xs overflow-x-auto px-gutter pb-1 md:mx-0 md:px-0">
-        <button
-          v-for="r in roleFilters"
-          :key="r.value"
-          type="button"
-          class="filter-chip"
-          :aria-pressed="roleFilter === r.value"
-          @click="roleFilter = r.value"
-        >{{ r.label }} ({{ countRole(r.value) }})</button>
-      </div>
+    <div class="p-field">
+      <label class="p-label" for="user-search">Buscar</label>
+      <input id="user-search" v-model="search" class="p-input" placeholder="Nombre, email o cédula" />
+    </div>
+    <div class="p-chips" role="group" aria-label="Rol">
+      <button
+        v-for="r in roleFilters"
+        :key="r.value"
+        type="button"
+        class="p-chip"
+        :aria-pressed="roleFilter === r.value"
+        @click="roleFilter = r.value"
+      >{{ r.label }} · {{ countRole(r.value) }}</button>
     </div>
 
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando usuarios…</p>
-    <p v-else-if="!filtered.length" class="text-body-md text-on-surface-variant">Ningún usuario coincide con la búsqueda.</p>
+    <p v-if="loading" class="page__lead">Cargando usuarios…</p>
+    <p v-else-if="!filtered.length" class="page__empty">Ningún usuario coincide con la búsqueda.</p>
 
-    <div class="flex flex-col gap-space-xs">
-      <article v-for="u in filtered" :key="u.id" class="card flex flex-col gap-space-sm p-space-md md:flex-row md:items-center">
-        <div class="flex min-w-0 flex-1 items-center gap-space-md">
-          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-highest font-label-tactical text-label-tactical">
-            {{ initials(u.fullName) }}
-          </span>
-          <div class="min-w-0">
-            <p class="m-0 truncate font-title-sm text-title-sm">{{ u.fullName }}</p>
-            <p class="m-0 truncate font-stat-mono text-[12px] text-on-surface-variant">
-              {{ u.ci || 'Sin cédula' }} · {{ u.email }}
-            </p>
-          </div>
+    <div v-else class="u-list">
+      <article v-for="u in pageItems" :key="u.id" class="u-row">
+        <span class="display u-row__badge">{{ initials(u.fullName) }}</span>
+        <div class="u-row__who">
+          <span class="u-row__name">{{ u.fullName }}</span>
+          <span class="mono u-row__meta">{{ u.ci || 'Sin cédula' }} · {{ u.email }}</span>
         </div>
-
-        <div class="flex items-center gap-space-sm">
+        <div class="u-row__actions">
           <label class="sr-only" :for="`role-${u.id}`">Rol de {{ u.fullName }}</label>
           <select
             :id="`role-${u.id}`"
-            class="input w-auto py-space-sm"
+            class="p-input u-row__role"
             :value="u.role"
             :disabled="u.id === authStore.user?.id || busy === u.id"
             @change="changeRole(u, $event.target.value)"
           >
             <option v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</option>
           </select>
-
-          <template v-if="u.id !== authStore.user?.id">
-            <template v-if="confirming === u.id">
-              <button type="button" class="btn-danger" :disabled="busy === u.id" @click="deactivate(u)">Confirmar</button>
-              <button type="button" class="btn-ghost" @click="confirming = null">Cancelar</button>
-            </template>
-            <button v-else type="button" class="btn-ghost" :aria-label="`Desactivar a ${u.fullName}`" @click="confirming = u.id">
-              <span class="icon">person_off</span>
-            </button>
+          <span v-if="u.id === authStore.user?.id" class="mono u-row__you">Tú</span>
+          <template v-else-if="confirming === u.id">
+            <button type="button" class="btn-blaze" :disabled="busy === u.id" @click="deactivate(u)">Confirmar</button>
+            <button type="button" class="link-under u-row__plain" @click="confirming = null">Cancelar</button>
           </template>
+          <button v-else type="button" class="link-under u-row__plain" :aria-label="`Desactivar a ${u.fullName}`" @click="confirming = u.id">Desactivar</button>
         </div>
       </article>
     </div>
+
+    <PosterPager v-model:page="page" :per-page="PER_PAGE" :total="filtered.length" noun="usuarios" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import usersService from '@/services/users'
 import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/composables/useConfirm'
 import { ROLE_LABEL } from '@/router/navigation'
+import { CATEGORIES } from '@/utils/labels'
+import PosterPager from '@/components/poster/PosterPager.vue'
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -140,6 +105,9 @@ const busy = ref(null)
 const resolvingReq = ref(null)
 const confirming = ref(null)
 
+// ponytail: GET /users returns everyone and we page on the client; move paging to the API past a few thousand users
+const PER_PAGE = 20
+const page = ref(1)
 const pendingCaptainRequests = computed(() => captainRequests.value.filter(r => r.status === 'PENDING'))
 
 const initials = name => (name || '?').split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
@@ -153,6 +121,12 @@ const filtered = computed(() => {
       (!q || [u.fullName, u.email, u.ci].some(v => v?.toLowerCase().includes(q)))
   )
 })
+
+const pageItems = computed(() => filtered.value.slice((page.value - 1) * PER_PAGE, page.value * PER_PAGE))
+// A new search or filter starts over at page 1
+watch([search, roleFilter], () => (page.value = 1))
+// Deactivating the last user of the last page must not leave an empty page
+watch(() => filtered.value.length, n => (page.value = Math.min(page.value, Math.max(1, Math.ceil(n / PER_PAGE)))))
 
 const load = async () => {
   try {
@@ -226,3 +200,165 @@ const deactivate = async u => {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.admin {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.block__title {
+  font-size: 36px;
+  color: var(--gold);
+}
+
+.req-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+.req {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-top: 6px solid var(--gold);
+  background: var(--asphalt-2);
+}
+
+.req__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.req__name {
+  font-size: 18px;
+}
+
+.req__ci,
+.req__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.req__email {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.req__team {
+  font-size: 15px;
+}
+
+.req__meta {
+  display: block;
+  margin-top: 2px;
+}
+
+.req__reason {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--chalk-dim);
+}
+
+.req__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.req__actions > * {
+  flex: 1;
+}
+
+.u-list {
+  border-top: 3px solid var(--chalk);
+}
+
+.u-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.u-row__badge {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: var(--line);
+  font-size: 20px;
+}
+
+.u-row__who {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 260px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.u-row__name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.u-row__meta {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.u-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.u-row__role {
+  width: 180px;
+  min-height: 44px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.u-row__you {
+  font-size: 11px;
+  color: var(--gold);
+}
+
+.u-row__plain {
+  border: 0;
+  background: none;
+  color: var(--chalk-dim);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.u-row__plain:hover {
+  color: var(--blaze);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>

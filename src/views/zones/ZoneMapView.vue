@@ -1,66 +1,59 @@
 <template>
-  <div class="flex flex-col gap-space-md">
-    <div class="flex flex-wrap items-end justify-between gap-space-sm">
+  <!-- "Cartel de cancha" look; inside the Material shell (organizer, captain…) it renders as a dark panel -->
+  <div class="poster zm" :class="{ 'zm--embed': !canEdit }">
+    <div class="page__head">
       <div>
-        <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase md:font-headline-lg md:text-headline-lg">
-          {{ canEdit ? 'Zonas y canchas' : 'Mapa de zonas' }}
-        </h1>
-        <p v-if="!canEdit" class="m-0 mt-1 text-body-md text-on-surface-variant">Selecciona una zona o una cancha para ver sus torneos.</p>
+        <h1 class="display page__h1">{{ canEdit ? 'Zonas y canchas' : 'Mapa de zonas' }}</h1>
+        <p v-if="!canEdit" class="page__lead">Selecciona una zona o una cancha para ver sus torneos.</p>
       </div>
-      <div v-if="canEdit" class="flex gap-space-xs">
-        <button type="button" class="filter-chip" :aria-pressed="mode === 'zone'" @click="setMode('zone')">
-          <span class="icon align-middle text-[18px]">add_circle</span> Nueva zona
-        </button>
-        <button type="button" class="filter-chip" :aria-pressed="mode === 'venue'" @click="setMode('venue')">
-          <span class="icon align-middle text-[18px]">sports_basketball</span> Nueva cancha
-        </button>
+      <div v-if="canEdit" class="p-chips">
+        <button type="button" class="p-chip" :aria-pressed="mode === 'zone'" @click="setMode('zone')">+ Nueva zona</button>
+        <button type="button" class="p-chip" :aria-pressed="mode === 'venue'" @click="setMode('venue')">+ Nueva cancha</button>
       </div>
     </div>
 
-    <p v-if="hint" class="m-0 flex items-center gap-space-sm rounded border border-solid border-secondary/40 bg-secondary/10 p-space-sm text-body-sm text-on-surface">
-      <span class="icon text-secondary">touch_app</span>{{ hint }}
-    </p>
+    <p v-if="hint" class="mono zm__hint" role="status">{{ hint }}</p>
 
-    <div class="grid gap-space-md lg:grid-cols-[1fr_22rem]">
-      <div class="flex flex-col gap-space-xs">
-        <div class="card overflow-hidden">
+    <div class="zm__layout">
+      <div class="zm__map">
+        <div class="zm__box">
           <!-- Dynamic classes live on a wrapper: Vue would overwrite the classes Leaflet adds to its container -->
           <div :class="{ picking: canEdit && (mode || selectedZone), flying }"><div ref="mapEl" class="map"></div></div>
         </div>
-        <div class="flex flex-wrap gap-space-md text-body-sm text-on-surface-variant">
-          <span class="flex items-center gap-space-xs"><span class="pin solid" /> Cancha con torneo activo</span>
-          <span class="flex items-center gap-space-xs"><span class="pin hollow" /> Cancha sin torneo activo</span>
+        <div class="mono legend">
+          <span class="legend__item"><span class="pin solid" />Cancha con torneo activo</span>
+          <span class="legend__item"><span class="pin hollow" />Cancha sin torneo activo</span>
         </div>
       </div>
 
-      <aside class="flex min-w-0 flex-col gap-space-md">
+      <aside class="zm__side">
         <!-- Zone form (admin) -->
-        <form v-if="zoneForm && canEdit" class="card flex flex-col gap-space-md p-space-md" novalidate @submit.prevent="saveZone">
-          <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ zoneForm.id ? 'Editar zona' : 'Nueva zona' }}</h2>
-          <div>
-            <label class="field-label" for="zone-name">Nombre *</label>
-            <input id="zone-name" v-model.trim="zoneForm.name" class="input" />
+        <form v-if="zoneForm && canEdit" class="zm__card" novalidate @submit.prevent="saveZone">
+          <h2 class="display zm__title">{{ zoneForm.id ? 'Editar zona' : 'Nueva zona' }}</h2>
+          <div class="p-field">
+            <label class="p-label" for="zone-name">Nombre *</label>
+            <input id="zone-name" v-model.trim="zoneForm.name" class="p-input" />
           </div>
-          <div>
-            <label class="field-label" for="zone-desc">Descripción *</label>
-            <textarea id="zone-desc" v-model.trim="zoneForm.description" class="input" rows="2" />
+          <div class="p-field">
+            <label class="p-label" for="zone-desc">Descripción *</label>
+            <textarea id="zone-desc" v-model.trim="zoneForm.description" class="p-input" rows="2" />
           </div>
-          <div>
-            <div class="flex justify-between">
-              <label class="field-label" for="zone-radius">Radio</label>
-              <span class="font-stat-mono text-stat-mono text-primary">{{ formatRadius(zoneForm.radius) }}</span>
-            </div>
-            <input id="zone-radius" v-model.number="zoneForm.radius" type="range" :min="MIN_RADIUS" :max="MAX_RADIUS" step="50" class="w-full accent-[#ff5500]" />
+          <div class="p-field">
+            <span class="zm__row">
+              <label class="p-label" for="zone-radius">Radio</label>
+              <span class="mono zm__value">{{ formatRadius(zoneForm.radius) }}</span>
+            </span>
+            <input id="zone-radius" v-model.number="zoneForm.radius" type="range" :min="MIN_RADIUS" :max="MAX_RADIUS" step="50" class="zm__range" />
           </div>
-          <div>
-            <span class="field-label">Color</span>
-            <div class="flex flex-wrap gap-space-xs">
+          <div class="p-field">
+            <span class="p-label">Color</span>
+            <div class="zm__colors">
               <button
                 v-for="c in colors"
                 :key="c"
                 type="button"
-                class="h-8 w-8 cursor-pointer rounded-full border-2 border-solid"
-                :class="zoneForm.color === c ? 'border-on-surface' : 'border-transparent'"
+                class="zm__color"
+                :class="{ 'is-on': zoneForm.color === c }"
                 :style="{ background: c }"
                 :aria-label="`Color ${c}`"
                 :aria-pressed="zoneForm.color === c"
@@ -68,176 +61,133 @@
               />
             </div>
           </div>
-          <p class="m-0 text-body-sm text-on-surface-variant">Haz clic en el mapa para mover el centro. El deslizador afina el radio.</p>
-          <p v-if="formError" role="alert" class="m-0 text-body-sm text-error">{{ formError }}</p>
-          <div class="flex flex-wrap gap-space-sm">
-            <button type="submit" class="btn-primary flex-1" :disabled="saving">Guardar</button>
-            <button type="button" class="btn-ghost" @click="cancel">Cancelar</button>
-            <button v-if="zoneForm.id" type="button" class="btn-danger" :disabled="saving" @click="deactivateZone">Desactivar</button>
+          <p class="zm__note">Haz clic en el mapa para mover el centro. El deslizador afina el radio.</p>
+          <p v-if="formError" role="alert" class="zm__error">{{ formError }}</p>
+          <div class="zm__actions">
+            <button type="submit" class="btn-blaze" :disabled="saving">Guardar</button>
+            <button type="button" class="btn-line" @click="cancel">Cancelar</button>
+            <button v-if="zoneForm.id" type="button" class="link-under zm__danger" :disabled="saving" @click="deactivateZone">Desactivar</button>
           </div>
         </form>
 
-        <!-- Zone detail (read only) -->
-        <section v-else-if="zoneForm" class="card flex flex-col gap-space-md p-space-md">
-          <div class="flex items-center gap-space-sm">
-            <span class="h-3.5 w-3.5 shrink-0 rounded-full" :style="{ background: zoneForm.color }" />
-            <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ zoneForm.name }}</h2>
-          </div>
-          <p class="m-0 text-body-md">{{ zoneForm.description }}</p>
-          <p class="m-0 font-stat-mono text-stat-mono text-on-surface-variant">Radio {{ formatRadius(zoneForm.radius) }}</p>
-          <template v-if="standingOf(zoneForm)">
-            <div v-if="standingOf(zoneForm).champion" class="rounded border border-solid border-secondary-container/40 bg-surface-container-low p-space-md shadow-[0_0_16px_rgba(245,158,11,0.2)]">
-              <span class="label-tactical flex items-center gap-1 text-on-surface-variant"><span class="icon icon-fill text-[16px] text-secondary-container">crown</span> Campeón actual</span>
-              <p class="m-0 truncate font-headline-md text-headline-md uppercase text-secondary">{{ standingOf(zoneForm).champion.teamName }}</p>
-              <router-link :to="`/torneo/${standingOf(zoneForm).champion.tournamentId}`" class="text-body-sm text-on-surface-variant hover:text-primary">
-                Ganó {{ standingOf(zoneForm).champion.tournamentName }}
-              </router-link>
-            </div>
-            <p v-else class="m-0 rounded border border-dashed border-secondary-container/50 p-space-md text-body-sm text-on-surface-variant">Trono vacío: nadie ha ganado un torneo aquí todavía.</p>
-            <h3 class="label-tactical m-0 text-on-surface-variant">Equipos participantes ({{ standingOf(zoneForm).participants.length }})</h3>
-            <p v-if="!standingOf(zoneForm).participants.length" class="m-0 text-body-sm text-on-surface-variant">Ningún equipo ha jugado en esta zona.</p>
-            <ol v-else class="m-0 flex list-none flex-col gap-1 p-0">
-              <li v-for="team in standingOf(zoneForm).participants" :key="team.teamId" class="flex items-center gap-space-sm rounded bg-surface-container-low px-space-sm py-space-xs">
-                <span v-if="team.teamId === standingOf(zoneForm).ownerTeamId" class="icon icon-fill text-[18px] text-secondary-container" title="Dueño de la zona">crown</span>
-                <span v-else class="icon text-[18px] text-on-surface-variant">shield</span>
-                <span class="min-w-0 flex-1 truncate text-body-md" :class="{ 'text-secondary': team.titles }">{{ team.teamName }}</span>
-                <span class="whitespace-nowrap font-stat-mono text-stat-mono" :class="team.titles ? 'text-secondary' : 'text-on-surface-variant'">
-                  {{ team.titles }} <span class="icon icon-fill align-[-3px] text-[14px]">trophy</span>
+        <!-- Zone detail (read only): champion and participants, plus its venues -->
+        <template v-else-if="zoneForm">
+          <ZonePanel v-if="standingOf(zoneForm)" :zone="standingOf(zoneForm)" heading-tag="h2">
+            <div class="venues">
+              <div class="mono venues__head">Canchas · {{ zoneForm.venues.length }}</div>
+              <p v-if="!zoneForm.venues.length" class="zm__note">Esta zona aún no tiene canchas.</p>
+              <button v-for="venue in zoneForm.venues" :key="venue.id" type="button" class="venues__item" @click="editVenue(venue)">
+                <span class="venues__text">
+                  <span class="venues__name">{{ venue.name }}</span>
+                  <span class="venues__addr">{{ venue.address || 'Sin dirección' }}</span>
                 </span>
-              </li>
-            </ol>
-          </template>
-          <h3 class="label-tactical m-0 text-on-surface-variant">Canchas ({{ zoneForm.venues.length }})</h3>
-          <p v-if="!zoneForm.venues.length" class="m-0 text-body-sm text-on-surface-variant">Esta zona aún no tiene canchas.</p>
-          <button
-            v-for="venue in zoneForm.venues"
-            :key="venue.id"
-            type="button"
-            class="flex w-full cursor-pointer items-center gap-space-sm rounded border-0 bg-surface-container-low p-space-sm text-left text-on-surface hover:bg-surface-container-high"
-            @click="editVenue(venue)"
-          >
-            <span class="icon text-primary">sports_basketball</span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate text-body-md">{{ venue.name }}</span>
-              <span class="block truncate text-body-sm text-on-surface-variant">{{ venue.address || 'Sin dirección' }}</span>
-            </span>
-            <span v-if="activeCount(venue.tournaments)" class="label-tactical text-tertiary">{{ activeCount(venue.tournaments) }} activo(s)</span>
-            <span v-else class="text-body-sm text-on-surface-variant">Libre</span>
-          </button>
-          <button type="button" class="btn-ghost self-start" @click="cancel"><span class="icon">arrow_back</span> Todas las zonas</button>
-        </section>
+                <span class="mono" :class="activeCount(venue.tournaments) ? 'is-live' : 'is-idle'">
+                  {{ activeCount(venue.tournaments) ? `${activeCount(venue.tournaments)} activo(s)` : 'Libre' }}
+                </span>
+              </button>
+            </div>
+          </ZonePanel>
+          <section v-else class="zm__card">
+            <h2 class="display zm__title">{{ zoneForm.name }}</h2>
+            <p class="zm__note">{{ zoneForm.description }} · Radio {{ formatRadius(zoneForm.radius) }}</p>
+          </section>
+          <button type="button" class="link-under zm__back" @click="cancel">← Todas las zonas</button>
+        </template>
 
         <!-- Venue: form (admin) or detail (read only), plus its tournaments -->
-        <section v-else-if="venueForm" class="card flex flex-col gap-space-md p-space-md">
-          <form v-if="canEdit" class="flex flex-col gap-space-md" novalidate @submit.prevent="saveVenue">
-            <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ venueForm.id ? 'Editar cancha' : 'Nueva cancha' }}</h2>
-            <div>
-              <label class="field-label" for="venue-name">Nombre *</label>
-              <input id="venue-name" v-model.trim="venueForm.name" class="input" />
+        <section v-else-if="venueForm" class="zm__card">
+          <form v-if="canEdit" class="zm__form" novalidate @submit.prevent="saveVenue">
+            <h2 class="display zm__title">{{ venueForm.id ? 'Editar cancha' : 'Nueva cancha' }}</h2>
+            <div class="p-field">
+              <label class="p-label" for="venue-name">Nombre *</label>
+              <input id="venue-name" v-model.trim="venueForm.name" class="p-input" />
             </div>
-            <div>
-              <label class="field-label" for="venue-address">Dirección</label>
-              <input id="venue-address" v-model.trim="venueForm.address" class="input" />
+            <div class="p-field">
+              <label class="p-label" for="venue-address">Dirección</label>
+              <input id="venue-address" v-model.trim="venueForm.address" class="p-input" />
             </div>
-            <div>
-              <label class="field-label" for="venue-capacity">Capacidad</label>
-              <input id="venue-capacity" v-model.number="venueForm.capacity" class="input" type="number" min="0" />
+            <div class="p-field">
+              <label class="p-label" for="venue-capacity">Capacidad</label>
+              <input id="venue-capacity" v-model.number="venueForm.capacity" class="p-input" type="number" min="0" />
             </div>
-            <div>
-              <label class="field-label" for="venue-desc">Descripción</label>
-              <textarea id="venue-desc" v-model.trim="venueForm.description" class="input" rows="2" />
+            <div class="p-field">
+              <label class="p-label" for="venue-desc">Descripción</label>
+              <textarea id="venue-desc" v-model.trim="venueForm.description" class="p-input" rows="2" />
             </div>
-            <div>
-              <label class="field-label" for="venue-photos">Fotos (una URL por línea, máx. 10)</label>
-              <textarea id="venue-photos" v-model="venueForm.photosText" class="input" rows="3" placeholder="https://…/cancha-1.jpg" />
+            <div class="p-field">
+              <label class="p-label" for="venue-photos">Fotos (una URL por línea, máx. 10)</label>
+              <textarea id="venue-photos" v-model="venueForm.photosText" class="p-input" rows="3" placeholder="https://…/cancha-1.jpg" />
             </div>
-            <p class="m-0 text-body-sm text-on-surface-variant">Haz clic en el mapa para moverla. Debe quedar dentro de una zona; la zona se asigna sola.</p>
-            <p v-if="formError" role="alert" class="m-0 text-body-sm text-error">{{ formError }}</p>
-            <div class="flex flex-wrap gap-space-sm">
-              <button type="submit" class="btn-primary flex-1" :disabled="saving">Guardar</button>
-              <button type="button" class="btn-ghost" @click="cancel">Cancelar</button>
-              <button v-if="venueForm.id" type="button" class="btn-danger" :disabled="saving" @click="deactivateVenue">Desactivar</button>
+            <p class="zm__note">Haz clic en el mapa para moverla. Debe quedar dentro de una zona; la zona se asigna sola.</p>
+            <p v-if="formError" role="alert" class="zm__error">{{ formError }}</p>
+            <div class="zm__actions">
+              <button type="submit" class="btn-blaze" :disabled="saving">Guardar</button>
+              <button type="button" class="btn-line" @click="cancel">Cancelar</button>
+              <button v-if="venueForm.id" type="button" class="link-under zm__danger" :disabled="saving" @click="deactivateVenue">Desactivar</button>
             </div>
           </form>
           <template v-else>
             <div>
-              <h2 class="m-0 font-headline-md text-headline-md uppercase">{{ venueForm.name }}</h2>
-              <p v-if="venueZone" class="m-0 flex items-center gap-space-xs text-body-sm text-on-surface-variant">
-                <span class="h-2.5 w-2.5 rounded-full" :style="{ background: venueZone.color }" /> {{ venueZone.name }}
-              </p>
+              <h2 class="display zm__title">{{ venueForm.name }}</h2>
+              <p v-if="venueZone" class="mono zm__zone"><span class="zm__dot" :style="{ background: venueZone.color }" />{{ venueZone.name }}</p>
             </div>
-            <div class="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-              <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ venueForm.address || 'Sin dirección' }}</span>
-              <span v-if="venueForm.capacity" class="flex items-center gap-space-xs"><span class="icon text-[18px]">groups</span>Capacidad: {{ venueForm.capacity }} personas</span>
-            </div>
-            <p v-if="venueForm.description" class="m-0 text-body-md">{{ venueForm.description }}</p>
-            <div v-if="venueForm.photos?.length" class="grid grid-cols-2 gap-space-xs">
-              <img v-for="(src, i) in venueForm.photos" :key="i" :src="src" :alt="`Foto ${i + 1} de ${venueForm.name}`" loading="lazy" class="aspect-video w-full rounded object-cover" />
+            <p class="zm__note">
+              {{ venueForm.address || 'Sin dirección' }}<template v-if="venueForm.capacity"> · Capacidad {{ venueForm.capacity }} personas</template>
+            </p>
+            <p v-if="venueForm.description" class="zm__desc">{{ venueForm.description }}</p>
+            <div v-if="venueForm.photos?.length" class="zm__photos">
+              <img v-for="(src, i) in venueForm.photos" :key="i" :src="src" :alt="`Foto ${i + 1} de ${venueForm.name}`" loading="lazy" />
             </div>
           </template>
 
           <template v-if="venueForm.id">
-            <div class="flex items-center justify-between gap-space-sm border-0 border-t border-solid border-outline-variant/40 pt-space-md">
-              <h3 class="label-tactical m-0 text-on-surface-variant">Torneos en esta cancha</h3>
-              <span class="label-tactical" :class="activeCount(venueTournaments) ? 'text-tertiary' : 'text-on-surface-variant'">
-                {{ activeCount(venueTournaments) }} activo(s)
-              </span>
+            <div class="mono venues__head zm__row">
+              <span>Torneos en esta cancha</span>
+              <span :class="activeCount(venueTournaments) ? 'is-live' : 'is-idle'">{{ activeCount(venueTournaments) }} activo(s)</span>
             </div>
-            <p v-if="loadingTournaments" class="m-0 text-body-sm text-on-surface-variant">Cargando…</p>
-            <p v-else-if="!venueTournaments.length" class="m-0 text-body-sm text-on-surface-variant">Sin torneos en esta cancha.</p>
-            <div v-for="t in venueTournaments" :key="t.id" class="flex items-center justify-between gap-space-sm">
-              <span class="min-w-0">
-                <span class="block truncate text-body-md">{{ t.name }}</span>
-                <span class="block text-body-sm text-on-surface-variant">{{ formatDate(t.startDate) }} – {{ formatDate(t.endDate) }}</span>
+            <p v-if="loadingTournaments" class="zm__note">Cargando…</p>
+            <p v-else-if="!venueTournaments.length" class="zm__note">Sin torneos en esta cancha.</p>
+            <router-link v-for="t in venueTournaments" :key="t.id" :to="`/torneo/${t.id}`" class="zm__t">
+              <span class="venues__text">
+                <span class="venues__name">{{ t.name }}</span>
+                <span class="mono venues__addr">{{ formatDate(t.startDate) }} – {{ formatDate(t.endDate) }}</span>
               </span>
-              <StatusChip :status="t.status" />
-            </div>
+              <span class="mono zm__chip" :style="{ color: POSTER_STATUS[t.status]?.color, borderColor: POSTER_STATUS[t.status]?.color }">
+                {{ POSTER_STATUS[t.status]?.label || t.status }}
+              </span>
+            </router-link>
           </template>
 
-          <div v-if="!canEdit" class="flex flex-wrap gap-space-sm">
-            <button type="button" class="btn-ghost" @click="cancel"><span class="icon">arrow_back</span> Todas las zonas</button>
+          <div v-if="!canEdit" class="zm__actions">
+            <button type="button" class="btn-line" @click="cancel">← Todas las zonas</button>
             <router-link
               v-if="isOrganizer"
-              class="btn-primary flex-1"
+              class="btn-blaze"
               :to="{ path: '/app/organizer', query: { venueId: venueForm.id, zoneId: venueForm.zoneId } }"
-            >
-              <span class="icon">emoji_events</span> Crear torneo aquí
-            </router-link>
+            >Crear torneo aquí</router-link>
           </div>
         </section>
 
         <!-- List -->
-        <section v-else class="card flex flex-col gap-space-xs p-space-md">
-          <h2 class="label-tactical m-0 mb-space-xs text-on-surface-variant">Zonas activas ({{ zones.length }})</h2>
-          <p v-if="!zones.length" class="m-0 text-body-md text-on-surface-variant">
+        <section v-else class="zone-list">
+          <h2 class="mono zone-list__head">Zonas activas · {{ zones.length }}</h2>
+          <p v-if="!zones.length" class="zm__note">
             {{ canEdit ? 'Aún no hay zonas. Pulsa "Nueva zona" y haz clic en el mapa.' : 'El administrador aún no ha creado zonas.' }}
           </p>
           <template v-for="zone in zones" :key="zone.id">
-            <button
-              type="button"
-              class="flex w-full cursor-pointer items-center gap-space-sm rounded border-0 bg-transparent p-space-sm text-left text-on-surface hover:bg-surface-container-high"
-              @click="editZone(zone)"
-            >
-              <span class="h-3.5 w-3.5 shrink-0 rounded-full" :style="{ background: zone.color }" />
-              <span class="min-w-0 flex-1">
-                <span class="block truncate font-title-sm text-title-sm">{{ zone.name }}</span>
-                <span class="block font-stat-mono text-[12px] text-on-surface-variant">{{ formatRadius(zone.radius) }} · {{ zone.venues.length }} cancha(s)</span>
-                <span v-if="standingOf(zone)?.champion" class="flex items-center gap-1 truncate text-body-sm text-secondary">
-                  <span class="icon icon-fill text-[14px]">crown</span>{{ standingOf(zone).champion.teamName }}
-                </span>
+            <button type="button" class="zone-list__item" @click="editZone(zone)">
+              <span class="zm__dot zm__dot--big" :style="{ background: zone.color }" />
+              <span class="zone-list__text">
+                <span class="display zone-list__name">{{ zone.name }}</span>
+                <span class="mono zone-list__meta">{{ formatRadius(zone.radius) }} · {{ zone.venues.length }} cancha(s)</span>
+                <span class="zone-list__champ">{{ standingOf(zone)?.champion?.teamName || 'Trono vacío' }}</span>
               </span>
             </button>
-            <button
-              v-for="venue in zone.venues"
-              :key="venue.id"
-              type="button"
-              class="ml-space-lg flex cursor-pointer items-center gap-space-sm rounded border-0 bg-transparent p-space-sm text-left text-on-surface hover:bg-surface-container-high"
-              @click="editVenue(venue)"
-            >
-              <span class="icon text-[18px] text-primary">sports_basketball</span>
-              <span class="min-w-0 flex-1 truncate text-body-sm">{{ venue.name }}</span>
-              <span v-if="activeCount(venue.tournaments)" class="label-tactical text-tertiary">{{ activeCount(venue.tournaments) }} activo(s)</span>
-              <span v-else class="text-[12px] text-on-surface-variant">Sin torneo activo</span>
+            <button v-for="venue in zone.venues" :key="venue.id" type="button" class="zone-list__venue" @click="editVenue(venue)">
+              <span class="venues__name">{{ venue.name }}</span>
+              <span class="mono" :class="activeCount(venue.tournaments) ? 'is-live' : 'is-idle'">
+                {{ activeCount(venue.tournaments) ? `${activeCount(venue.tournaments)} activo(s)` : 'Sin torneo activo' }}
+              </span>
             </button>
           </template>
         </section>
@@ -256,13 +206,14 @@ import tournamentsService from '@/services/tournaments'
 import venuesService from '@/services/venues'
 import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
-import StatusChip from '@/components/ui/StatusChip.vue'
-import { formatDate } from '@/utils/labels'
+import '@/styles/poster.css'
+import ZonePanel from '@/components/zone/ZonePanel.vue'
+import { POSTER_STATUS, formatDate } from '@/utils/labels'
 
 const DEFAULT_CENTER = [10.4806, -66.9036] // Caracas; solo se usa si no hay zonas
 const MIN_RADIUS = 100 // mismos límites que CreateZoneDto
 const MAX_RADIUS = 10000
-const colors = ['#FF5F1F', '#007BFF', '#28A745', '#FFC107', '#9C27B0', '#E91E63', '#00BCD4', '#795548']
+const colors = ['#FF4F12', '#007BFF', '#28A745', '#FFC107', '#9C27B0', '#E91E63', '#00BCD4', '#795548']
 
 const toast = useToast()
 const authStore = useAuthStore()
@@ -361,9 +312,9 @@ const draw = () => {
             const active = activeCount(venue.tournaments) > 0
             L.circleMarker([Number(venue.latitude), Number(venue.longitude)], {
                 radius: venueSelected ? 10 : 7,
-                color: active ? '#fff' : zone.color,
+                color: active ? '#EDE8DC' : zone.color,
                 weight: active ? 2 : 3,
-                fillColor: active ? zone.color : '#fff',
+                fillColor: active ? zone.color : '#EDE8DC',
                 fillOpacity: 1
             })
                 .bindTooltip(label(`${venue.name} · ${active ? 'torneo activo' : 'sin torneo activo'}`))
@@ -403,7 +354,7 @@ const drawDraft = () => {
             color: '#000',
             weight: 2,
             dashArray: '3 3',
-            fillColor: '#FF5F1F',
+            fillColor: '#FF4F12',
             fillOpacity: 1
         }).addTo(map)
     }
@@ -575,76 +526,433 @@ onBeforeUnmount(() => map?.remove())
 </script>
 
 <style scoped>
+.zm {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Inside the Material shell the poster is a dark panel with its own padding */
+.zm--embed {
+  padding: 32px;
+}
+
+.zm__hint {
+  padding: 14px 16px;
+  border: 2px solid var(--gold);
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.zm__layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.zm__map {
+  display: flex;
+  min-width: 0;
+  flex: 999 1 560px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.zm__box {
+  border: 1px solid var(--line);
+}
+
+.zm__side {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 360px;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.zm__card,
+.zm__form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.zm__card {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-top: 6px solid var(--blaze);
+  background: var(--asphalt-2);
+}
+
+.zm__title {
+  font-size: 36px;
+}
+
+.zm__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zm__value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--blaze);
+}
+
+.zm__range {
+  width: 100%;
+  accent-color: #ff4f12;
+}
+
+.zm__colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.zm__color {
+  width: 36px;
+  height: 36px;
+  border: 3px solid transparent;
+  cursor: pointer;
+}
+
+.zm__color.is-on {
+  border-color: var(--chalk);
+}
+
+.zm__note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.zm__desc {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--chalk-dim);
+}
+
+.zm__error {
+  font-size: 14px;
+  color: var(--hot);
+}
+
+.zm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.zm__actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.zm__danger,
+.zm__back {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  color: var(--hot);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.zm__back {
+  color: var(--chalk);
+}
+
+.zm__back:hover {
+  color: var(--blaze);
+}
+
+.zm__zone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.zm__dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.zm__dot--big {
+  width: 14px;
+  height: 14px;
+}
+
+.zm__photos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.zm__photos img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.1);
+}
+
+.poster .zm__t {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-soft);
+  text-decoration: none;
+}
+
+.zm__chip {
+  padding: 4px 8px;
+  border: 1px solid;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.legend__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.venues {
+  display: flex;
+  flex-direction: column;
+}
+
+.venues__head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.venues__item,
+.zone-list__item,
+.zone-list__venue {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--chalk);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.venues__item {
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.venues__item:hover .venues__name,
+.zone-list__venue:hover .venues__name {
+  color: var(--blaze);
+}
+
+.venues__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.venues__name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.venues__addr {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.is-live,
+.is-idle {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.is-live {
+  color: #4fd18b;
+}
+
+.is-idle {
+  color: var(--muted);
+}
+
+.zone-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 3px solid var(--chalk);
+}
+
+.zone-list__head {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.zone-list__item {
+  padding: 16px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.zone-list__item:hover {
+  background: #1c1b17;
+}
+
+.zone-list__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.zone-list__name {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.zone-list__meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.zone-list__champ {
+  font-size: 14px;
+  color: var(--gold);
+}
+
+.zone-list__venue {
+  justify-content: space-between;
+  padding: 10px 8px 10px 36px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
 .map {
-    height: min(600px, 70vh);
-    width: 100%;
+  height: min(620px, 70vh);
+  width: 100%;
+  background: #141411;
+}
+
+/* Dark, low-saturation streets so the zones carry the color (same as the public map) */
+.map :deep(.leaflet-tile-pane) {
+  filter: grayscale(1) invert(1) brightness(0.62) contrast(1.15);
 }
 
 .map :deep(.leaflet-overlay-pane),
 .map :deep(.leaflet-tooltip-pane) {
-    transition: opacity 0.2s;
+  transition: opacity 0.2s;
 }
 
 .flying .map :deep(.leaflet-overlay-pane),
 .flying .map :deep(.leaflet-tooltip-pane) {
-    opacity: 0;
-    transition: none;
+  opacity: 0;
+  transition: none;
 }
 
 .picking .map {
-    cursor: crosshair;
+  cursor: crosshair;
+}
+
+.map :deep(.leaflet-control-attribution) {
+  background: rgb(13 13 11 / 0.8);
+  color: #a8a397;
+}
+
+.map :deep(.leaflet-control-attribution a) {
+  color: #ede8dc;
 }
 
 :deep(.zone-label) {
-    text-align: center;
-    padding: 4px 10px;
-    border: 1px solid rgb(var(--c-secondary-container) / 0.6);
-    border-radius: 4px;
-    background: rgb(11 15 23 / 0.88);
-    box-shadow: 0 0 16px rgb(245 158 11 / 0.3);
-    color: #f8fafc;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    line-height: 1.15;
+  padding: 8px 14px;
+  border: 2px solid #f5b21b;
+  border-radius: 0;
+  background: #0d0d0b;
+  box-shadow: none;
+  color: #ede8dc;
+  font-family: 'Anton', sans-serif;
+  font-size: 18px;
+  text-align: center;
+  text-transform: uppercase;
+  line-height: 1.1;
 }
 
 :deep(.zone-label)::before {
-    display: none;
+  display: none;
 }
 
 :deep(.zone-label .champion),
 :deep(.zone-label .contested) {
-    display: block;
+  display: block;
 }
 
 :deep(.zone-label .champion) {
-    color: #f59e0b;
-    font-size: 16px;
+  color: #f5b21b;
+  font-size: 15px;
 }
 
 :deep(.zone-label .contested) {
-    color: #ff7a3d;
-    font-size: 12px;
+  color: #ff7a45;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
 }
 
 .pin {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    display: inline-block;
-    border: 3px solid rgb(var(--c-primary-container));
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--blaze);
+  border-radius: 50%;
 }
 
 .pin.solid {
-    background: rgb(var(--c-primary-container));
-    border-color: #fff;
-    box-shadow: 0 0 0 1px rgb(var(--c-primary-container));
+  border-color: var(--chalk);
+  background: var(--blaze);
 }
 
 .pin.hollow {
-    background: #fff;
+  background: var(--chalk);
+}
+
+@media (max-width: 600px) {
+  .zm--embed {
+    padding: 20px 16px;
+  }
+
+  .map {
+    height: 380px;
+  }
 }
 </style>

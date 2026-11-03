@@ -27,7 +27,7 @@ export const NAV_BY_ROLE = {
   ADMIN: [
     { label: 'Usuarios', icon: 'group', to: '/app/admin/users' },
     { label: 'Zonas', icon: 'map', to: '/app/admin/zones' },
-    tournaments
+    { label: 'Torneos', icon: 'emoji_events', to: '/app/admin/tournaments' }
   ],
   ORGANIZER: [
     { label: 'Panel', icon: 'dashboard', to: '/app/organizer' },
