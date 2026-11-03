@@ -80,10 +80,11 @@
           </template>
 
           <div class="row__actions">
-            <TournamentInfoButton :tournament="t" />
+            <!-- The waiver sheet already shows the details -->
+            <TournamentInfoButton v-if="!needsWaiver(t)" :tournament="t" />
             <router-link :to="`/torneo/${t.id}`" class="btn-ghost">Fixture y tabla</router-link>
             <TournamentInfoButton
-              v-if="isPlayer && playerRegistrationOf(t) && !playerRegistrationOf(t).waiverAcceptedAt"
+              v-if="needsWaiver(t)"
               :tournament="t"
               waiver
               @accepted="playerOverview.load(true)"
@@ -176,6 +177,8 @@ const playerRegistrationOf = t => {
   }
   return null
 }
+
+const needsWaiver = t => Boolean(isPlayer.value && playerRegistrationOf(t) && !playerRegistrationOf(t).waiverAcceptedAt)
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
