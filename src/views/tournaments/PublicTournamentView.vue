@@ -96,7 +96,7 @@
             <tbody>
               <tr v-for="s in standings" :key="s.teamId" :class="{ 'is-first': s.position === 1 }">
                 <td class="mono standings__pos">{{ String(s.position).padStart(2, '0') }}</td>
-                <td class="standings__team">{{ s.teamName }}</td>
+                <td class="standings__team"><TeamBadge :name="s.teamName" :logo-url="s.logoUrl || ''" :size="26" /> {{ s.teamName }}</td>
                 <td class="mono">{{ s.gamesPlayed }}</td>
                 <td class="mono">{{ s.wins }}</td>
                 <td class="mono">{{ s.losses }}</td>
@@ -118,7 +118,11 @@
             <h2 class="mono round__title">{{ PHASE_LABEL[r.matches[0].phase] || `Jornada ${r.round}` }}</h2>
             <div v-for="m in r.matches" :key="m.id" class="fx">
               <span class="mono fx__when">{{ shortDay(m.matchDate) }} · {{ m.matchTime }}</span>
-              <span class="display fx__teams">{{ m.homeTeam.name }} <span class="fx__vs">vs</span> {{ m.awayTeam.name }}</span>
+              <span class="display fx__teams">
+                <TeamBadge :name="m.homeTeam.name" :logo-url="m.homeTeam.logoUrl || ''" :size="26" /> {{ m.homeTeam.name }}
+                <span class="fx__vs">vs</span>
+                <TeamBadge :name="m.awayTeam.name" :logo-url="m.awayTeam.logoUrl || ''" :size="26" /> {{ m.awayTeam.name }}
+              </span>
               <span class="fx__where">{{ m.venue }}</span>
               <span v-if="m.status === 'FINISHED'" class="display fx__score">{{ m.homeScore }}–{{ m.awayScore }}</span>
               <span v-else class="mono fx__status" :style="{ color: matchStatus(m).color }">{{ matchStatus(m).label }}</span>
@@ -153,7 +157,7 @@
           <p v-if="!standings.length" class="page__empty">Todavía no hay equipos aprobados.</p>
           <div v-else class="teams">
             <div v-for="s in standings" :key="s.teamId" class="teams__item">
-              <span class="display teams__badge">{{ s.teamName.charAt(0) }}</span>
+              <TeamBadge :name="s.teamName" :logo-url="s.logoUrl || ''" :size="48" />
               <span class="teams__name">{{ s.teamName }}</span>
             </div>
           </div>
@@ -173,6 +177,7 @@ import '@/styles/poster.css'
 import PosterHeader from '@/components/PosterHeader.vue'
 import { CATEGORIES, POSTER_STATUS, PHASE_LABEL, formatDate } from '@/utils/labels'
 import PlayoffBracket from '@/components/PlayoffBracket.vue'
+import TeamBadge from '@/components/TeamBadge.vue'
 import RecruitingTeamCard from '@/components/tournament/RecruitingTeamCard.vue'
 import teamsService from '@/services/teams'
 import { ctaLink } from '@/router/navigation'
@@ -465,6 +470,10 @@ onMounted(async () => {
 
 .standings__pos {
   color: var(--muted);
+}
+
+.standings__team :deep(.tb) {
+  margin-right: 8px;
 }
 
 .standings__team {

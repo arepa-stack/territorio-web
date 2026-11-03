@@ -19,12 +19,15 @@
                 <path d="M3 18h18M4 18 3 7l5 4 4-6 4 6 5-4-1 11" />
               </svg>
               <span class="pb__champ-label">{{ bracket.champion ? 'Campeón' : '¿Quién se corona?' }}</span>
+              <TeamBadge v-if="bracket.champion" :name="bracket.champion.name" :logo-url="bracket.champion.logoUrl || ''" :size="56" />
               <span v-if="bracket.champion" class="pb__champ">{{ bracket.champion.name }}</span>
             </div>
           </template>
           <article v-for="g in col.games" :key="g.slot" class="pb__game" :class="{ 'is-final-game': col.final, 'is-live': g.status === 'IN_PROGRESS' }">
             <div v-for="side in ['home', 'away']" :key="side" class="pb__team" :class="rowClass(g, side)">
               <span class="pb__seed">{{ g[side]?.seed ? `#${g[side].seed}` : '' }}</span>
+              <TeamBadge v-if="g[side]" :name="g[side].name" :logo-url="g[side].logoUrl || ''" :size="22" />
+              <span v-else class="pb__nobadge" />
               <span class="pb__name">{{ g[side]?.name || 'Por definir' }}</span>
               <span class="pb__score">{{ g[side === 'home' ? 'homeScore' : 'awayScore'] ?? '' }}</span>
             </div>
@@ -39,6 +42,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import TeamBadge from '@/components/TeamBadge.vue'
 
 // bracket: GET /tournaments/:id/bracket ({ size, projected, phases: [{ phase, label, games }], champion })
 const props = defineProps({
@@ -192,7 +196,7 @@ const when = g =>
 
 .pb__team {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-columns: 26px 22px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-height: 38px;
@@ -211,6 +215,16 @@ const when = g =>
 
 .pb__team.is-loser {
   color: #77736a;
+}
+
+.pb__team.is-loser :deep(.tb) {
+  opacity: 0.45;
+}
+
+.pb__nobadge {
+  width: 22px;
+  height: 22px;
+  border: 1px dashed #3a3832;
 }
 
 .pb__team.is-tbd .pb__name {

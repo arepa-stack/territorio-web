@@ -9,7 +9,9 @@
       <tbody class="font-stat-mono text-stat-mono tabular">
         <tr v-for="s in standings" :key="s.teamId" class="border-0 border-t border-solid border-outline-variant/30">
           <td class="px-space-md py-space-sm">{{ s.position }}</td>
-          <td class="whitespace-nowrap px-space-md py-space-sm font-body text-body-md">{{ s.teamName }}</td>
+          <td class="whitespace-nowrap px-space-md py-space-sm font-body text-body-md">
+            <span class="inline-flex items-center gap-space-sm"><TeamBadge :name="s.teamName" :logo-url="s.logoUrl || ''" :size="24" />{{ s.teamName }}</span>
+          </td>
           <td class="px-space-md py-space-sm">{{ s.gamesPlayed }}</td>
           <td class="px-space-md py-space-sm">{{ s.wins }}</td>
           <td class="px-space-md py-space-sm">{{ s.losses }}</td>
@@ -29,6 +31,8 @@
 </template>
 
 <script setup>
+import TeamBadge from '@/components/TeamBadge.vue'
+
 defineProps({ standings: { type: Array, default: () => [] } })
 
 const headers = ['Pos', 'Equipo', 'PJ', 'PG', 'PP', 'PF', 'PC', 'DIF', 'PTS']

@@ -2,6 +2,7 @@
   <!-- Team looking for players, "cartel de cancha" style (public pages only) -->
   <article class="r-card">
     <div class="r-card__head">
+      <TeamBadge :name="team.name" :logo-url="team.logoUrl || ''" :size="48" />
       <div class="r-card__title">
         <span class="mono r-card__cat">{{ CATEGORIES[team.category] || team.category || 'Libre' }}</span>
         <h3 class="display r-card__name">{{ team.name }}</h3>
@@ -21,6 +22,7 @@
 import { useAuthStore } from '@/stores/auth'
 import { ctaLink } from '@/router/navigation'
 import { CATEGORIES } from '@/utils/labels'
+import TeamBadge from '@/components/TeamBadge.vue'
 
 defineProps({ team: { type: Object, required: true } })
 const authStore = useAuthStore()
@@ -47,6 +49,7 @@ const authStore = useAuthStore()
 .r-card__title {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
   gap: 6px;
 }

@@ -63,8 +63,20 @@
           <h2 id="playoffs-t" class="display section-title">Playoffs<br />en juego</h2>
           <router-link to="/torneos?estado=IN_PROGRESS" class="link-under">Ver torneos en curso</router-link>
         </div>
-        <router-link v-for="b in summary.brackets" :key="b.tournamentId" :to="`/torneo/${b.tournamentId}`" class="bracket-link">
-          <PlayoffBracket :bracket="b.bracket" :title="b.tournamentName" subtitle="Camino al título" />
+        <!-- One bracket at a time; the API sends the one closest to the title first -->
+        <div v-if="summary.brackets.length > 1" class="bracket-tabs" role="tablist" aria-label="Torneo">
+          <button
+            v-for="(b, i) in summary.brackets"
+            :key="b.tournamentId"
+            type="button"
+            role="tab"
+            class="bracket-tab"
+            :aria-selected="i === bracketIndex"
+            @click="bracketIndex = i"
+          >{{ b.tournamentName }}<span class="bracket-tab__stage">{{ stageOf(b.bracket) }}</span></button>
+        </div>
+        <router-link :to="`/torneo/${shownBracket.tournamentId}`" class="bracket-link">
+          <PlayoffBracket :bracket="shownBracket.bracket" :title="shownBracket.tournamentName" subtitle="Camino al título" />
         </router-link>
       </div>
     </section>
@@ -188,6 +200,7 @@ import { useAuthStore } from '@/stores/auth'
 import PosterTournamentRow from '@/components/poster/PosterTournamentRow.vue'
 import PosterHeader from '@/components/PosterHeader.vue'
 import PlayoffBracket from '@/components/PlayoffBracket.vue'
+import { PHASE_LABEL } from '@/utils/labels'
 import ZoneLeafletMap from '@/components/zone/ZoneLeafletMap.vue'
 import ZonePanel from '@/components/zone/ZonePanel.vue'
 
@@ -213,6 +226,15 @@ const loading = ref(true)
 const today = new Date(new Date().toDateString())
 // Registration still open but already over: stale test data, keep it off the landing
 const openTournaments = computed(() => tournaments.value.filter(t => new Date(t.endDate) >= today).slice(0, 5))
+const bracketIndex = ref(0)
+const shownBracket = computed(() => summary.value?.brackets?.[bracketIndex.value] || summary.value?.brackets?.[0])
+// Latest round with games: "Final", "Semifinales"… or "Proyección" before the playoffs exist
+const stageOf = b => {
+  if (b.champion) return 'Campeón'
+  if (b.projected) return 'Proyección'
+  const played = [...b.phases].reverse().find(ph => ph.games.some(g => g.matchId))
+  return PHASE_LABEL[played?.phase] || ''
+}
 const heroPhoto = computed(() => tournaments.value.find(t => t.coverPhoto)?.coverPhoto || '')
 const standings = computed(() => Object.fromEntries((summary.value?.zones || []).map(z => [z.id, z])))
 const counters = computed(() => [
@@ -736,5 +758,45 @@ onMounted(async () => {
 
 .poster .bracket-link:hover {
   color: inherit;
+}
+
+.bracket-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bracket-tab {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border: 2px solid var(--line);
+  background: transparent;
+  color: var(--chalk-dim);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.bracket-tab:hover {
+  border-color: var(--chalk);
+  color: var(--chalk);
+}
+
+.bracket-tab[aria-selected='true'] {
+  border-color: var(--gold);
+  color: var(--chalk);
+}
+
+.bracket-tab__stage {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--gold);
 }
 </style>
