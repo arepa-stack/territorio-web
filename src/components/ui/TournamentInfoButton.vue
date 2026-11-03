@@ -1,5 +1,8 @@
 <template>
-  <button type="button" class="btn-secondary" @click="open">
+  <button v-if="waiver" type="button" class="btn-secondary" :disabled="accepting" @click="open">
+    <span class="icon">fact_check</span> {{ accepting ? 'Aceptando…' : 'Aceptar reglamento' }}
+  </button>
+  <button v-else type="button" class="btn-secondary" @click="open">
     <span class="icon">info</span> Detalles
   </button>
 
@@ -83,15 +86,37 @@
         <p v-else class="m-0 text-body-md text-on-surface-variant">El organizador aún no cargó reglas para este torneo.</p>
       </section>
     </div>
+
+    <!-- Waiver mode: same sheet, plus the statement and the accept button -->
+    <footer
+      v-if="waiver"
+      class="sticky bottom-0 flex flex-col gap-space-md border-0 border-t-2 border-solid border-primary-container bg-surface-container px-space-lg py-space-md"
+    >
+      <p class="m-0 text-body-md">{{ WAIVER_TEXT }}</p>
+      <div class="flex flex-wrap justify-end gap-space-sm">
+        <button type="button" class="btn-ghost" @click="dialog.close()">Cancelar</button>
+        <button type="button" class="btn-primary" :disabled="accepting" @click="accept">Acepto reglamento y deslinde</button>
+      </div>
+    </footer>
   </dialog>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
+import playersService from '@/services/players'
+import { handleApiError } from '@/services/api'
 
-// Tournament from the API list; venues/referees only come with the detail, fetched on first open
-const props = defineProps({ tournament: { type: Object, required: true } })
+const WAIVER_TEXT =
+  'Confirmo que he leído y acepto el reglamento deportivo del torneo y el deslinde de responsabilidad médica y deportiva.'
+
+// Tournament from the API list; venues/referees only come with the detail, fetched on first open.
+// waiver: the button opens the same sheet to accept the rules and waiver; emits 'accepted' when saved
+const props = defineProps({ tournament: { type: Object, required: true }, waiver: { type: Boolean, default: false } })
+const emit = defineEmits(['accepted'])
+const toast = useToast()
+const accepting = ref(false)
 
 const dialog = ref(null)
 const detail = ref(null)
@@ -109,6 +134,20 @@ const open = async () => {
     // api interceptor already toasts; the dialog still shows the list data
   } finally {
     loading.value = false
+  }
+}
+
+const accept = async () => {
+  accepting.value = true
+  try {
+    await playersService.acceptTournamentWaiver(props.tournament.id)
+    toast.success('Reglamento y deslinde aceptado')
+    dialog.value.close()
+    emit('accepted')
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo registrar tu aceptación'))
+  } finally {
+    accepting.value = false
   }
 }
 </script>

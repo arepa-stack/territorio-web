@@ -59,16 +59,7 @@
             <span v-if="r.waiverAcceptedAt" class="flex items-center gap-1 text-body-sm text-secondary">
               <span class="icon text-[16px]">verified</span> Reglamento aceptado
             </span>
-            <button
-              v-else
-              type="button"
-              class="btn-secondary text-body-sm"
-              :disabled="acceptingWaiver === r.tournament.id"
-              @click="acceptWaiver(r.tournament)"
-            >
-              <span class="icon text-[16px]">fact_check</span>
-              {{ acceptingWaiver === r.tournament.id ? 'Aceptando…' : 'Aceptar reglamento y deslinde' }}
-            </button>
+            <TournamentInfoButton v-else :tournament="r.tournament" waiver @accepted="load(true)" />
           </div>
         </div>
         <p v-if="!t.registrations.length" class="m-0 text-body-sm text-on-surface-variant">Este equipo todavía no está inscrito en torneos.</p>
@@ -155,6 +146,7 @@ import { useAuthStore } from '@/stores/auth'
 import { POSITIONS } from '@/utils/labels'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
+import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -163,7 +155,6 @@ const { loading, load, teams, formerTeams } = usePlayerOverview()
 const open = reactive({})
 const rosters = reactive({})
 const leavingTeam = ref(null)
-const acceptingWaiver = ref(null)
 
 const leaveDisabledReason = t => {
   if (t.isCaptain) return 'Eres el capitán del equipo'
@@ -189,25 +180,6 @@ const handleLeaveTeam = async t => {
     toast.error(handleApiError(error, 'No se pudo salir del equipo'))
   } finally {
     leavingTeam.value = null
-  }
-}
-
-const acceptWaiver = async tournament => {
-  const ok = await confirm({
-    title: `Reglamento y deslinde — ${tournament.name}`,
-    message: 'Confirmo que he leído y acepto el reglamento deportivo del torneo y el deslinde de responsabilidad médica y deportiva.',
-    confirmText: 'Aceptar reglamento'
-  })
-  if (!ok) return
-  acceptingWaiver.value = tournament.id
-  try {
-    await playersService.acceptTournamentWaiver(tournament.id)
-    toast.success('Reglamento y deslinde aceptado')
-    await load(true)
-  } catch (error) {
-    toast.error(handleApiError(error, 'No se pudo registrar la aceptación'))
-  } finally {
-    acceptingWaiver.value = null
   }
 }
 

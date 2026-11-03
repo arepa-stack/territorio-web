@@ -82,13 +82,12 @@
           <div class="row__actions">
             <TournamentInfoButton :tournament="t" />
             <router-link :to="`/torneo/${t.id}`" class="btn-ghost">Fixture y tabla</router-link>
-            <button
+            <TournamentInfoButton
               v-if="isPlayer && playerRegistrationOf(t) && !playerRegistrationOf(t).waiverAcceptedAt"
-              type="button"
-              class="btn-secondary"
-              :disabled="acceptingWaiver === t.id"
-              @click="acceptWaiver(t)"
-            >{{ acceptingWaiver === t.id ? 'Aceptando…' : 'Aceptar reglamento' }}</button>
+              :tournament="t"
+              waiver
+              @accepted="playerOverview.load(true)"
+            />
             <template v-if="isCaptain && myTeam && confirming !== t.id">
               <button
                 v-if="registrationOf(t)?.status === 'REJECTED' && t.status === 'REGISTRATION' && t.registeredTeams < t.maxTeams"
@@ -127,18 +126,15 @@ import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
 import teamsService from '@/services/teams'
-import playersService from '@/services/players'
 import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerOverview } from '@/composables/usePlayerOverview'
-import { useConfirm } from '@/composables/useConfirm'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import RosterChip from '@/components/ui/RosterChip.vue'
 import TournamentInfoButton from '@/components/ui/TournamentInfoButton.vue'
 import PaymentDialog from '@/components/tournament/PaymentDialog.vue'
 
 const toast = useToast()
-const confirm = useConfirm()
 const authStore = useAuthStore()
 const playerOverview = usePlayerOverview()
 
@@ -161,7 +157,6 @@ const search = ref('')
 const status = ref('REGISTRATION')
 const confirming = ref(null)
 const registering = ref(false)
-const acceptingWaiver = ref(null)
 const paymentDialog = ref(null)
 
 const categoryLabel = c => CATEGORIES[c] || c
@@ -180,26 +175,6 @@ const playerRegistrationOf = t => {
     }
   }
   return null
-}
-
-const acceptWaiver = async t => {
-  const rulesText = t.rules || 'Me comprometo a respetar el reglamento deportivo del torneo y acepto el deslinde de responsabilidad médica y deportiva.'
-  const ok = await confirm({
-    title: `Reglamento y deslinde — ${t.name}`,
-    message: `${rulesText}\n\n¿Confirmas que has leído y aceptas el reglamento y deslinde de responsabilidad?`,
-    confirmText: 'Aceptar reglamento'
-  })
-  if (!ok) return
-  acceptingWaiver.value = t.id
-  try {
-    await playersService.acceptTournamentWaiver(t.id)
-    toast.success('Reglamento y deslinde aceptado')
-    await playerOverview.load(true)
-  } catch (error) {
-    toast.error(handleApiError(error, 'No se pudo registrar tu aceptación'))
-  } finally {
-    acceptingWaiver.value = null
-  }
 }
 
 const filtered = computed(() => {
