@@ -46,6 +46,16 @@
       </section>
 
       <main class="wrap page">
+        <div v-if="tournament.status === 'FINISHED' && tournament.winner" class="champ-box champ">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F5B21B" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 18h18M4 18 3 7l5 4 4-6 4 6 5-4-1 11" />
+          </svg>
+          <div class="champ__text">
+            <span class="mono champ__label">Campeón</span>
+            <span class="display champ__name">{{ tournament.winner.name }}</span>
+          </div>
+        </div>
+
         <div v-if="showTeamCta || showPlayerCta" class="ctas">
           <router-link v-if="showTeamCta" :to="ctaLink(authStore.isAuthenticated, 'TEAM_CAPTAIN', '/app/tournaments')" class="btn-blaze">Inscribir mi equipo</router-link>
           <a v-if="showPlayerCta && recruitingHere.length" href="#buscan-jugadores" class="btn-line">
@@ -360,6 +370,22 @@ onMounted(async () => {
   display: block;
   height: 6px;
   background: var(--blaze);
+}
+
+.champ__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.champ__label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.champ__name {
+  font-size: clamp(36px, 5vw, 56px);
+  color: var(--gold);
 }
 
 .ctas {

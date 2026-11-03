@@ -62,6 +62,27 @@
         </form>
       </details>
 
+      <!-- Closing the tournament: champion = leader of the standings once every game is decided -->
+      <section v-if="tournament.status === 'IN_PROGRESS'" class="close">
+        <div class="close__info">
+          <span class="close__label">Cierre del torneo</span>
+          <span class="close__progress">{{ decidedCount }}/{{ matches.length }} partidos decididos</span>
+          <span class="close__track"><span class="close__fill" :style="{ width: matches.length ? (decidedCount / matches.length) * 100 + '%' : '0%' }" /></span>
+          <span v-if="pendingCount" class="close__note">{{ pendingCount > 1 ? 'Faltan' : 'Falta' }} {{ pendingCount }} partido{{ pendingCount > 1 ? 's' : '' }} por jugar o resolver (W.O.) para poder cerrar.</span>
+          <span v-else-if="standings[0]" class="close__note">Campeón según la tabla: <strong>{{ standings[0].teamName }}</strong> · {{ standings[0].points }} pts</span>
+        </div>
+        <button type="button" class="btn-primary" :disabled="busy || pendingCount > 0 || !standings.length" @click="finishTournament">
+          <span class="icon">emoji_events</span> Finalizar y coronar campeón
+        </button>
+      </section>
+      <section v-else-if="tournament.status === 'FINISHED' && tournament.winner" class="close close--done">
+        <span class="icon close__crown">workspace_premium</span>
+        <div class="close__info">
+          <span class="close__label">Campeón</span>
+          <span class="close__champ">{{ tournament.winner.name }}</span>
+        </div>
+      </section>
+
       <!-- Tabs -->
       <div class="flex gap-space-xs border-b border-solid border-x-0 border-t-0 border-outline-variant/40" role="tablist">
         <button
@@ -496,6 +517,19 @@ const resolveReschedule = async (req, status) => {
   )
 }
 
+// Same rule as the backend: scheduled, live or suspended games keep the tournament open
+const pendingCount = computed(() => matches.value.filter(x => ['SCHEDULED', 'IN_PROGRESS', 'SUSPENDED'].includes(x.status)).length)
+const decidedCount = computed(() => matches.value.length - pendingCount.value)
+const finishTournament = async () => {
+  const champ = standings.value[0]
+  const ok = await confirm({
+    title: 'Finalizar torneo',
+    message: `${champ.teamName} queda campeón de "${tournament.value.name}" (1.º de la tabla con ${champ.points} pts). El torneo pasa a Finalizado, se suma a su historial y a la zona, y se avisa a todos los equipos. No se puede deshacer.`,
+    confirmText: 'Coronar campeón'
+  })
+  if (ok) run(() => tournamentsService.finish(id), `${champ.teamName} es campeón`)
+}
+
 const generateFixture = () => run(() => tournamentsService.generateFixtures(id), 'Fixture generado')
 
 const toggleRequireIdVerification = checked =>
@@ -538,3 +572,75 @@ const reviewPlayerIdDoc = async (player, status) => {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.close {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid rgb(var(--c-outline-variant) / 0.6);
+  border-left: 6px solid rgb(var(--c-secondary));
+  background: rgb(var(--c-surface-container));
+}
+
+.close--done {
+  justify-content: flex-start;
+}
+
+.close__info {
+  display: flex;
+  min-width: 240px;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.close__label {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--c-secondary));
+}
+
+.close__progress {
+  font-family: var(--f-mono);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.close__track {
+  display: block;
+  max-width: 420px;
+  height: 6px;
+  background: rgb(var(--c-surface-container-highest));
+}
+
+.close__fill {
+  display: block;
+  height: 6px;
+  background: rgb(var(--c-secondary));
+}
+
+.close__note {
+  font-size: 14px;
+  color: rgb(var(--c-on-surface-variant));
+}
+
+.close__crown {
+  font-size: 44px;
+  color: rgb(var(--c-secondary));
+}
+
+.close__champ {
+  font-family: var(--f-display);
+  font-size: 36px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgb(var(--c-secondary));
+}
+
+</style>

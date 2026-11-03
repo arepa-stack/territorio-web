@@ -41,6 +41,11 @@ const tournamentsService = {
         return await api.get(`/tournaments/${tournamentId}/registrations`)
     },
 
+    // Close the tournament and crown the leader of the standings (Organizer only)
+    async finish(tournamentId) {
+        return await api.post(`/tournaments/${tournamentId}/finish`)
+    },
+
     // Generate fixtures (Organizer only)
     async generateFixtures(tournamentId) {
         return await api.post(`/tournaments/${tournamentId}/generate-fixtures`)
