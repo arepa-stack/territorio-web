@@ -11,6 +11,14 @@ const ratingsService = {
 
     async rateTournament(payload) {
         return await api.post('/ratings/tournament', payload)
+    },
+
+    async rateReferee(payload) {
+        return await api.post('/ratings/referee', payload)
+    },
+
+    async getTournamentSummary(tournamentId) {
+        return await api.get(`/ratings/tournament/${tournamentId}/summary`)
     }
 }
 

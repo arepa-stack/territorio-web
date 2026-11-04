@@ -120,6 +120,36 @@
         </form>
       </details>
 
+      <!-- Tournament ratings summary from participating teams/players -->
+      <details v-if="ratingSummary && ratingSummary.totalRatings > 0" class="card p-space-md">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-space-sm [&::-webkit-details-marker]:hidden">
+          <span class="label-tactical flex items-center gap-space-xs text-on-surface">
+            <span class="icon icon-fill text-[18px] text-secondary">star</span> Calificaciones del torneo · {{ ratingSummary.averageOverallRating.toFixed(1) }} / 5
+          </span>
+          <span class="text-body-sm text-on-surface-variant">
+            {{ ratingSummary.totalRatings }} {{ ratingSummary.totalRatings === 1 ? 'evaluación' : 'evaluaciones' }} · {{ Math.round(ratingSummary.recommendationPercentage) }}% lo recomienda
+          </span>
+        </summary>
+        <div class="mt-space-md flex flex-col gap-space-sm">
+          <div class="grid grid-cols-2 gap-space-xs text-body-sm sm:grid-cols-5">
+            <div class="rounded bg-surface-container-low p-space-xs">Organización: <strong>{{ ratingSummary.averageOrganization.toFixed(1) }}</strong></div>
+            <div class="rounded bg-surface-container-low p-space-xs">Puntualidad: <strong>{{ ratingSummary.averagePunctuality.toFixed(1) }}</strong></div>
+            <div class="rounded bg-surface-container-low p-space-xs">Justicia: <strong>{{ ratingSummary.averageFairness.toFixed(1) }}</strong></div>
+            <div class="rounded bg-surface-container-low p-space-xs">Instalaciones: <strong>{{ ratingSummary.averageFacilities.toFixed(1) }}</strong></div>
+            <div class="rounded bg-surface-container-low p-space-xs">Comunicación: <strong>{{ ratingSummary.averageCommunication.toFixed(1) }}</strong></div>
+          </div>
+          <div v-if="ratingSummary.recentRatings?.length" class="flex flex-col gap-space-xs">
+            <article v-for="(r, idx) in ratingSummary.recentRatings" :key="idx" class="rounded bg-surface-container-low p-space-sm text-body-sm">
+              <div class="flex items-center justify-between">
+                <strong>{{ r.userName }}</strong>
+                <span class="font-mono text-secondary">★ {{ r.overallRating }}/5</span>
+              </div>
+              <p v-if="r.comment" class="m-0 mt-1 text-on-surface-variant">{{ r.comment }}</p>
+            </article>
+          </div>
+        </div>
+      </details>
+
       <!-- Closing the tournament: champion = leader of the standings once every game is decided -->
       <section v-if="tournament.status === 'IN_PROGRESS'" class="close">
         <div class="close__info">
@@ -473,6 +503,7 @@ import FixtureList from '@/components/tournament/FixtureList.vue'
 import StandingsTable from '@/components/tournament/StandingsTable.vue'
 import PaymentInfoFields from '@/components/tournament/PaymentInfoFields.vue'
 import paymentsService from '@/services/payments'
+import ratingsService from '@/services/ratings'
 import { handleApiError } from '@/services/api'
 import { useConfirm } from '@/composables/useConfirm'
 import PlayoffBracket from '@/components/PlayoffBracket.vue'
@@ -519,6 +550,7 @@ const rescheduleRequests = ref([])
 const tournamentPlayers = ref([])
 const playerTeamFilter = ref('ALL')
 const paymentInfoForm = ref(emptyPaymentInfo())
+const ratingSummary = ref(null)
 
 const playerTeamOptions = computed(() => {
   const map = new Map()
@@ -568,6 +600,7 @@ const load = async () => {
     // The API nests the team; the table, the team filter and the sanctions form read flat fields
     tournamentPlayers.value = (pls.status === 'fulfilled' ? pls.value.data.players || [] : []).map(p => ({ ...p, playerId: p.id, teamId: p.team?.id, teamName: p.team?.name }))
     bracket.value = tournament.value.playoffTeams ? (await tournamentsService.getBracket(id).catch(() => ({ data: null }))).data : null
+    ratingsService.getTournamentSummary(id).then(({ data }) => (ratingSummary.value = data)).catch(() => (ratingSummary.value = null))
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo cargar el torneo'))
   } finally {

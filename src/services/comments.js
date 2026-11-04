@@ -19,6 +19,22 @@ const commentsService = {
 
     async report(commentId, reason) {
         return await api.post('/comments/report', { commentId, commentType: 'match_comment', reason })
+    },
+
+    async getForTeam(teamId) {
+        return await api.get(`/comments/team/${teamId}`, { params: { limit: 50 } })
+    },
+
+    async createForTeam(teamId, content) {
+        return await api.post('/comments/team', { teamId, content })
+    },
+
+    async likeTeam(commentId) {
+        return await api.post(`/comments/${commentId}/like`, { commentType: 'team_comment' })
+    },
+
+    async reportTeam(commentId, reason) {
+        return await api.post('/comments/report', { commentId, commentType: 'team_comment', reason })
     }
 }
 

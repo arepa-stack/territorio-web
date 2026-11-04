@@ -81,7 +81,7 @@ const route = useRoute()
 
 // Referee, moderator and admin are assigned by an admin (the API rejects them here)
 const roles = [
-  { value: 'PLAYER', label: 'Jugador', icon: 'sports_basketball', description: 'Juega en equipos y sigue tus estadísticas.' },
+  { value: 'PLAYER', label: 'Jugador / Aficionado', icon: 'sports_basketball', description: 'Juega en equipos, sigue tus estadísticas o comenta partidos como aficionado.' },
   { value: 'TEAM_CAPTAIN', label: 'Capitán', icon: 'groups', description: 'Arma y gestiona un equipo.' },
   { value: 'ORGANIZER', label: 'Organizador', icon: 'emoji_events', description: 'Crea y administra torneos.' }
 ]

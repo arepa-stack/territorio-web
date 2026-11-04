@@ -192,6 +192,52 @@
           </li>
         </ol>
       </section>
+
+      <!-- 6. Team comments -->
+      <section>
+        <div class="mb-space-md flex items-center justify-between border-0 border-b border-solid border-outline-variant/40 pb-space-sm">
+          <h2 class="m-0 flex items-center gap-space-sm font-display text-[20px] font-black uppercase tracking-wider">
+            <span class="icon text-[20px] text-primary-container">forum</span> Comentarios del equipo
+          </h2>
+        </div>
+        <p v-if="!commentsEnabled" class="card m-0 flex items-center gap-space-xs p-space-md text-body-md text-on-surface-variant">
+          <span class="icon">comments_disabled</span> Los comentarios están suspendidos temporalmente.
+        </p>
+        <template v-else>
+          <p v-if="!isLoggedIn" class="mb-space-md text-body-sm text-on-surface-variant">
+            <router-link :to="{ path: '/auth/login', query: { redirect: route.fullPath } }" class="text-primary">Inicia sesión</router-link> para dejar un comentario al equipo.
+          </p>
+          <form v-else class="mb-space-md flex flex-col gap-space-xs" @submit.prevent="submitComment">
+            <textarea v-model.trim="newComment" class="input" rows="2" maxlength="1000" placeholder="Comenta sobre el equipo con respeto" />
+            <button type="submit" class="btn-secondary self-end" :disabled="postingComment || !newComment">
+              {{ postingComment ? 'Publicando…' : 'Publicar' }}
+            </button>
+          </form>
+          <p v-if="!comments.length" class="m-0 text-body-md text-on-surface-variant">Todavía no hay comentarios sobre este equipo.</p>
+          <article v-for="c in comments" :key="c.id" class="card mb-space-xs flex flex-col gap-1 p-space-md">
+            <div class="flex items-center justify-between gap-space-sm">
+              <span class="font-title-sm text-title-sm">{{ c.user.name }}</span>
+              <span class="text-body-sm text-on-surface-variant">{{ formatDate(c.createdAt) }}</span>
+            </div>
+            <p class="m-0 whitespace-pre-line text-body-md">{{ c.content }}</p>
+            <span v-if="!isLoggedIn" class="text-body-sm text-on-surface-variant">{{ c.likesCount }} likes</span>
+            <div v-else class="flex items-center gap-space-sm">
+              <button type="button" class="btn-ghost px-space-xs py-1 text-body-sm" @click="likeComment(c)">
+                <span class="icon text-[18px]">thumb_up</span> {{ c.likesCount }}
+              </button>
+              <select
+                class="input w-auto py-1 text-body-sm"
+                aria-label="Reportar comentario"
+                value=""
+                @change="reportComment(c, $event)"
+              >
+                <option value="" disabled>Reportar…</option>
+                <option v-for="(label, value) in REPORT_REASONS" :key="value" :value="value">{{ label }}</option>
+              </select>
+            </div>
+          </article>
+        </template>
+      </section>
     </template>
   </div>
 </template>
@@ -201,16 +247,30 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
+import commentsService from '@/services/comments'
 import { handleApiError } from '@/services/api'
 import { CATEGORIES, formatDate } from '@/utils/labels'
+import { useAuthStore } from '@/stores/auth'
 import { useEntityLinks } from '@/utils/links'
 
 const route = useRoute()
 const links = useEntityLinks()
+const isLoggedIn = computed(() => useAuthStore().isAuthenticated)
 const toast = useToast()
 const history = ref(null)
 const loading = ref(true)
 const expanded = reactive({}) // tournamentId -> showing all games
+const comments = ref([])
+const newComment = ref('')
+const commentsEnabled = ref(false)
+const postingComment = ref(false)
+const REPORT_REASONS = {
+  SPAM: 'Spam',
+  HARASSMENT: 'Acoso',
+  INSULTS: 'Insultos',
+  OFF_TOPIC: 'Fuera de tema',
+  INAPPROPRIATE: 'Inapropiado'
+}
 
 const summary = computed(() => history.value.summary)
 const titles = computed(() => history.value.tournaments.filter(t => t.isChampion))
@@ -242,9 +302,53 @@ const resultClass = m => (m.result === 'W'
   ? 'border-tertiary bg-tertiary/20 text-tertiary shadow-[0_0_10px_rgba(16,185,129,0.35)]'
   : 'border-error bg-error/20 text-error shadow-[0_0_10px_rgba(239,68,68,0.35)]')
 
+const loadComments = async () => {
+  try {
+    comments.value = (await commentsService.getForTeam(route.params.id)).data?.comments ?? []
+  } catch {
+    comments.value = []
+  }
+}
+
+const submitComment = async () => {
+  postingComment.value = true
+  try {
+    await commentsService.createForTeam(route.params.id, newComment.value)
+    newComment.value = ''
+    toast.success('Comentario publicado')
+    await loadComments()
+  } catch (e) {
+    toast.error(handleApiError(e, 'No se pudo publicar el comentario'))
+  } finally {
+    postingComment.value = false
+  }
+}
+
+const likeComment = async c => {
+  try {
+    await commentsService.likeTeam(c.id)
+    c.likesCount++
+  } catch (e) {
+    toast.error(handleApiError(e, 'No se pudo dar like'))
+  }
+}
+
+const reportComment = async (c, event) => {
+  const reason = event.target.value
+  event.target.value = ''
+  try {
+    await commentsService.reportTeam(c.id, reason)
+    toast.success('Comentario reportado. Un moderador lo revisará.')
+  } catch (e) {
+    toast.error(handleApiError(e, 'No se pudo reportar'))
+  }
+}
+
 onMounted(async () => {
   try {
     history.value = (await teamsService.getHistory(route.params.id)).data
+    commentsEnabled.value = Boolean((await commentsService.getStatus().catch(() => ({ data: {} }))).data.enabled)
+    if (commentsEnabled.value) await loadComments()
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo cargar el historial del equipo'))
   } finally {

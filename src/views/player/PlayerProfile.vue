@@ -217,6 +217,27 @@
         </template>
       </section>
 
+      <section class="card flex flex-col gap-space-md p-space-lg">
+        <h2 class="label-tactical m-0 text-secondary">Preferencias de avisos</h2>
+        <div class="grid gap-space-sm sm:grid-cols-2">
+          <label class="flex items-center gap-space-xs text-body-sm">
+            <input v-model="prefs.emailNotifications" type="checkbox" @change="savePreferences" /> Notificaciones por email
+          </label>
+          <label class="flex items-center gap-space-xs text-body-sm">
+            <input v-model="prefs.pushNotifications" type="checkbox" @change="savePreferences" /> Avisos en la plataforma
+          </label>
+          <label class="flex items-center gap-space-xs text-body-sm">
+            <input v-model="prefs.matchReminders" type="checkbox" @change="savePreferences" /> Recordatorios de partidos
+          </label>
+          <label class="flex items-center gap-space-xs text-body-sm">
+            <input v-model="prefs.tournamentReminders" type="checkbox" @change="savePreferences" /> Avisos de torneos
+          </label>
+          <label class="flex items-center gap-space-xs text-body-sm">
+            <input v-model="prefs.zoneAlerts" type="checkbox" @change="savePreferences" /> Alertas de retos territoriales
+          </label>
+        </div>
+      </section>
+
       <section class="card flex flex-col gap-space-xs p-space-md">
         <h2 class="label-tactical m-0 px-space-sm text-on-surface-variant">Cuenta</h2>
         <button type="button" class="btn-ghost justify-start text-on-surface" :aria-expanded="showCredentials" @click="showCredentials = !showCredentials">
@@ -303,6 +324,23 @@ const captainForm = reactive({
   proposedTeamName: '',
   reason: ''
 })
+
+const prefs = reactive({
+  emailNotifications: true,
+  pushNotifications: true,
+  matchReminders: true,
+  tournamentReminders: true,
+  zoneAlerts: true
+})
+
+const savePreferences = async () => {
+  try {
+    await authService.updatePreferences({ ...prefs })
+    toast.success('Preferencias actualizadas')
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudieron guardar las preferencias'))
+  }
+}
 
 const initials = computed(() =>
   (me.value?.fullName || '?').split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('')
@@ -440,14 +478,17 @@ const logout = async () => {
 
 onMounted(async () => {
   try {
-    const [profileRes, docRes, capRes] = await Promise.all([
+    const [profileRes, docRes, capRes, prefRes] = await Promise.all([
       authService.getProfile(),
       isPlayer.value ? usersService.getMyIdentityDocumentInfo().catch(() => ({ data: null })) : { data: null },
-      authStore.userRole === 'PLAYER' ? usersService.getMyCaptainRequest().catch(() => ({ data: null })) : { data: null }
+      authStore.userRole === 'PLAYER' ? usersService.getMyCaptainRequest().catch(() => ({ data: null })) : { data: null },
+      authService.getPreferences().catch(() => ({ data: null }))
     ])
     fill(profileRes.data)
     idDoc.value = docRes.data
     captainRequest.value = capRes.data
+    // Only the toggles shown here: the API rejects id, userId and dates on save
+    if (prefRes.data) for (const k of Object.keys(prefs)) if (typeof prefRes.data[k] === 'boolean') prefs[k] = prefRes.data[k]
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo cargar tu perfil'))
   } finally {

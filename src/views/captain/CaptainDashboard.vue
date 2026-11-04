@@ -133,9 +133,20 @@
             <label class="field-label" for="edit-logo">Logo</label>
             <input id="edit-logo" type="file" accept="image/*" class="input" @change="e => (logoFile = e.target.files[0] || null)" />
           </div>
-          <div class="flex justify-end gap-space-sm">
-            <button type="button" class="btn-ghost" @click="editDialog.close()">Cancelar</button>
-            <button type="submit" class="btn-primary" :disabled="saving || !editTeam.name">Guardar</button>
+          <div class="flex flex-wrap items-center justify-between gap-space-sm">
+            <button
+              v-if="canDeleteTeam"
+              type="button"
+              class="btn-danger"
+              :disabled="saving"
+              @click="deleteTeam"
+            >
+              <span class="icon">delete</span> Eliminar equipo
+            </button>
+            <div class="ml-auto flex gap-space-sm">
+              <button type="button" class="btn-ghost" @click="editDialog.close()">Cancelar</button>
+              <button type="submit" class="btn-primary" :disabled="saving || !editTeam.name">Guardar</button>
+            </div>
           </div>
         </form>
       </dialog>
@@ -582,7 +593,7 @@
               <span class="icon">person_remove</span>
             </button>
           </article>
-          <form v-if="editingPlayer" class="card flex flex-col gap-space-sm border-l-4 border-l-secondary p-space-md sm:flex-row sm:items-end" @submit.prevent="savePlayer">
+          <form v-if="editingPlayer" class="card flex flex-col gap-space-sm border-l-4 border-l-secondary p-space-md sm:flex-row sm:flex-wrap sm:items-end" @submit.prevent="savePlayer">
             <p class="m-0 flex-1 font-title-sm text-title-sm">Editando a {{ editingPlayer.fullName }}</p>
             <div>
               <label class="field-label" for="pl-jersey">Dorsal</label>
@@ -593,6 +604,10 @@
               <select id="pl-pos" v-model="playerForm.position" class="input">
                 <option v-for="o in positionOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
               </select>
+            </div>
+            <div>
+              <label class="field-label" for="pl-photo">Foto (opcional)</label>
+              <input id="pl-photo" type="file" accept="image/*" class="input" @change="e => (playerPhotoFile = e.target.files[0] || null)" />
             </div>
             <button type="submit" class="btn-primary" :disabled="saving">Guardar</button>
             <button type="button" class="btn-ghost" @click="editingPlayer = null">Cancelar</button>
@@ -662,8 +677,10 @@ const activeSanctions = ref({ suspendedPlayerIds: [], sanctions: [] })
 const editDialog = ref(null)
 const editTeam = ref({ name: '', category: 'OPEN', city: '', homeColor: '#FF6B00', awayColor: '#FFFFFF' })
 let logoFile = null
+let playerPhotoFile = null
 const editingPlayer = ref(null)
 const playerForm = ref({ jerseyNumber: 0, position: 'BASE' })
+const canDeleteTeam = computed(() => !team.value?.registrations?.some(r => r.status === 'APPROVED'))
 const newTeam = ref({ name: '', category: 'OPEN', city: '', homeColor: '#FF6B00', awayColor: '#FFFFFF' })
 const newStaff = ref({ fullName: '', role: 'COACH' })
 const paymentDialog = ref(null)
@@ -860,12 +877,26 @@ const submitReschedule = async () => {
 const startEditPlayer = p => {
   editingPlayer.value = p
   playerForm.value = { jerseyNumber: p.jerseyNumber, position: p.position }
+  playerPhotoFile = null
 }
 
 const savePlayer = async () => {
   const p = editingPlayer.value
-  await run(() => teamsService.updatePlayer(team.value.id, p.id, playerForm.value), `${p.fullName} actualizado`)
+  await run(async () => {
+    await teamsService.updatePlayer(team.value.id, p.id, playerForm.value)
+    if (playerPhotoFile) {
+      const fd = new FormData()
+      fd.append('photo', playerPhotoFile)
+      await teamsService.updatePlayerPhoto(team.value.id, p.id, fd)
+    }
+  }, `${p.fullName} actualizado`)
   editingPlayer.value = null
+}
+
+const deleteTeam = async () => {
+  editDialog.value?.close()
+  if (!(await confirm({ title: 'Eliminar equipo', message: `¿Eliminar "${team.value.name}"? Esta acción no se puede deshacer.`, confirmText: 'Eliminar equipo', danger: true }))) return
+  await run(() => teamsService.delete(team.value.id), 'Equipo eliminado')
 }
 
 const removeStaff = async s => {
