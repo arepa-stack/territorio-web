@@ -81,6 +81,17 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    // Read-only public pages for visitors (same views as /app/matches, /app/teams, /app/players)
+    path: '/',
+    component: () => import('@/layouts/PublicLayout.vue'),
+    meta: { requiresAuth: false },
+    children: [
+      { path: 'partido/:id', name: 'PublicMatch', component: () => import('@/views/matches/MatchDetailView.vue') },
+      { path: 'equipo/:id', name: 'PublicTeam', component: () => import('@/views/teams/TeamHistoryView.vue') },
+      { path: 'jugador/:id', name: 'PublicPlayer', component: () => import('@/views/player/PlayerPublicProfile.vue') }
+    ]
+  },
+  {
     // Team invite link shared by a captain (public preview, join needs a PLAYER session)
     path: '/join/:token',
     name: 'JoinTeam',

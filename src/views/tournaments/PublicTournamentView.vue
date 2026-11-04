@@ -96,7 +96,7 @@
             <tbody>
               <tr v-for="s in standings" :key="s.teamId" :class="{ 'is-first': s.position === 1 }">
                 <td class="mono standings__pos">{{ String(s.position).padStart(2, '0') }}</td>
-                <td class="standings__team"><TeamBadge :name="s.teamName" :logo-url="s.logoUrl || ''" :size="26" /> {{ s.teamName }}</td>
+                <td class="standings__team"><router-link :to="`/equipo/${s.teamId}`" class="ent-link"><TeamBadge :name="s.teamName" :logo-url="s.logoUrl || ''" :size="26" /> {{ s.teamName }}</router-link></td>
                 <td class="mono">{{ s.gamesPlayed }}</td>
                 <td class="mono">{{ s.wins }}</td>
                 <td class="mono">{{ s.losses }}</td>
@@ -116,7 +116,7 @@
           <p v-if="!rounds.length" class="page__empty">El fixture todavía no se generó.</p>
           <div v-for="r in rounds" :key="r.round" class="round">
             <h2 class="mono round__title">{{ PHASE_LABEL[r.matches[0].phase] || `Jornada ${r.round}` }}</h2>
-            <div v-for="m in r.matches" :key="m.id" class="fx">
+            <router-link v-for="m in r.matches" :key="m.id" :to="`/partido/${m.id}`" class="fx ent-link">
               <span class="mono fx__when">{{ shortDay(m.matchDate) }} · {{ m.matchTime }}</span>
               <span class="display fx__teams">
                 <TeamBadge :name="m.homeTeam.name" :logo-url="m.homeTeam.logoUrl || ''" :size="26" /> {{ m.homeTeam.name }}
@@ -126,7 +126,7 @@
               <span class="fx__where">{{ m.venue }}</span>
               <span v-if="m.status === 'FINISHED'" class="display fx__score">{{ m.homeScore }}–{{ m.awayScore }}</span>
               <span v-else class="mono fx__status" :style="{ color: matchStatus(m).color }">{{ matchStatus(m).label }}</span>
-            </div>
+            </router-link>
           </div>
         </div>
 
@@ -141,7 +141,8 @@
               <li v-for="(item, idx) in leaders[cat.key].slice(0, 5)" :key="item.userId || idx" class="leaders__row" :class="{ 'is-first': idx === 0 }">
                 <span class="display leaders__rank">{{ idx + 1 }}</span>
                 <span class="leaders__who">
-                  <span class="leaders__name">{{ item.fullName }}</span>
+                  <router-link v-if="item.playerId" :to="`/jugador/${item.playerId}`" class="leaders__name ent-link">{{ item.fullName }}</router-link>
+                  <span v-else class="leaders__name">{{ item.fullName }}</span>
                   <span class="mono leaders__team">{{ item.teamName }} · {{ item.gamesPlayed }} PJ</span>
                 </span>
                 <span class="leaders__val">
@@ -156,10 +157,10 @@
         <div v-if="tab === 'teams'" class="block">
           <p v-if="!standings.length" class="page__empty">Todavía no hay equipos aprobados.</p>
           <div v-else class="teams">
-            <div v-for="s in standings" :key="s.teamId" class="teams__item">
+            <router-link v-for="s in standings" :key="s.teamId" :to="`/equipo/${s.teamId}`" class="teams__item ent-link">
               <TeamBadge :name="s.teamName" :logo-url="s.logoUrl || ''" :size="48" />
               <span class="teams__name">{{ s.teamName }}</span>
-            </div>
+            </router-link>
           </div>
         </div>
       </main>
@@ -268,6 +269,24 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Rows and names that open the public match, team or player page */
+.ent-link {
+  color: inherit;
+  text-decoration: none;
+}
+.ent-link:hover .teams__name,
+a.leaders__name:hover,
+.standings__team .ent-link:hover {
+  text-decoration: underline;
+}
+a.fx:hover {
+  background: rgb(255 255 255 / 0.04);
+}
+.standings__team .ent-link {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+}
 .hero {
   position: relative;
   overflow: hidden;

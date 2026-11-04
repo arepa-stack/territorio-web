@@ -25,7 +25,7 @@
             {{ POSITIONS[player.position] || 'Sin posición' }}
             <template v-if="player.team"> · {{ player.team.name }}</template>
           </p>
-          <router-link v-if="player.team" :to="`/app/teams/${player.team.id}/history`" class="text-body-sm text-primary">
+          <router-link v-if="player.team" :to="links.team(player.team.id)" class="text-body-sm text-primary">
             Ver historial del equipo
           </router-link>
         </div>
@@ -52,10 +52,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import playersService from '@/services/players'
 import { POSITIONS } from '@/utils/labels'
+import { useEntityLinks } from '@/utils/links'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
 import StatTile from '@/components/ui/StatTile.vue'
 
 const route = useRoute()
+const links = useEntityLinks()
 const player = ref(null)
 const stats = ref(null)
 const loading = ref(true)

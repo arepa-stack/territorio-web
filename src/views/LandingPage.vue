@@ -35,7 +35,7 @@
         <div class="sheet__head">
           <h2 id="prox" class="display sheet__title">Próximos partidos</h2>
         </div>
-        <router-link v-for="m in summary.upcoming.slice(0, 4)" :key="m.id" :to="`/torneo/${m.tournament.id}`" class="match-row">
+        <router-link v-for="m in summary.upcoming.slice(0, 4)" :key="m.id" :to="`/partido/${m.id}`" class="match-row">
           <span class="mono match-row__when">{{ shortDay(m.matchDate) }} <span class="match-row__time">· {{ m.matchTime }}</span></span>
           <span class="display match-row__teams">{{ m.homeTeam.name }} <span class="match-row__vs">vs</span> {{ m.awayTeam.name }}</span>
           <span class="match-row__where">
@@ -142,7 +142,7 @@
           <li v-for="(l, i) in summary.leaders" :key="l.playerId" class="leaders__item" :class="{ 'is-first': i === 0 }">
             <span class="display leaders__rank">{{ String(i + 1).padStart(2, '0') }}</span>
             <span class="leaders__who">
-              <span class="display leaders__name">{{ l.fullName }}</span>
+              <router-link :to="`/jugador/${l.playerId}`" class="display leaders__name" style="color: inherit">{{ l.fullName }}</router-link>
               <span class="mono leaders__team">{{ l.teamName }} · {{ l.gamesPlayed }} PJ</span>
             </span>
             <span class="leaders__ppg"><span class="display">{{ l.pointsPerGame }}</span><span class="mono leaders__unit">Pts/P</span></span>

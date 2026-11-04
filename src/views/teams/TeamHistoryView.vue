@@ -155,7 +155,7 @@
                         <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-solid font-mono text-body-sm font-bold" :class="resultClass(m)" :aria-label="m.result === 'W' ? 'Victoria' : 'Derrota'">{{ m.result === 'W' ? 'G' : 'P' }}</span>
                         <div class="min-w-0">
                           <p class="m-0 font-mono text-[10px] uppercase text-on-surface-variant">J{{ m.round }} · {{ formatDate(m.matchDate) }}</p>
-                          <p class="m-0 truncate font-display text-[15px] font-extrabold uppercase tracking-wide">{{ m.home ? 'vs' : '@' }} {{ m.opponent.name }}</p>
+                          <router-link :to="links.match(m.id)" class="m-0 block truncate font-display text-[15px] font-extrabold uppercase tracking-wide text-on-surface hover:text-primary">{{ m.home ? 'vs' : '@' }} {{ m.opponent.name }}</router-link>
                         </div>
                       </div>
                       <div class="shrink-0 text-right">
@@ -203,8 +203,10 @@ import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
 import { handleApiError } from '@/services/api'
 import { CATEGORIES, formatDate } from '@/utils/labels'
+import { useEntityLinks } from '@/utils/links'
 
 const route = useRoute()
+const links = useEntityLinks()
 const toast = useToast()
 const history = ref(null)
 const loading = ref(true)

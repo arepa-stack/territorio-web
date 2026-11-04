@@ -14,10 +14,10 @@
           {{ match.tournament?.name }} · J{{ match.round }} · {{ formatDate(match.matchDate) }} {{ match.matchTime }}
         </p>
         <div class="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-space-md">
-          <span class="font-title-sm text-title-sm">{{ match.homeTeam.name }}</span>
+          <router-link :to="links.team(match.homeTeam.id)" class="font-title-sm text-title-sm text-on-surface hover:text-primary">{{ match.homeTeam.name }}</router-link>
           <span v-if="hasScore" class="font-scoreboard-num text-scoreboard-num tabular">{{ match.homeScore }}–{{ match.awayScore }}</span>
           <StatusChip v-else :status="match.status" />
-          <span class="font-title-sm text-title-sm">{{ match.awayTeam.name }}</span>
+          <router-link :to="links.team(match.awayTeam.id)" class="font-title-sm text-title-sm text-on-surface hover:text-primary">{{ match.awayTeam.name }}</router-link>
         </div>
         <p class="m-0 text-body-sm text-on-surface-variant">{{ match.venue || 'Cancha por definir' }}</p>
         <StatusChip v-if="match.status === 'FORFEIT'" status="FORFEIT" />
@@ -42,7 +42,7 @@
             <tbody>
               <tr v-for="r in side.rows" :key="r.id" class="border-0 border-t border-solid border-outline-variant/30">
                 <td class="whitespace-nowrap px-space-md py-space-sm">
-                  <router-link :to="`/app/players/${r.id}`" class="text-on-surface hover:text-primary">
+                  <router-link :to="links.player(r.id)" class="text-on-surface hover:text-primary">
                     <span v-if="r.jerseyNumber != null" class="font-stat-mono text-on-surface-variant">#{{ r.jerseyNumber }}</span>
                     {{ r.name }}
                   </router-link>
@@ -97,7 +97,10 @@
           <span class="icon">comments_disabled</span> Los comentarios están suspendidos temporalmente.
         </p>
         <template v-else>
-        <form class="mb-space-md flex flex-col gap-space-xs" @submit.prevent="submitComment">
+        <p v-if="!isLoggedIn" class="mb-space-md text-body-sm text-on-surface-variant">
+          <router-link :to="{ path: '/auth/login', query: { redirect: route.fullPath } }" class="text-primary">Inicia sesión</router-link> para comentar.
+        </p>
+        <form v-else class="mb-space-md flex flex-col gap-space-xs" @submit.prevent="submitComment">
           <textarea v-model.trim="newComment" class="input" rows="2" maxlength="1000" placeholder="Comenta el partido con respeto" />
           <button type="submit" class="btn-secondary self-end" :disabled="postingComment || !newComment">
             {{ postingComment ? 'Publicando…' : 'Publicar' }}
@@ -110,7 +113,8 @@
             <span class="text-body-sm text-on-surface-variant">{{ formatDate(c.createdAt) }}</span>
           </div>
           <p class="m-0 whitespace-pre-line text-body-md">{{ c.content }}</p>
-          <div class="flex items-center gap-space-sm">
+          <span v-if="!isLoggedIn" class="text-body-sm text-on-surface-variant">{{ c.likesCount }} likes</span>
+          <div v-else class="flex items-center gap-space-sm">
             <button type="button" class="btn-ghost px-space-xs py-1 text-body-sm" @click="like(c)">
               <span class="icon text-[18px]">thumb_up</span> {{ c.likesCount }}
             </button>
@@ -144,9 +148,13 @@ import { formatDate } from '@/utils/labels'
 import SectionHeader from '@/components/ui/SectionHeader.vue'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import StarRating from '@/components/ui/StarRating.vue'
+import { useAuthStore } from '@/stores/auth'
+import { useEntityLinks } from '@/utils/links'
 
 const route = useRoute()
 const toast = useToast()
+const links = useEntityLinks()
+const isLoggedIn = computed(() => useAuthStore().isAuthenticated)
 
 const match = ref(null)
 const events = ref([])
@@ -309,7 +317,7 @@ onMounted(async () => {
     const [m, ev, mine] = await Promise.all([
       matchesService.getById(id),
       matchesService.getEvents(id).catch(() => ({ data: [] })),
-      ratingsService.getMineForMatch(id).catch(() => ({ data: null }))
+      isLoggedIn.value ? ratingsService.getMineForMatch(id).catch(() => ({ data: null })) : { data: null }
     ])
     match.value = m.data
     events.value = ev.data || []
