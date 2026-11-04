@@ -448,7 +448,7 @@
                 type="button"
                 class="btn-primary flex-1"
                 :disabled="saving || rosterLocked"
-                @click="resolveJoinReq(req, 'APPROVED')"
+                @click="resolveJoinReq(req, 'ACCEPTED')"
               >
                 Aceptar
               </button>
@@ -848,9 +848,9 @@ const resolveJoinReq = async (req, status) => {
     () =>
       teamsService.resolveJoinRequest(req.id, {
         status,
-        ...(status === 'APPROVED' ? { jerseyNumber, position: req.position || 'BASE' } : {})
+        ...(status === 'ACCEPTED' ? { jerseyNumber, position: req.position || 'BASE' } : {})
       }),
-    status === 'APPROVED' ? 'Jugador incorporado al equipo' : 'Solicitud rechazada'
+    status === 'ACCEPTED' ? 'Jugador incorporado al equipo' : 'Solicitud rechazada'
   )
 }
 

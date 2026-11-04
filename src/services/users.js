@@ -37,7 +37,7 @@ const usersService = {
     // Private identity documents
     async uploadIdentityDocument(file) {
         const formData = new FormData()
-        formData.append('document', file)
+        formData.append('file', file)
         return await api.post('/users/me/identity-document', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         })

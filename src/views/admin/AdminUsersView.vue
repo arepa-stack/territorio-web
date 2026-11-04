@@ -15,11 +15,7 @@
             <span class="mono req__ci">{{ req.user?.ci || 'Sin CI' }}</span>
           </div>
           <p class="req__email">{{ req.user?.email }}</p>
-          <p class="req__team">
-            Equipo propuesto: <strong>{{ req.teamNameProposal }}</strong>
-            <span class="req__meta">{{ req.city }} · {{ CATEGORIES[req.category] || req.category }}</span>
-          </p>
-          <p v-if="req.reason" class="req__reason">“{{ req.reason }}”</p>
+          <p class="req__team">{{ req.reason }}</p>
           <div class="req__actions">
             <button type="button" class="btn-line" :disabled="resolvingReq === req.id" @click="resolveCaptainReq(req, 'REJECTED')">Rechazar</button>
             <button type="button" class="btn-blaze" :disabled="resolvingReq === req.id" @click="resolveCaptainReq(req, 'APPROVED')">Aprobar capitán</button>
@@ -86,7 +82,6 @@ import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/composables/useConfirm'
 import { ROLE_LABEL } from '@/router/navigation'
-import { CATEGORIES } from '@/utils/labels'
 import PosterPager from '@/components/poster/PosterPager.vue'
 
 const toast = useToast()
@@ -148,7 +143,7 @@ const resolveCaptainReq = async (req, status) => {
   const note = await confirm({
     title: approved ? 'Aprobar solicitud de capitán' : 'Rechazar solicitud de capitán',
     message: approved
-      ? `${req.user?.fullName || 'El usuario'} pasará a tener rol de Capitán para crear el equipo "${req.teamNameProposal}".`
+      ? `${req.user?.fullName || 'El usuario'} pasará a tener rol de Capitán.`
       : `Indica opcionalmente el motivo del rechazo para ${req.user?.fullName || 'el jugador'}.`,
     confirmText: approved ? 'Aprobar' : 'Rechazar',
     danger: !approved,

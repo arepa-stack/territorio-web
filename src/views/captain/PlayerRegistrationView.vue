@@ -65,15 +65,15 @@
             <input id="new-name" v-model.trim="newName" class="input" />
           </div>
           <div>
-            <label class="field-label" for="new-email">Email *</label>
-            <input id="new-email" v-model.trim="newEmail" class="input" type="email" placeholder="para su cuenta en la liga" />
+            <label class="field-label" for="new-email">Email (opcional)</label>
+            <input id="new-email" v-model.trim="newEmail" class="input" type="email" placeholder="si no tiene, comparte el enlace para reclamar la cuenta" />
           </div>
           <div>
             <label class="field-label" for="new-birthdate">Fecha de nacimiento (opcional)</label>
             <input id="new-birthdate" v-model="newBirthDate" class="input" type="date" />
           </div>
           <JerseyPosition v-model:jersey="jersey" v-model:position="position" />
-          <button type="submit" class="btn-primary" :disabled="busy || rosterLocked || !validSlot || !newName || !newEmail">Crear y agregar</button>
+          <button type="submit" class="btn-primary" :disabled="busy || rosterLocked || !validSlot || !newName">Crear y agregar</button>
         </form>
       </section>
 
@@ -174,7 +174,7 @@ const createNew = async () => {
       teamId: team.value.id,
       fullName: newName.value,
       ci: searchedCi.value,
-      email: newEmail.value,
+      ...(newEmail.value ? { email: newEmail.value } : {}),
       ...(newBirthDate.value ? { birthDate: newBirthDate.value } : {}),
       jerseyNumber: jersey.value,
       position: position.value

@@ -192,7 +192,7 @@
         <div v-if="captainRequest && captainRequest.status === 'PENDING'" class="rounded bg-surface-container-low p-space-md text-body-sm">
           <p class="m-0 font-bold">Solicitud en revisión por administración</p>
           <p class="m-0 mt-1 text-on-surface-variant">
-            Equipo propuesto: <strong>{{ captainRequest.teamNameProposal }}</strong> ({{ captainRequest.city }} · {{ captainRequest.category }})
+            {{ captainRequest.reason }}
           </p>
         </div>
 
@@ -201,28 +201,9 @@
             Solicitud anterior rechazada{{ captainRequest.responseNote ? `: ${captainRequest.responseNote}` : '.' }} Puedes enviar una nueva.
           </p>
           <form class="flex flex-col gap-space-md" @submit.prevent="submitCaptainRequest">
-            <div class="grid gap-space-md sm:grid-cols-3">
-              <div>
-                <label class="field-label" for="cr-team">Nombre del equipo propuesto</label>
-                <input id="cr-team" v-model.trim="captainForm.teamNameProposal" class="input" required />
-              </div>
-              <div>
-                <label class="field-label" for="cr-city">Ciudad</label>
-                <input id="cr-city" v-model.trim="captainForm.city" class="input" required />
-              </div>
-              <div>
-                <label class="field-label" for="cr-cat">Categoría</label>
-                <select id="cr-cat" v-model="captainForm.category" class="input" required>
-                  <option value="OPEN">Libre</option>
-                  <option value="SUB_13">Sub-13</option>
-                  <option value="SUB_15">Sub-15</option>
-                  <option value="SUB_17">Sub-17</option>
-                  <option value="SUB_19">Sub-19</option>
-                  <option value="VETERANS">Veteranos +35</option>
-                  <option value="FEMALE">Femenina</option>
-                  <option value="MIXED">Mixta</option>
-                </select>
-              </div>
+            <div>
+              <label class="field-label" for="cr-team">Nombre del equipo propuesto</label>
+              <input id="cr-team" v-model.trim="captainForm.proposedTeamName" class="input" required maxlength="100" />
             </div>
             <div>
               <label class="field-label" for="cr-reason">Mensaje / motivo (opcional)</label>
@@ -317,9 +298,7 @@ const form = reactive({
 })
 
 const captainForm = reactive({
-  teamNameProposal: '',
-  city: '',
-  category: 'OPEN',
+  proposedTeamName: '',
   reason: ''
 })
 
@@ -356,7 +335,6 @@ const fill = u => {
     height: u.height ?? null,
     weight: u.weight ?? null
   })
-  if (!captainForm.city && u.city) captainForm.city = u.city
   credentials.email = u.email || ''
 }
 
