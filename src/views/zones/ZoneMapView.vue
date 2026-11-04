@@ -86,6 +86,28 @@
                 </span>
               </button>
             </div>
+
+            <!-- Captain: challenge the team that rules (or last won) this zone -->
+            <form v-if="challengeTarget" class="zm__form challenge" novalidate @submit.prevent="sendChallenge">
+              <div class="mono venues__head">Retar a {{ challengeTarget.name }}</div>
+              <div class="p-field">
+                <label class="p-label" for="ch-venue">Cancha *</label>
+                <select id="ch-venue" v-model="challengeForm.venueId" class="p-input">
+                  <option value="" disabled>Elige una cancha de la zona</option>
+                  <option v-for="venue in zoneForm.venues" :key="venue.id" :value="venue.id">{{ venue.name }}</option>
+                </select>
+              </div>
+              <div class="p-field">
+                <label class="p-label" for="ch-date">Fecha y hora *</label>
+                <input id="ch-date" v-model="challengeForm.when" type="datetime-local" class="p-input" :min="nowLocal" />
+              </div>
+              <div class="p-field">
+                <label class="p-label" for="ch-reason">Mensaje *</label>
+                <input id="ch-reason" v-model.trim="challengeForm.reason" class="p-input" maxlength="200" placeholder="Venimos por la corona del barrio" />
+              </div>
+              <p v-if="challengeError" role="alert" class="zm__error">{{ challengeError }}</p>
+              <button type="submit" class="btn-blaze" :disabled="saving">Enviar reto</button>
+            </form>
           </ZonePanel>
           <section v-else class="zm__card">
             <h2 class="display zm__title">{{ zoneForm.name }}</h2>
@@ -204,6 +226,7 @@ import { useToast } from 'vue-toastification'
 import zonesService from '@/services/zones'
 import tournamentsService from '@/services/tournaments'
 import venuesService from '@/services/venues'
+import teamsService from '@/services/teams'
 import { handleApiError } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import '@/styles/poster.css'
@@ -220,6 +243,7 @@ const authStore = useAuthStore()
 // Only the admin edits; every other role gets the same map read-only
 const canEdit = computed(() => authStore.userRole === 'ADMIN')
 const isOrganizer = computed(() => authStore.userRole === 'ORGANIZER') // POST /tournaments is ORGANIZER-only
+
 
 const mapEl = ref(null)
 const flying = ref(false)
@@ -248,6 +272,56 @@ const formatRadius = m => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`)
 const selectedZone = computed(() => zoneForm.value || venueForm.value)
 const standingOf = zone => standings.value[zone?.id]
 const venueZone = computed(() => zones.value.find(z => z.id === venueForm.value?.zoneId))
+
+// ---------- Territorial challenge (captain) ----------
+const myTeam = ref(null)
+const challengeForm = ref({ venueId: '', when: '', reason: '' })
+const challengeError = ref('')
+const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+// Target: the zone owner (most titles) or, if contested, its current champion; never your own team
+const challengeTarget = computed(() => {
+    const zone = standingOf(zoneForm.value)
+    if (!myTeam.value || !zone || !zoneForm.value?.venues?.length) return null
+    const target = zone.ownerTeamId
+        ? { id: zone.ownerTeamId, name: zone.ranking[0].teamName }
+        : zone.champion && { id: zone.champion.teamId, name: zone.champion.teamName }
+    return target && target.id !== myTeam.value.id ? target : null
+})
+watch(() => zoneForm.value?.id, () => {
+    challengeForm.value = { venueId: '', when: '', reason: '' }
+    challengeError.value = ''
+})
+const sendChallenge = async () => {
+    const f = challengeForm.value
+    if (!f.venueId || !f.when || !f.reason) {
+        challengeError.value = 'Elige cancha, fecha y escribe un mensaje.'
+        return
+    }
+    challengeError.value = ''
+    saving.value = true
+    try {
+        const zone = standingOf(zoneForm.value)
+        await zonesService.createChallenge({
+            challengingTeamId: myTeam.value.id,
+            challengedTeamId: challengeTarget.value.id,
+            zoneId: zoneForm.value.id,
+            venueId: f.venueId,
+            scheduledDate: new Date(f.when).toISOString(),
+            challengeType: zone.ownerTeamId === challengeTarget.value.id ? 'TERRITORY_CONQUEST' : 'TERRITORY_DEFENSE',
+            reason: f.reason
+        })
+        toast.success(`Reto enviado a ${challengeTarget.value.name}`)
+        challengeForm.value = { venueId: '', when: '', reason: '' }
+    } catch (error) {
+        challengeError.value = handleApiError(error, 'No se pudo enviar el reto')
+    } finally {
+        saving.value = false
+    }
+}
+onMounted(async () => {
+    if (authStore.userRole !== 'TEAM_CAPTAIN') return
+    myTeam.value = (await teamsService.getMyTeams().catch(() => ({ data: [] }))).data[0] || null
+})
 
 const hint = computed(() => {
     if (!canEdit.value) return ''

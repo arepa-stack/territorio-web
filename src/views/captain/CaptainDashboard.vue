@@ -457,6 +457,35 @@
         </div>
       </section>
 
+      <!-- Territorial challenges: received (answer) and sent (waiting) -->
+      <section v-if="challenges.length">
+        <SectionHeader title="Retos territoriales" icon="flag">
+          <router-link to="/app/zones/map" class="text-body-sm text-primary">Ver mapa</router-link>
+        </SectionHeader>
+        <div class="grid gap-space-sm md:grid-cols-2">
+          <article v-for="c in challenges" :key="c.id" class="card flex flex-col gap-space-sm p-space-md">
+            <div class="flex items-start justify-between gap-space-sm">
+              <div class="min-w-0">
+                <h3 class="m-0 font-title-sm text-title-sm">
+                  {{ c.challengedTeamId === team.id ? `${c.challengingTeam.name} te reta` : `Retaste a ${c.challengedTeam.name}` }}
+                </h3>
+                <p class="m-0 text-body-sm text-on-surface-variant">
+                  {{ c.zone.name }} · {{ c.venueName }} · {{ formatDate(c.scheduledDate) }}
+                  {{ new Date(c.scheduledDate).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) }}
+                </p>
+              </div>
+              <StatusChip :status="c.status" />
+            </div>
+            <p v-if="c.reason" class="m-0 text-body-sm italic text-on-surface-variant">"{{ c.reason }}"</p>
+            <div v-if="c.challengedTeamId === team.id" class="flex gap-space-xs">
+              <button type="button" class="btn-danger flex-1" :disabled="saving" @click="answerChallenge(c, 'DECLINED')">Declinar</button>
+              <button type="button" class="btn-primary flex-1" :disabled="saving" @click="answerChallenge(c, 'ACCEPTED')">Aceptar reto</button>
+            </div>
+            <p v-else class="m-0 text-body-sm text-on-surface-variant">Esperando respuesta.</p>
+          </article>
+        </div>
+      </section>
+
       <!-- Roster -->
       <section>
         <SectionHeader title="Nómina del plantel" icon="groups">
@@ -580,6 +609,7 @@ import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'
 import tournamentsService from '@/services/tournaments'
 import matchesService from '@/services/matches'
+import zonesService from '@/services/zones'
 import invitesService, { inviteUrl } from '@/services/invites'
 import { CATEGORIES, PAYMENT_STATUS, POSITIONS, RESCHEDULE_STATUS, SANCTION_TYPES, formatDate, hasUniformClash, toOptions } from '@/utils/labels'
 import { useConfirm } from '@/composables/useConfirm'
@@ -698,6 +728,10 @@ const load = async () => {
           }
         })
         .catch(() => (joinRequests.value = []))
+      zonesService
+        .getPendingChallenges()
+        .then(({ data }) => (challenges.value = data?.data || []))
+        .catch(() => (challenges.value = []))
       teamsService
         .getActiveSanctions(team.value.id)
         .then(({ data }) => (activeSanctions.value = data || { suspendedPlayerIds: [], sanctions: [] }))
@@ -727,6 +761,13 @@ const load = async () => {
     loading.value = false
   }
 }
+
+const challenges = ref([])
+const answerChallenge = (c, response) =>
+  run(
+    () => zonesService.respondChallenge(c.id, response),
+    response === 'ACCEPTED' ? `Reto aceptado: ${c.challengingTeam.name} en ${c.venueName}` : 'Reto declinado'
+  )
 
 const run = async (action, okMessage) => {
   saving.value = true
