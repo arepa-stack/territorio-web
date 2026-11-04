@@ -23,7 +23,7 @@
             <p class="m-0 truncate text-body-sm text-on-surface-variant">{{ me.email }}</p>
           </div>
         </div>
-        <div>
+        <div v-if="isPlayer">
           <label class="btn-secondary cursor-pointer">
             <span class="icon">photo_camera</span>
             {{ uploadingPhoto ? 'Subiendo foto…' : 'Cambiar foto' }}
@@ -73,7 +73,7 @@
           </div>
         </section>
 
-        <section class="card flex flex-col gap-space-md p-space-lg">
+        <section v-if="isPlayer" class="card flex flex-col gap-space-md p-space-lg">
           <h2 class="label-tactical m-0 text-secondary">Contacto de emergencia</h2>
           <div class="grid gap-space-md sm:grid-cols-2">
             <div>
@@ -87,7 +87,7 @@
           </div>
         </section>
 
-        <section class="card flex flex-col gap-space-md p-space-lg">
+        <section v-if="isPlayer" class="card flex flex-col gap-space-md p-space-lg">
           <div class="flex flex-wrap items-center justify-between gap-space-xs">
             <h2 class="label-tactical m-0 text-secondary">Representante legal (Menores de 18 años)</h2>
             <span v-if="isMinor" class="rounded bg-tertiary px-2 py-0.5 text-label-sm font-bold uppercase text-on-surface">
@@ -110,7 +110,7 @@
           </div>
         </section>
 
-        <section class="card flex flex-col gap-space-md p-space-lg">
+        <section v-if="isPlayer" class="card flex flex-col gap-space-md p-space-lg">
           <h2 class="label-tactical m-0 text-secondary">Datos de juego</h2>
           <div>
             <span class="field-label">Posición</span>
@@ -143,7 +143,7 @@
       </form>
 
       <!-- Private Identity Document (Task 16) -->
-      <section class="card flex flex-col gap-space-md p-space-lg">
+      <section v-if="isPlayer" class="card flex flex-col gap-space-md p-space-lg">
         <div class="flex flex-wrap items-center justify-between gap-space-sm">
           <div>
             <h2 class="label-tactical m-0 text-secondary">Documento de identidad (Privado)</h2>
@@ -266,6 +266,8 @@ const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
 const positions = toOptions(POSITIONS)
+// Organizers, referees and admins reuse this screen for their account; sports sections are player-only
+const isPlayer = computed(() => ['PLAYER', 'TEAM_CAPTAIN'].includes(authStore.userRole))
 const jerseySizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 
 const me = ref(null)
@@ -440,8 +442,8 @@ onMounted(async () => {
   try {
     const [profileRes, docRes, capRes] = await Promise.all([
       authService.getProfile(),
-      usersService.getMyIdentityDocumentInfo().catch(() => ({ data: null })),
-      usersService.getMyCaptainRequest().catch(() => ({ data: null }))
+      isPlayer.value ? usersService.getMyIdentityDocumentInfo().catch(() => ({ data: null })) : { data: null },
+      authStore.userRole === 'PLAYER' ? usersService.getMyCaptainRequest().catch(() => ({ data: null })) : { data: null }
     ])
     fill(profileRes.data)
     idDoc.value = docRes.data

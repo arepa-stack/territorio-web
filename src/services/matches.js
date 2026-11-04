@@ -1,6 +1,11 @@
 import api from './api'
 
 const matchesService = {
+    // Organizer: date, time, venue or status (SCHEDULED / SUSPENDED / CANCELLED)
+    async update(matchId, data) {
+        return await api.patch(`/matches/${matchId}`, data)
+    },
+
     async getById(matchId) {
         return await api.get(`/matches/${matchId}`)
     },

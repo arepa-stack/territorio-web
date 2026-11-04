@@ -58,6 +58,52 @@
         </div>
       </header>
 
+      <!-- General data: editable until the tournament starts (backend rule) -->
+      <details v-if="canEditData" class="card p-space-md" @toggle="$event.target.open && fillEditForm()">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-space-sm [&::-webkit-details-marker]:hidden">
+          <span class="label-tactical flex items-center gap-space-xs text-on-surface">
+            <span class="icon text-[18px] text-secondary">edit</span> Editar datos del torneo
+          </span>
+        </summary>
+        <form class="mt-space-md grid gap-space-md md:grid-cols-2" @submit.prevent="saveData">
+          <div class="md:col-span-2">
+            <label class="field-label" for="e-name">Nombre</label>
+            <input id="e-name" v-model.trim="editForm.name" class="input" required maxlength="100" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="field-label" for="e-desc">Descripción</label>
+            <textarea id="e-desc" v-model.trim="editForm.description" class="input" rows="2" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="field-label" for="e-loc">Ubicación</label>
+            <input id="e-loc" v-model.trim="editForm.location" class="input" required />
+          </div>
+          <div>
+            <label class="field-label" for="e-start">Inicio</label>
+            <input id="e-start" v-model="editForm.startDate" type="date" class="input" required />
+          </div>
+          <div>
+            <label class="field-label" for="e-end">Fin</label>
+            <input id="e-end" v-model="editForm.endDate" type="date" class="input" required :min="editForm.startDate" />
+          </div>
+          <div>
+            <label class="field-label" for="e-min">Mínimo de equipos</label>
+            <input id="e-min" v-model.number="editForm.minTeams" type="number" min="2" max="32" class="input" required />
+          </div>
+          <div>
+            <label class="field-label" for="e-max">Máximo de equipos</label>
+            <input id="e-max" v-model.number="editForm.maxTeams" type="number" :min="Math.max(editForm.minTeams || 2, registrations.length)" max="32" class="input" required />
+          </div>
+          <div>
+            <label class="field-label" for="e-fee">Inscripción ($)</label>
+            <input id="e-fee" v-model.number="editForm.entryFee" type="number" min="0" step="0.01" class="input" required />
+          </div>
+          <button type="submit" class="btn-primary self-end justify-self-end md:col-start-2" :disabled="busy">
+            <span class="icon">save</span> Guardar cambios
+          </button>
+        </form>
+      </details>
+
       <!-- Organizer payment details (what captains see in "Pagar inscripción") -->
       <details v-if="tournament.entryFee > 0" class="card p-space-md">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-space-sm [&::-webkit-details-marker]:hidden">
@@ -222,7 +268,55 @@
           </article>
         </div>
 
-        <FixtureList :matches="matches" :link-for="m => `/app/organizer/match/${m.id}`" />
+        <form v-if="editingMatch" class="card flex flex-col gap-space-md p-space-md" @submit.prevent="saveMatch">
+          <h2 class="label-tactical m-0 text-on-surface">
+            Editar partido · {{ editingMatch.homeTeam.name }} vs {{ editingMatch.awayTeam.name }}
+          </h2>
+          <div class="grid gap-space-md md:grid-cols-4">
+            <div>
+              <label class="field-label" for="m-date">Fecha</label>
+              <input id="m-date" v-model="matchForm.matchDate" type="date" class="input" required />
+            </div>
+            <div>
+              <label class="field-label" for="m-time">Hora</label>
+              <input id="m-time" v-model="matchForm.matchTime" type="time" class="input" required />
+            </div>
+            <div>
+              <label class="field-label" for="m-venue">Cancha</label>
+              <input id="m-venue" v-model.trim="matchForm.venue" class="input" required />
+            </div>
+            <div>
+              <label class="field-label" for="m-status">Estado</label>
+              <select id="m-status" v-model="matchForm.status" class="input">
+                <option value="SCHEDULED">Programado</option>
+                <option value="SUSPENDED">Suspendido</option>
+                <option value="CANCELLED">Cancelado</option>
+              </select>
+            </div>
+          </div>
+          <p v-if="matchForm.status === 'CANCELLED'" class="m-0 text-body-sm text-error">Un partido cancelado no se juega y no suma a la tabla.</p>
+          <div class="flex justify-end gap-space-sm">
+            <button type="button" class="btn-ghost" @click="editingMatch = null">Cerrar</button>
+            <button type="submit" class="btn-primary" :disabled="busy"><span class="icon">save</span> Guardar partido</button>
+          </div>
+        </form>
+
+        <FixtureList
+          :matches="matches"
+          :link-for="m => `/app/organizer/match/${m.id}`"
+          :editable="['REGISTRATION', 'IN_PROGRESS'].includes(tournament.status)"
+          @edit="editMatch"
+        />
+
+        <button
+          v-if="!['FINISHED', 'CANCELLED'].includes(tournament.status)"
+          type="button"
+          class="btn-danger self-start"
+          :disabled="busy"
+          @click="cancelTournament"
+        >
+          <span class="icon">block</span> Cancelar torneo
+        </button>
       </section>
 
       <!-- Standings -->
@@ -575,6 +669,64 @@ const generatePlayoffs = async () => {
   })
   if (ok) run(() => tournamentsService.generatePlayoffs(id), 'Playoffs generados')
 }
+// ---------- General data (only before the tournament starts) ----------
+const canEditData = computed(() => !['IN_PROGRESS', 'FINISHED', 'CANCELLED'].includes(tournament.value?.status))
+const editForm = ref({})
+const isoDay = d => (d ? new Date(d).toISOString().slice(0, 10) : '')
+const fillEditForm = () => {
+  const t = tournament.value
+  editForm.value = {
+    name: t.name,
+    description: t.description || '',
+    location: t.location,
+    startDate: isoDay(t.startDate),
+    endDate: isoDay(t.endDate),
+    minTeams: t.minTeams,
+    maxTeams: t.maxTeams,
+    entryFee: Number(t.entryFee)
+  }
+}
+const saveData = () => {
+  const f = editForm.value
+  if (f.minTeams > f.maxTeams) return toast.error('El mínimo de equipos no puede superar al máximo.')
+  return run(
+    () =>
+      tournamentsService.update(id, {
+        ...f,
+        description: f.description || undefined,
+        // Same as creation: the picked day at 00:00 UTC (dates render in UTC)
+        startDate: new Date(f.startDate).toISOString(),
+        endDate: new Date(f.endDate).toISOString()
+      }),
+    'Datos del torneo actualizados'
+  )
+}
+
+const cancelTournament = async () => {
+  const ok = await confirm({
+    title: 'Cancelar torneo',
+    message: `"${tournament.value.name}" pasa a Cancelado y los partidos sin jugar quedan cancelados. No se puede deshacer.`,
+    confirmText: 'Cancelar torneo'
+  })
+  if (ok) run(() => tournamentsService.update(id, { status: 'CANCELLED' }), 'Torneo cancelado')
+}
+
+// ---------- Single match edit ----------
+const editingMatch = ref(null)
+const matchForm = ref({})
+const editMatch = m => {
+  editingMatch.value = m
+  matchForm.value = { matchDate: isoDay(m.matchDate), matchTime: m.matchTime, venue: m.venue || '', status: ['SUSPENDED', 'CANCELLED'].includes(m.status) ? m.status : 'SCHEDULED' }
+}
+const saveMatch = async () => {
+  const f = matchForm.value
+  await run(
+    () => matchesService.update(editingMatch.value.id, { ...f, matchDate: `${f.matchDate}T12:00:00.000Z` }),
+    'Partido actualizado'
+  )
+  editingMatch.value = null
+}
+
 const setPlayoffs = value => run(() => tournamentsService.update(id, { playoffTeams: value }), 'Playoffs actualizados')
 
 // Same rule as the backend: scheduled, live or suspended games keep the tournament open

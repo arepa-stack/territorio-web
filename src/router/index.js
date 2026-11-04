@@ -156,7 +156,7 @@ const routes = [
         component: () => import('@/views/player/PlayerProfile.vue'),
         meta: {
           requiresAuth: true,
-          roles: ['PLAYER', 'TEAM_CAPTAIN'],
+          roles: ['PLAYER', 'TEAM_CAPTAIN', 'ORGANIZER', 'REFEREE', 'ADMIN', 'MODERATOR'],
           title: 'Mi Perfil'
         }
       },

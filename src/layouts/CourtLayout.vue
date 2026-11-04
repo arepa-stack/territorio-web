@@ -89,8 +89,8 @@ useCourtTheme()
 const navItems = computed(() => NAV_BY_ROLE[authStore.userRole] || [])
 const homeRoute = computed(() => HOME_BY_ROLE[authStore.userRole] || '/')
 const roleLabel = computed(() => ROLE_LABEL[authStore.userRole])
-// The player nav already has "Perfil"; the captain reaches it from here (other roles have no profile screen yet)
-const showProfileLink = computed(() => authStore.userRole === 'TEAM_CAPTAIN')
+// The player nav already has "Perfil"; every other role reaches its account screen from here
+const showProfileLink = computed(() => authStore.userRole !== 'PLAYER')
 const initials = computed(() =>
   (authStore.userName || '?')
     .split(' ')
