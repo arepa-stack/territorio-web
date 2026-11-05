@@ -94,7 +94,9 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="s in standings" :key="s.teamId" :class="{ 'is-first': s.position === 1 }">
+              <template v-for="(s, i) in tableRows" :key="s.teamId">
+              <tr v-if="s.group && s.group !== tableRows[i - 1]?.group"><th :colspan="STANDING_HEADERS.length" scope="colgroup" class="mono standings__group">Grupo {{ s.group }}</th></tr>
+              <tr :class="{ 'is-first': s.position === 1 }">
                 <td class="mono standings__pos">{{ String(s.position).padStart(2, '0') }}</td>
                 <td class="standings__team"><router-link :to="`/equipo/${s.teamId}`" class="ent-link"><TeamBadge :name="s.teamName" :logo-url="s.logoUrl || ''" :size="26" /> {{ s.teamName }}</router-link></td>
                 <td class="mono">{{ s.gamesPlayed }}</td>
@@ -105,6 +107,7 @@
                 <td class="mono">{{ s.pointDifferential > 0 ? '+' : '' }}{{ s.pointDifferential }}</td>
                 <td class="mono standings__pts">{{ s.points }}</td>
               </tr>
+              </template>
               <tr v-if="!standings.length">
                 <td :colspan="STANDING_HEADERS.length" class="standings__none">La tabla aparece cuando hay equipos aprobados.</td>
               </tr>
@@ -208,6 +211,8 @@ const authStore = useAuthStore()
 const tournament = ref(null)
 const matches = ref([])
 const standings = ref([])
+// Groups tournament: the API sends seed order (1A, 1B, 2A...); show them group by group
+const tableRows = computed(() => [...standings.value].sort((a, b) => (a.group || "").localeCompare(b.group || "")))
 const leaders = ref({ points: [], rebounds: [], assists: [], threePointers: [] })
 const loading = ref(true)
 const tab = ref('standings')
@@ -511,6 +516,13 @@ a.fx:hover {
 }
 
 .standings__none {
+  color: var(--muted);
+}
+
+.standings__group {
+  padding-top: 18px;
+  text-align: left;
+  letter-spacing: 0.12em;
   color: var(--muted);
 }
 

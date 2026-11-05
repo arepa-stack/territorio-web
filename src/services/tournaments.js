@@ -56,6 +56,16 @@ const tournamentsService = {
         return await api.post(`/tournaments/${tournamentId}/finish`)
     },
 
+    // Groups tournament: { teamId: "A" | "B" | null } (Organizer only)
+    async setGroups(tournamentId, groups) {
+        return await api.patch(`/tournaments/${tournamentId}/groups`, { groups })
+    },
+
+    // Start with the games built by hand (Organizer only)
+    async start(tournamentId) {
+        return await api.post(`/tournaments/${tournamentId}/start`)
+    },
+
     // Generate fixtures (Organizer only)
     async generateFixtures(tournamentId) {
         return await api.post(`/tournaments/${tournamentId}/generate-fixtures`)

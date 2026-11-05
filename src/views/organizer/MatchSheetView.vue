@@ -18,6 +18,7 @@
         </div>
         <div class="board__mid">
           <span class="board__label">{{ finished ? 'Final' : `Mesa técnica · J${match.round}` }}</span>
+          <GameClock v-if="!finished" :match-id="match.id" :quarter="quarter" :minutes="match.tournament.quarterDuration || 10" />
           <div v-if="!finished" class="board__periods" role="group" aria-label="Periodo">
             <button v-for="q in PERIODS" :key="q" type="button" class="filter-chip board__period" :aria-pressed="quarter === q" @click="quarter = q">{{ periodLabel(q) }}</button>
           </div>
@@ -117,6 +118,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import GameClock from '@/components/organizer/GameClock.vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import api, { handleApiError } from '@/services/api'

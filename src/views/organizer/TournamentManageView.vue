@@ -98,6 +98,10 @@
             <label class="field-label" for="e-fee">Inscripción ($)</label>
             <input id="e-fee" v-model.number="editForm.entryFee" type="number" min="0" step="0.01" class="input" required />
           </div>
+          <div>
+            <label class="field-label" for="e-quarter">Minutos por cuarto</label>
+            <input id="e-quarter" v-model.number="editForm.quarterDuration" type="number" min="8" max="12" class="input" required />
+          </div>
           <button type="submit" class="btn-primary self-end justify-self-end md:col-start-2" :disabled="busy">
             <span class="icon">save</span> Guardar cambios
           </button>
@@ -250,10 +254,10 @@
 
       <!-- Fixture -->
       <section v-if="tab === 'fixture'" class="flex flex-col gap-space-md">
-        <div v-if="tournament.status === 'REGISTRATION'" class="card flex flex-col gap-space-sm p-space-md">
+        <div v-if="tournament.status === 'REGISTRATION' && !matches.some(m => !m.phase)" class="card flex flex-col gap-space-sm p-space-md">
           <p class="m-0 text-body-md">
-            Se generará un fixture todos contra todos con los
-            <strong class="font-stat-mono">{{ approved.length }}</strong> equipos aprobados.
+            <strong>Atajo:</strong> generar todo automático, todos contra todos{{ tournament.format === 'GROUPS' ? ' dentro de cada grupo' : '' }}, con los
+            <strong class="font-stat-mono">{{ approved.length }}</strong> equipos aprobados. O ármalo tú abajo, jornada por jornada.
           </p>
           <p v-if="fixtureBlocker" class="m-0 flex items-center gap-space-xs text-body-sm text-error">
             <span class="icon text-[18px]">warning</span>{{ fixtureBlocker }}
@@ -262,6 +266,14 @@
             <span class="icon">account_tree</span> Generar fixture
           </button>
         </div>
+
+        <FixtureBuilder
+          v-if="tournament.status === 'REGISTRATION' || (tournament.status === 'IN_PROGRESS' && !hasPlayoffGames)"
+          :tournament="tournament"
+          :registrations="registrations"
+          :matches="matches"
+          @changed="load"
+        />
 
         <!-- Reschedule requests -->
         <div v-if="rescheduleRequests.length" class="flex flex-col gap-space-sm">
@@ -485,13 +497,23 @@
           </table>
         </div>
       </section>
+
+      <!-- Danger zone, at the very end: deleting is only possible while no game has a result (backend rule) -->
+      <section v-if="canDelete" class="card mt-space-xl flex flex-col gap-space-sm border-error/40 p-space-md md:flex-row md:items-center md:justify-between">
+        <p class="m-0 text-body-sm text-on-surface-variant">
+          <strong class="text-error">Eliminar torneo:</strong> se borran sus inscripciones y partidos. No se puede deshacer.
+        </p>
+        <button type="button" class="btn-danger shrink-0" :disabled="busy" @click="deleteTournament">
+          <span class="icon">delete</span> Eliminar torneo
+        </button>
+      </section>
     </template>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'
 import TournamentCover from '@/components/tournament/TournamentCover.vue'
@@ -508,9 +530,11 @@ import { handleApiError } from '@/services/api'
 import { useConfirm } from '@/composables/useConfirm'
 import PlayoffBracket from '@/components/PlayoffBracket.vue'
 import TournamentSanctions from '@/components/organizer/TournamentSanctions.vue'
+import FixtureBuilder from '@/components/organizer/FixtureBuilder.vue'
 import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload, formatDate, PLAYOFF_OPTIONS, SANCTION_TYPES } from '@/utils/labels'
 
 const route = useRoute()
+const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 const id = route.params.id
@@ -576,6 +600,8 @@ const fixtureBlocker = computed(() => {
   if (approved.value.length < min) return `Se necesitan al menos ${min} equipos aprobados (hay ${approved.value.length}).`
   const notValid = approved.value.filter(r => r.roster?.status === 'NOT_VALIDATED')
   if (notValid.length) return `Planteles sin validar: ${notValid.map(r => r.team.name).join(', ')}.`
+  const loose = tournament.value?.format === 'GROUPS' ? approved.value.filter(r => !r.groupName) : []
+  if (loose.length) return `Equipos sin grupo: ${loose.map(r => r.team.name).join(', ')}.`
   return ''
 })
 
@@ -716,7 +742,8 @@ const fillEditForm = () => {
     endDate: isoDay(t.endDate),
     minTeams: t.minTeams,
     maxTeams: t.maxTeams,
-    entryFee: Number(t.entryFee)
+    entryFee: Number(t.entryFee),
+    quarterDuration: t.quarterDuration || 10
   }
 }
 const saveData = () => {
@@ -773,6 +800,28 @@ const finishTournament = async () => {
     confirmText: 'Coronar campeón'
   })
   if (ok) run(() => tournamentsService.finish(id), `${champ.teamName} es campeón`)
+}
+
+const canDelete = computed(() => !matches.value.some(m => ['FINISHED', 'FORFEIT'].includes(m.status)))
+const deleteTournament = async () => {
+  const t = tournament.value
+  const ok = await confirm({
+    title: 'Eliminar torneo',
+    message: `¿Seguro que quieres eliminar "${t.name}"? Se borran ${registrations.value.length} inscripciones y ${matches.value.length} partidos. No se puede deshacer.`,
+    confirmText: 'Eliminar',
+    danger: true
+  })
+  if (!ok) return
+  busy.value = true
+  try {
+    await tournamentsService.delete(id)
+    toast.success('Torneo eliminado')
+    router.push('/app/organizer')
+  } catch (error) {
+    toast.error(handleApiError(error, 'No se pudo eliminar el torneo'))
+  } finally {
+    busy.value = false
+  }
 }
 
 const generateFixture = () => run(() => tournamentsService.generateFixtures(id), 'Fixture generado')

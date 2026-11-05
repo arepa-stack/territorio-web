@@ -81,15 +81,21 @@
             </div>
 
             <div v-else class="grid gap-space-md md:grid-cols-2 xl:grid-cols-3">
-                <article v-for="t in filteredTournaments" :key="t.id" class="card flex flex-col gap-space-md p-space-md">
+                <!-- The whole card opens the tournament; the footer keeps the secondary actions small -->
+                <article
+                    v-for="t in filteredTournaments"
+                    :key="t.id"
+                    class="card flex cursor-pointer flex-col gap-space-sm p-space-md transition-colors hover:border-primary-container"
+                    @click="manageTournament(t)"
+                >
                     <div class="flex items-start justify-between gap-space-sm">
-                        <h3 class="m-0 min-w-0 font-headline-md text-headline-md uppercase text-on-surface">{{ t.name }}</h3>
+                        <h3 class="m-0 min-w-0 font-title-sm text-title-sm uppercase text-on-surface">{{ t.name }}</h3>
                         <StatusChip :status="t.status" />
                     </div>
-                    <div class="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-                        <span class="flex items-center gap-space-xs"><span class="icon text-[18px]">location_on</span>{{ t.location }}</span>
-                        <span class="flex items-center gap-space-xs">
-                            <span class="icon text-[18px]">calendar_month</span>
+                    <div class="flex flex-wrap gap-x-space-md gap-y-1 text-body-sm text-on-surface-variant">
+                        <span class="flex items-center gap-1"><span class="icon text-[16px]">location_on</span>{{ t.location }}</span>
+                        <span class="flex items-center gap-1">
+                            <span class="icon text-[16px]">calendar_month</span>
                             {{ formatDate(t.startDate) }} – {{ formatDate(t.endDate) }}
                         </span>
                     </div>
@@ -102,15 +108,15 @@
                             <div class="h-full bg-secondary-container" :style="{ width: Math.min(100, (t.registeredTeams / t.maxTeams) * 100) + '%' }" />
                         </div>
                     </div>
-                    <span
-                        v-if="t.pendingTeams"
-                        class="label-tactical self-start rounded bg-primary-container/15 px-space-sm py-1 text-primary"
-                    >{{ t.pendingTeams }} pendiente(s)</span>
-                    <div class="mt-auto flex gap-space-sm">
-                        <button type="button" class="btn-primary flex-1" @click="manageTournament(t)">Gestionar</button>
-                        <TournamentInfoButton :tournament="t" />
-                        <button type="button" class="btn-secondary" aria-label="Eliminar torneo" @click="deleteTournament(t)">
-                            <span class="icon">delete</span>
+                    <div class="mt-auto flex items-center gap-1 border-0 border-t border-solid border-outline-variant/30 pt-space-sm" @click.stop>
+                        <span
+                            v-if="t.pendingTeams"
+                            class="label-tactical rounded bg-primary-container/15 px-space-sm py-0.5 text-primary"
+                        >{{ t.pendingTeams }} por revisar</span>
+                        <span class="flex-1" />
+                        <TournamentInfoButton :tournament="t" compact />
+                        <button type="button" class="btn-ghost px-space-xs text-primary" @click="manageTournament(t)">
+                            Gestionar <span class="icon text-[18px]">arrow_forward</span>
                         </button>
                     </div>
                 </article>
@@ -212,6 +218,13 @@
                             <div>
                                 <label class="field-label" for="t-max">Máx. equipos</label>
                                 <input id="t-max" v-model.number="formData.maxTeams" class="input font-mono" type="number" min="4" max="32" />
+                            </div>
+                            <div class="col-span-2 md:col-span-5">
+                                <label class="field-label" for="t-format">Formato</label>
+                                <select id="t-format" v-model="formData.format" class="input">
+                                    <option value="ROUND_ROBIN">Todos contra todos</option>
+                                    <option value="GROUPS">Por grupos (tú armas los grupos)</option>
+                                </select>
                             </div>
                             <div class="col-span-2 md:col-span-5">
                                 <label class="field-label" for="t-playoffs">Playoffs</label>
@@ -361,6 +374,7 @@ const formData = ref({
     maxTeams: 16,
     minTeams: 4,
     playoffTeams: 0,
+    format: 'ROUND_ROBIN',
     requireIdVerification: false,
     entryFee: 10,
     playersPerTeam: 12,
@@ -491,6 +505,7 @@ const createTournament = async (prefill = {}) => {
         maxTeams: 16,
         minTeams: 4,
         playoffTeams: 0,
+        format: 'ROUND_ROBIN',
         requireIdVerification: false,
         entryFee: 10,
         playersPerTeam: 12,
@@ -574,6 +589,7 @@ const saveTournament = async () => {
             playersPerTeam: Number(formData.value.playersPerTeam),
             quarterDuration: Number(formData.value.quarterDuration),
             playoffTeams: Number(formData.value.playoffTeams),
+            format: formData.value.format,
             requireIdVerification: Boolean(formData.value.requireIdVerification),
             rules: (formData.value.rulesText || '').split('\n').map(r => r.trim()).filter(Boolean),
             prizes: (formData.value.prizesText || '').split('\n').map(p => p.trim()).filter(Boolean),
@@ -600,25 +616,6 @@ const saveTournament = async () => {
 
 const manageTournament = (tournament) => {
     router.push(`/app/organizer/tournament/${tournament.id}`)
-}
-
-const deleteTournament = async (tournament) => {
-    const ok = await confirm({
-        title: 'Eliminar torneo',
-        message: `¿Seguro que quieres eliminar "${tournament.name}"? Esta acción no se puede deshacer.`,
-        confirmText: 'Eliminar',
-        danger: true
-    })
-    if (!ok) return
-
-    try {
-        await tournamentsService.delete(tournament.id)
-        toast.success('Torneo eliminado')
-        fetchTournaments()
-    } catch (error) {
-        console.error('Error deleting tournament:', error)
-        toast.error(handleApiError(error, 'Error al eliminar torneo'))
-    }
 }
 
 onMounted(() => {

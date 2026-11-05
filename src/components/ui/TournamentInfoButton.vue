@@ -2,6 +2,10 @@
   <button v-if="waiver" type="button" class="btn-secondary" :disabled="accepting" @click="open">
     <span class="icon">fact_check</span> {{ accepting ? 'Aceptando…' : 'Aceptar reglamento' }}
   </button>
+  <!-- compact: icon only, for dense lists like the organizer panel -->
+  <button v-else-if="compact" type="button" class="btn-ghost px-space-xs" aria-label="Detalles" title="Detalles" @click="open">
+    <span class="icon text-[20px]">info</span>
+  </button>
   <button v-else type="button" class="btn-secondary" @click="open">
     <span class="icon">info</span> Detalles
   </button>
@@ -113,7 +117,7 @@ const WAIVER_TEXT =
 
 // Tournament from the API list; venues/referees only come with the detail, fetched on first open.
 // waiver: the button opens the same sheet to accept the rules and waiver; emits 'accepted' when saved
-const props = defineProps({ tournament: { type: Object, required: true }, waiver: { type: Boolean, default: false } })
+const props = defineProps({ tournament: { type: Object, required: true }, waiver: { type: Boolean, default: false }, compact: { type: Boolean, default: false } })
 const emit = defineEmits(['accepted'])
 const toast = useToast()
 const accepting = ref(false)

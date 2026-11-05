@@ -1,6 +1,15 @@
 import api from './api'
 
 const matchesService = {
+    // Organizer builds a game by hand: { tournamentId, homeTeamId, awayTeamId, matchDate, matchTime, venue, round }
+    async create(data) {
+        return await api.post("/matches", data)
+    },
+
+    async remove(matchId) {
+        return await api.delete(`/matches/${matchId}`)
+    },
+
     // Organizer: date, time, venue or status (SCHEDULED / SUSPENDED / CANCELLED)
     async update(matchId, data) {
         return await api.patch(`/matches/${matchId}`, data)
