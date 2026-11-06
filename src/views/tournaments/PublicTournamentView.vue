@@ -149,8 +149,8 @@
                   <span class="mono leaders__team">{{ item.teamName }} · {{ item.gamesPlayed }} PJ</span>
                 </span>
                 <span class="leaders__val">
-                  <span class="display leaders__total">{{ item[cat.field] }}</span>
-                  <span class="mono leaders__pg">{{ item[cat.perGameField] }}/P</span>
+                  <span class="display leaders__total">{{ item.value }}</span>
+                  <span class="mono leaders__pg">{{ item.perGame }}/P</span>
                 </span>
               </li>
             </ol>
@@ -196,10 +196,10 @@ const tabs = [
 const STANDING_HEADERS = ['Pos', 'Equipo', 'PJ', 'PG', 'PP', 'PF', 'PC', 'DIF', 'PTS']
 
 const leaderCategories = [
-  { key: 'points', title: 'Anotadores', unit: 'PTS', field: 'points', perGameField: 'pointsPerGame' },
-  { key: 'rebounds', title: 'Rebotes', unit: 'REB', field: 'rebounds', perGameField: 'reboundsPerGame' },
-  { key: 'assists', title: 'Asistencias', unit: 'AST', field: 'assists', perGameField: 'assistsPerGame' },
-  { key: 'threePointers', title: 'Triples', unit: '3P', field: 'threePointers', perGameField: 'threePointersPerGame' }
+  { key: 'points', title: 'Anotadores', unit: 'PTS' },
+  { key: 'rebounds', title: 'Rebotes', unit: 'REB' },
+  { key: 'assists', title: 'Asistencias', unit: 'AST' },
+  { key: 'threePointers', title: 'Triples', unit: '3P' }
 ]
 
 const bracket = ref(null)
