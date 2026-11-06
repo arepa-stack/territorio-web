@@ -181,14 +181,14 @@
       </section>
 
       <!-- Tabs -->
-      <div class="flex gap-space-xs border-b border-solid border-x-0 border-t-0 border-outline-variant/40" role="tablist">
+      <div class="flex gap-space-xs overflow-x-auto border-b border-solid border-x-0 border-t-0 border-outline-variant/40" role="tablist">
         <button
           v-for="t in tabs"
           :key="t.value"
           type="button"
           role="tab"
           :aria-selected="tab === t.value"
-          class="label-tactical flex cursor-pointer items-center gap-1.5 border-0 border-b-2 border-solid bg-transparent px-space-md py-space-sm text-[14px]"
+          class="label-tactical flex shrink-0 cursor-pointer whitespace-nowrap items-center gap-1.5 border-0 border-b-2 border-solid bg-transparent px-space-md py-space-sm text-[14px]"
           :class="tab === t.value ? 'border-primary-container text-primary' : 'border-transparent text-on-surface-variant'"
           @click="tab = t.value"
         >

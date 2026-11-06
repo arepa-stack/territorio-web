@@ -107,7 +107,7 @@
           <span class="log__q">{{ periodLabel(e.quarter) }}</span>
           <span class="log__what" :class="{ 'is-pts': pointsOf(e.eventType) }">{{ shortOf(e.eventType) }}</span>
           <span class="log__num">#{{ e.player.jerseyNumber }}</span>
-          <span class="log__who">{{ e.player.user?.fullName || 'Jugador' }} · {{ e.player.team.name }}</span>
+          <span class="log__who">{{ e.player.user?.fullName || e.player.fullName || 'Jugador' }} · {{ e.player.team.name }}</span>
           <span v-if="e.saving" class="log__state">Guardando…</span>
           <button v-else-if="!finished" type="button" class="log__del" :aria-label="`Borrar ${labelOf(e.eventType)} de #${e.player.jerseyNumber}`" @click="removeEvent(e)">✕</button>
         </div>
