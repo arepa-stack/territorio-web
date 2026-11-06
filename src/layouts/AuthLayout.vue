@@ -20,7 +20,7 @@
 
     <div class="auth__side">
       <header class="auth__head">
-        <router-link to="/" class="auth__brand">Territorio<span class="auth__blaze">.</span></router-link>
+        <router-link to="/" class="auth__brand">Turf<span class="auth__blaze">.</span></router-link>
         <router-link to="/" class="auth__back">← Volver al inicio</router-link>
       </header>
       <main class="auth__main">

@@ -968,7 +968,7 @@ const copyInvite = async i => {
 }
 
 const whatsappUrl = i =>
-  `https://wa.me/?text=${encodeURIComponent(`¡Únete a ${team.value.name} en Territorio! Elige tu dorsal aquí: ${inviteUrl(i.token)}`)}`
+  `https://wa.me/?text=${encodeURIComponent(`¡Únete a ${team.value.name} en Turf! Elige tu dorsal aquí: ${inviteUrl(i.token)}`)}`
 
 const revokeInvite = async i => {
   if (!(await confirm({ title: 'Revocar link', message: 'Quien tenga este link ya no podrá unirse al equipo.', confirmText: 'Revocar', danger: true }))) return

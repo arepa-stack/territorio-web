@@ -28,7 +28,11 @@
         <VenueLocation :name="match.venue" />
       </section>
 
-      <!-- Box score -->
+      <!-- Box score (a scheduled match has nothing to show yet) -->
+      <p v-if="match.status === 'SCHEDULED'" class="card m-0 p-space-md text-body-md text-on-surface-variant">
+        Las estadísticas de cada jugador aparecerán aquí cuando se juegue el partido.
+      </p>
+      <template v-else>
       <section v-for="side in boxScore" :key="side.team.id">
         <SectionHeader :title="side.team.name" icon="sports_basketball" />
         <div v-if="side.rows.length" class="card overflow-x-auto">
@@ -59,6 +63,7 @@
         </div>
         <p v-else class="m-0 text-body-md text-on-surface-variant">Sin planilla cargada.</p>
       </section>
+      </template>
 
       <!-- Ratings (participants of a finished match) -->
       <section v-if="myRatings.canRate" class="grid gap-space-md md:grid-cols-2">
