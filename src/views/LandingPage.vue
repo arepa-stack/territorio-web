@@ -178,6 +178,13 @@
     </section>
 
     <footer>
+      <div class="wrap launch">
+        <p class="launch__text">
+          <span class="launch__tag mono">Lanzamiento</span>
+          Organizar torneos en Turf es <strong>gratis por tiempo limitado</strong>. Aprovecha y sé de los primeros organizadores: más adelante publicar un torneo tendrá costo.
+        </p>
+        <a class="launch__mail mono" :href="contactMail">¿Dudas? adminnibstech@gmail.com</a>
+      </div>
       <div class="wrap footer mono">
         <span>Turf · Basket de barrio</span>
         <nav class="footer__links" aria-label="Pie de página">
@@ -235,6 +242,7 @@ const stageOf = b => {
   const played = [...b.phases].reverse().find(ph => ph.games.some(g => g.matchId))
   return PHASE_LABEL[played?.phase] || ''
 }
+const contactMail = `mailto:adminnibstech@gmail.com?subject=${encodeURIComponent('Quiero organizar un torneo en Turf')}`
 const heroPhoto = computed(() => tournaments.value.find(t => t.coverPhoto)?.coverPhoto || '')
 const standings = computed(() => Object.fromEntries((summary.value?.zones || []).map(z => [z.id, z])))
 const counters = computed(() => [
@@ -681,6 +689,45 @@ onMounted(async () => {
 }
 
 /* Footer */
+.launch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding-top: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid color-mix(in srgb, var(--muted) 25%, transparent);
+}
+
+.launch__text {
+  margin: 0;
+  max-width: 720px;
+  line-height: 1.5;
+}
+
+.launch__tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  background: var(--blaze);
+  color: #fff;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.poster .launch__mail {
+  color: var(--blaze);
+  font-size: 13px;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.poster .launch__mail:hover {
+  text-decoration: underline;
+}
+
 .footer {
   display: flex;
   flex-wrap: wrap;
