@@ -198,7 +198,7 @@ const boxScore = computed(() => {
       rows.set(p.id, {
         id: p.id,
         teamId: p.team?.id,
-        name: p.user?.fullName || 'Jugador',
+        name: p.user?.fullName || p.fullName || 'Jugador',
         jerseyNumber: p.jerseyNumber,
         ...Object.fromEntries(boxColumns.map(c => [c.key, 0]))
       })

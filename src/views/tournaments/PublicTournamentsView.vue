@@ -98,6 +98,10 @@ onMounted(async () => {
     // ponytail: client-side filtering over the first 200; move filters to the API when there are more tournaments
     const res = await tournamentsService.getAll({ limit: 200 })
     tournaments.value = (res.data.tournaments || []).filter(t => t.status !== 'CANCELLED')
+    // No open registrations: land on the tournaments being played instead of an empty list
+    if (!route.query.estado && status.value === 'REGISTRATION' && !countStatus('REGISTRATION')) {
+      status.value = countStatus('IN_PROGRESS') ? 'IN_PROGRESS' : 'ALL'
+    }
   } catch {
     tournaments.value = []
   } finally {
