@@ -1,12 +1,22 @@
 <template>
   <div class="clock" :class="{ 'clock--run': running, 'clock--end': left === 0 }">
-    <span class="clock__time" role="timer" :aria-label="`Tiempo restante ${display}`">{{ display }}</span>
+    <div class="clock__row">
+      <span class="clock__time" role="timer" :aria-label="`Tiempo restante ${display}`">{{ display }}</span>
+      <span
+        class="clock__shot"
+        :class="{ 'clock__shot--end': shotLeft === 0, 'clock__shot--off': shotOff }"
+        role="timer"
+        :aria-label="`Posesión ${shotDisplay}`"
+      >{{ shotOff ? '--' : shotDisplay }}</span>
+    </div>
     <div class="clock__ctrl">
       <button type="button" class="clock__btn" aria-label="Restar un segundo" :disabled="running" @click="nudge(-1000)">−1s</button>
       <button type="button" class="clock__btn clock__btn--main" :aria-label="running ? 'Pausar' : 'Arrancar'" :disabled="!running && left === 0" @click="toggle">
         <span class="icon">{{ running ? 'pause' : 'play_arrow' }}</span>
       </button>
       <button type="button" class="clock__btn" aria-label="Sumar un segundo" :disabled="running" @click="nudge(1000)">+1s</button>
+      <button type="button" class="clock__btn clock__btn--shot" aria-label="Posesión a 24" @click="shotReset(24)">24</button>
+      <button type="button" class="clock__btn clock__btn--shot" aria-label="Posesión a 14" @click="shotReset(14)">14</button>
       <button type="button" class="clock__btn" aria-label="Reiniciar el periodo" :disabled="running" @click="reset">
         <span class="icon text-[18px]">restart_alt</span>
       </button>
@@ -39,11 +49,15 @@ const saved = load()
 const remaining = ref(saved.remaining || {}) // { [quarter]: ms left when last paused }
 const startedAt = ref(saved.startedAt || null) // Date.now() when it was started; null = paused
 const runningQ = ref(saved.runningQ || null)
+// Shot clock: runs only while the game clock runs. shotBase = ms left when it last stopped,
+// shotAt = Date.now() when it started counting (null = stopped)
+const shotBase = ref(saved.shotBase ?? 24000)
+const shotAt = ref(saved.shotAt ?? null)
 const now = ref(Date.now())
 
 const save = () => {
   try {
-    localStorage.setItem(key, JSON.stringify({ remaining: remaining.value, startedAt: startedAt.value, runningQ: runningQ.value }))
+    localStorage.setItem(key, JSON.stringify({ remaining: remaining.value, startedAt: startedAt.value, runningQ: runningQ.value, shotBase: shotBase.value, shotAt: shotAt.value }))
   } catch {
     /* private mode: the clock still works, it just won't survive a reload */
   }
@@ -52,6 +66,21 @@ const save = () => {
 const base = q => remaining.value[q] ?? fullOf(q)
 const running = computed(() => startedAt.value !== null && runningQ.value === props.quarter)
 const left = computed(() => Math.max(0, running.value ? base(props.quarter) - (now.value - startedAt.value) : base(props.quarter)))
+
+const shotLeft = computed(() => Math.max(0, shotAt.value === null ? shotBase.value : shotBase.value - (now.value - shotAt.value)))
+// whole seconds, tenths in the last 5 (FIBA)
+const shotDisplay = computed(() => (shotLeft.value > 0 && shotLeft.value < 5000 ? (Math.floor(shotLeft.value / 100) / 10).toFixed(1) : Math.ceil(shotLeft.value / 1000)))
+// FIBA: shot clock switches off when less game time is left than possession time
+const shotOff = computed(() => left.value < shotLeft.value)
+const shotStop = () => {
+  shotBase.value = shotLeft.value
+  shotAt.value = null
+}
+const shotReset = secs => {
+  shotBase.value = secs * 1000
+  shotAt.value = running.value ? Date.now() : null // a reset doesn't stop or start anything
+  save()
+}
 
 // FIBA style: mm:ss, and ss.d in the last minute
 const display = computed(() => {
@@ -65,6 +94,8 @@ const pause = () => {
   if (startedAt.value === null) return
   remaining.value = { ...remaining.value, [runningQ.value]: Math.max(0, base(runningQ.value) - (Date.now() - startedAt.value)) }
   startedAt.value = runningQ.value = null
+  now.value = Date.now()
+  if (shotAt.value !== null) shotStop()
   save()
 }
 const toggle = () => {
@@ -72,6 +103,7 @@ const toggle = () => {
   pause() // another period running: stop it first
   startedAt.value = Date.now()
   runningQ.value = props.quarter
+  if (shotBase.value > 0) shotAt.value = startedAt.value
   save()
 }
 const nudge = ms => {
@@ -81,11 +113,18 @@ const nudge = ms => {
 const reset = () => {
   const { [props.quarter]: _, ...rest } = remaining.value
   remaining.value = rest
-  save()
+  shotReset(24)
 }
 
 // Changing period pauses the clock (the time of each period stays where it was)
-watch(() => props.quarter, pause)
+// and the new period starts with a fresh 24
+watch(
+  () => props.quarter,
+  () => {
+    pause()
+    shotReset(24)
+  }
+)
 
 // Buzzer: short beep + vibration when the period ends
 const buzz = () => {
@@ -106,6 +145,11 @@ const timer = setInterval(() => {
   now.value = Date.now()
   if (running.value && left.value === 0) {
     pause()
+    buzz()
+  } else if (shotAt.value !== null && shotLeft.value === 0) {
+    // shot clock violation: buzz and hold 0, stopping the game is the referee's call
+    shotStop()
+    save()
     buzz()
   }
 }, 100)
@@ -132,6 +176,44 @@ onBeforeUnmount(() => clearInterval(timer))
   line-height: 1.1;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+.clock__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clock__shot {
+  min-width: 2.6ch;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgb(var(--c-surface-container-lowest));
+  color: rgb(var(--c-on-surface-variant));
+  font-family: var(--f-mono);
+  font-size: clamp(24px, 3.4vw, 36px);
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock--run .clock__shot {
+  color: rgb(var(--c-secondary));
+}
+
+.clock__shot--end,
+.clock--run .clock__shot--end {
+  color: rgb(var(--c-error));
+}
+
+.clock__shot--off {
+  opacity: 0.4;
+}
+
+.clock__btn--shot {
+  font-weight: 700;
+  font-size: 14px;
 }
 
 .clock--run .clock__time {
