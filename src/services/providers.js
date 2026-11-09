@@ -2,7 +2,7 @@ import api from './api'
 
 export const PROVIDER_CATEGORIES = {
   UNIFORMS: { label: 'Uniformes', icon: 'checkroom' },
-  EQUIPMENT: { label: 'Balones e implementos', icon: 'sports_basketball' },
+  EQUIPMENT: { label: 'Zapatos y equipamiento', icon: 'sports_basketball' },
   REFEREES: { label: 'Arbitraje', icon: 'sports' },
   MEDIA: { label: 'Foto y video', icon: 'photo_camera' },
   COURTS: { label: 'Canchas', icon: 'stadium' },
@@ -17,9 +17,9 @@ export default {
   create: data => api.post('/providers', data),
   update: (id, data) => api.patch(`/providers/${id}`, data),
   remove: id => api.delete(`/providers/${id}`),
-  uploadLogo: file => {
+  uploadImage: (file, kind = 'logo') => {
     const form = new FormData()
     form.append('file', file)
-    return api.post('/uploads/provider-logo', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+    return api.post(`/uploads/provider-${kind}`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
   }
 }

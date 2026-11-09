@@ -36,7 +36,10 @@
       </div>
 
       <ul v-else class="pv-grid">
-        <li v-for="p in filtered" :key="p.id" class="pv-card">
+        <li v-for="p in filtered" :key="p.id" class="pv-card" :class="{ 'pv-card--cover': p.coverUrl }">
+          <div v-if="p.coverUrl" class="pv-card__cover">
+            <img :src="p.coverUrl" alt="" loading="lazy" />
+          </div>
           <div class="pv-card__top">
             <img v-if="p.logoUrl" :src="p.logoUrl" :alt="`Logo de ${p.name}`" class="pv-card__logo" loading="lazy" />
             <span v-else class="display pv-card__logo pv-card__logo--txt" aria-hidden="true">{{ initials(p.name) }}</span>
@@ -152,13 +155,52 @@ watch(country, load, { immediate: true })
   align-items: center;
 }
 
+/* With a cover: photo bleeds to the card edges and the logo sits on its bottom edge */
+.pv-card__cover {
+  position: relative;
+  margin: -20px -20px -44px;
+  aspect-ratio: 16 / 7;
+  overflow: hidden;
+}
+
+.pv-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.pv-card__cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 45%, var(--asphalt-2) 100%);
+}
+
+.pv-card--cover:hover .pv-card__cover img {
+  transform: scale(1.04);
+}
+
+.pv-card--cover .pv-card__top {
+  position: relative;
+  align-items: flex-end;
+}
+
 .pv-card__logo {
   width: 64px;
   height: 64px;
   flex: none;
-  object-fit: cover;
+  object-fit: contain; /* logos are rarely square */
   border-radius: 4px;
   background: var(--asphalt);
+}
+
+.pv-card--cover .pv-card__logo {
+  width: 84px;
+  height: 84px;
+  padding: 4px;
+  border: 2px solid var(--line);
+  box-sizing: border-box;
 }
 
 .pv-card__logo--txt {

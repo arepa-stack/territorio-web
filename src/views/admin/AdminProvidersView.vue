@@ -51,8 +51,16 @@
           <label class="p-label" for="pv-logo">Logo</label>
           <div class="ap-logo">
             <img v-if="form.logoUrl" :src="form.logoUrl" alt="" class="ap-logo__img" />
-            <input id="pv-logo" type="file" accept="image/*" class="ap-logo__file" :disabled="uploading" @change="upload" />
+            <input id="pv-logo" type="file" accept="image/*" class="ap-logo__file" :disabled="uploading" @change="upload($event, 'logo')" />
             <button v-if="form.logoUrl" type="button" class="link-under" @click="form.logoUrl = ''">Quitar</button>
+          </div>
+        </div>
+        <div class="p-field">
+          <label class="p-label" for="pv-cover">Portada (foto horizontal)</label>
+          <div class="ap-logo">
+            <img v-if="form.coverUrl" :src="form.coverUrl" alt="" class="ap-logo__img ap-logo__img--cover" />
+            <input id="pv-cover" type="file" accept="image/*" class="ap-logo__file" :disabled="uploading" @change="upload($event, 'cover')" />
+            <button v-if="form.coverUrl" type="button" class="link-under" @click="form.coverUrl = ''">Quitar</button>
           </div>
         </div>
         <div class="p-field ap-grid__wide">
@@ -126,7 +134,7 @@ const busy = ref(false)
 const uploading = ref(false)
 const form = ref(null)
 
-const FIELDS = ['name', 'category', 'country', 'city', 'whatsapp', 'instagram', 'website', 'logoUrl', 'description', 'isActive']
+const FIELDS = ['name', 'category', 'country', 'city', 'whatsapp', 'instagram', 'website', 'logoUrl', 'coverUrl', 'description', 'isActive']
 
 const load = async () => {
   loading.value = true
@@ -146,15 +154,15 @@ watch(country, () => {
 const openForm = (p = null) => {
   form.value = p
     ? { id: p.id, ...Object.fromEntries(FIELDS.map(f => [f, p[f] ?? ''])), whatsapp: p.whatsapp ? `+${p.whatsapp}` : '' }
-    : { name: '', category: 'UNIFORMS', country: country.value, city: '', whatsapp: '', instagram: '', website: '', logoUrl: '', description: '', isActive: true }
+    : { name: '', category: 'UNIFORMS', country: country.value, city: '', whatsapp: '', instagram: '', website: '', logoUrl: '', coverUrl: '', description: '', isActive: true }
 }
 
-const upload = async e => {
+const upload = async (e, kind) => {
   const file = e.target.files?.[0]
   if (!file) return
   uploading.value = true
   try {
-    form.value.logoUrl = (await providersService.uploadLogo(file)).data.url
+    form.value[kind === 'cover' ? 'coverUrl' : 'logoUrl'] = (await providersService.uploadImage(file, kind)).data.url
   } catch (error) {
     toast.error(handleApiError(error, 'No se pudo subir el logo'))
   } finally {
@@ -259,6 +267,10 @@ const remove = async p => {
   height: 48px;
   object-fit: cover;
   border-radius: 4px;
+}
+
+.ap-logo__img--cover {
+  width: 85px;
 }
 
 .ap-logo__file {
