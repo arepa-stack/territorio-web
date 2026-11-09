@@ -2,12 +2,18 @@
   <div class="clock" :class="{ 'clock--run': running, 'clock--end': left === 0 }">
     <div class="clock__row">
       <span class="clock__time" role="timer" :aria-label="`Tiempo restante ${display}`">{{ display }}</span>
-      <span
+      <button
+        type="button"
         class="clock__shot"
         :class="{ 'clock__shot--end': shotLeft === 0, 'clock__shot--off': shotOff }"
         role="timer"
-        :aria-label="`Posesión ${shotDisplay}`"
-      >{{ shotOff ? '--' : shotDisplay }}</span>
+        :aria-label="`Posesión ${possession === 'home' ? 'local' : 'visitante'} ${shotDisplay}. Tocar para cambiar de equipo`"
+        @click="newPossession(possession === 'home' ? 'away' : 'home', false)"
+      >
+        <span class="icon clock__arrow" :class="{ 'is-hidden': possession !== 'home' }">arrow_left</span>
+        {{ shotOff ? '--' : shotDisplay }}
+        <span class="icon clock__arrow" :class="{ 'is-hidden': possession !== 'away' }">arrow_right</span>
+      </button>
     </div>
     <div class="clock__ctrl">
       <button type="button" class="clock__btn" aria-label="Restar un segundo" :disabled="running" @click="nudge(-1000)">−1s</button>
@@ -53,11 +59,12 @@ const runningQ = ref(saved.runningQ || null)
 // shotAt = Date.now() when it started counting (null = stopped)
 const shotBase = ref(saved.shotBase ?? 24000)
 const shotAt = ref(saved.shotAt ?? null)
+const possession = ref(saved.possession || 'home') // arrow points to the team with the ball (home = left)
 const now = ref(Date.now())
 
 const save = () => {
   try {
-    localStorage.setItem(key, JSON.stringify({ remaining: remaining.value, startedAt: startedAt.value, runningQ: runningQ.value, shotBase: shotBase.value, shotAt: shotAt.value }))
+    localStorage.setItem(key, JSON.stringify({ remaining: remaining.value, startedAt: startedAt.value, runningQ: runningQ.value, shotBase: shotBase.value, shotAt: shotAt.value, possession: possession.value }))
   } catch {
     /* private mode: the clock still works, it just won't survive a reload */
   }
@@ -81,6 +88,15 @@ const shotReset = secs => {
   shotAt.value = running.value ? Date.now() : null // a reset doesn't stop or start anything
   save()
 }
+
+// Ball goes to a team: after a basket the match sheet calls this with the other team and a fresh 24.
+// Tapping the shot clock only switches the arrow (fixing a mistake), it keeps the time
+const newPossession = (side, reset = true) => {
+  possession.value = side
+  if (reset) shotReset(24)
+  else save()
+}
+defineExpose({ newPossession })
 
 // FIBA style: mm:ss, and ss.d in the last minute
 const display = computed(() => {
@@ -200,6 +216,22 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .clock--run .clock__shot {
   color: rgb(var(--c-secondary));
+}
+
+.clock__shot {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  cursor: pointer;
+}
+
+.clock__arrow {
+  font-size: 1em;
+  color: rgb(var(--c-primary));
+}
+
+.clock__arrow.is-hidden {
+  visibility: hidden;
 }
 
 .clock__shot--end,

@@ -18,7 +18,7 @@
         </div>
         <div class="board__mid">
           <span class="board__label">{{ finished ? 'Final' : `Mesa técnica · J${match.round}` }}</span>
-          <GameClock v-if="!finished" :match-id="match.id" :quarter="quarter" :minutes="match.tournament.quarterDuration || 10" />
+          <GameClock v-if="!finished" ref="clock" :match-id="match.id" :quarter="quarter" :minutes="match.tournament.quarterDuration || 10" />
           <div v-if="!finished" class="board__periods" role="group" aria-label="Periodo">
             <button v-for="q in PERIODS" :key="q" type="button" class="filter-chip board__period" :aria-pressed="quarter === q" @click="quarter = q">{{ periodLabel(q) }}</button>
           </div>
@@ -157,6 +157,7 @@ const pointsOf = type => ACTIONS.find(a => a.type === type)?.points || 0
 const shortName = name => (name || '').split(' ').slice(0, 2).join(' ')
 
 const root = ref(null)
+const clock = ref(null)
 const match = ref(null)
 const homePlayers = ref([])
 const awayPlayers = ref([])
@@ -214,6 +215,8 @@ const undoable = computed(() => pending.value.length || events.value.some(e => !
 // ---- taps ----
 const tapAction = (side, action) => {
   assist.value = null
+  // ponytail: made field goal = ball to the other team. Free throws don't (only the last one does: tap 24), undo doesn't rewind it
+  if (action.points > 1) clock.value?.newPossession(side === 'home' ? 'away' : 'home')
   const player = armed.value && sides.value.find(s => s.key === side).players.includes(armed.value) ? armed.value : null
   armed.value = null
   if (player) return record(side, player, action)
