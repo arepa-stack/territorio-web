@@ -167,7 +167,7 @@
               <span>Torneos en esta cancha</span>
               <span :class="activeCount(venueTournaments) ? 'is-live' : 'is-idle'">{{ activeCount(venueTournaments) }} activo(s)</span>
             </div>
-            <p v-if="loadingTournaments" class="zm__note">Cargando…</p>
+            <TurfLoader v-if="loadingTournaments" label="Cargando" size="sm" />
             <p v-else-if="!venueTournaments.length" class="zm__note">Sin torneos en esta cancha.</p>
             <router-link v-for="t in venueTournaments" :key="t.id" :to="`/torneo/${t.id}`" class="zm__t">
               <span class="venues__text">

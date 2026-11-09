@@ -28,7 +28,7 @@
         >{{ c.label }} · {{ countOf(key) }}</button>
       </div>
 
-      <p v-if="loading" class="page__lead">Cargando proveedores…</p>
+      <TurfLoader v-if="loading" label="Cargando proveedores" />
       <div v-else-if="!filtered.length" class="pv-empty">
         <span class="icon pv-empty__icon">storefront</span>
         <p>Todavía no hay proveedores en {{ COUNTRIES[country].name }}{{ category ? ` en ${PROVIDER_CATEGORIES[category].label.toLowerCase()}` : '' }}.</p>

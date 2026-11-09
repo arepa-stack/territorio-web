@@ -7,7 +7,7 @@
       <span class="label-tactical uppercase text-on-surface-variant">Sala de trofeos · Palmarés</span>
     </div>
 
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando historial…</p>
+    <TurfLoader v-if="loading" label="Cargando historial" />
 
     <template v-else-if="history">
       <!-- 1. Hero: crest, name, trophies over a court-lines watermark -->

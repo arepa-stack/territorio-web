@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-space-xl">
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando tu equipo…</p>
+    <TurfLoader v-if="loading" label="Cargando tu equipo" />
 
     <!-- No team yet: a captain manages exactly one team -->
     <section v-else-if="!team" class="card mx-auto flex w-full max-w-xl flex-col gap-space-md p-space-lg">

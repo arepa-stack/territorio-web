@@ -38,7 +38,7 @@
         >{{ f.label }} · {{ countStatus(f.value) }}</button>
       </div>
 
-      <p v-if="loading" class="page__lead">Cargando torneos…</p>
+      <TurfLoader v-if="loading" label="Cargando torneos" />
       <div v-else-if="!filtered.length" class="page__empty">
         No hay torneos con estos filtros.
         <router-link to="/equipos" class="link-under">Ver equipos que buscan jugadores</router-link>

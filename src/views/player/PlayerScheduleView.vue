@@ -19,7 +19,7 @@
       >{{ t.team.name }}</button>
     </div>
 
-    <p v-if="loading" class="sched__muted">Cargando…</p>
+    <TurfLoader v-if="loading" label="Cargando" />
     <p v-else-if="!list.length" class="sched__muted">No hay partidos. Aparecen cuando se genera el fixture de un torneo donde juega tu equipo.</p>
 
     <div v-else class="sched__layout">

@@ -4,7 +4,7 @@
       <span class="icon">arrow_back</span> Panel
     </router-link>
 
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando torneo…</p>
+    <TurfLoader v-if="loading" label="Cargando torneo" />
 
     <template v-else-if="tournament">
       <!-- Header -->

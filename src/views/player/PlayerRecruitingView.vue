@@ -73,7 +73,7 @@
     <!-- Recruiting Teams -->
     <section class="flex flex-col gap-space-sm">
       <h2 class="m-0 font-headline-md text-headline-md uppercase">Equipos buscando jugadores</h2>
-      <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando equipos…</p>
+      <TurfLoader v-if="loading" label="Cargando equipos" />
       <p v-else-if="!teams.length" class="text-body-md text-on-surface-variant">
         No se encontraron equipos buscando jugadores con estos filtros.
       </p>

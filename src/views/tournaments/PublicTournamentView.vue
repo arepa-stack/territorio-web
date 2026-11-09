@@ -2,7 +2,7 @@
   <div class="poster">
     <PosterHeader />
 
-    <p v-if="loading" class="wrap page page__lead">Cargando torneo…</p>
+    <TurfLoader v-if="loading" class="wrap page" label="Cargando torneo" />
     <p v-else-if="!tournament" class="wrap page page__lead">No encontramos este torneo.</p>
 
     <template v-else>

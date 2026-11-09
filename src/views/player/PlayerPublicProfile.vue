@@ -4,7 +4,7 @@
       <span class="icon">arrow_back</span> Volver
     </button>
 
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando…</p>
+    <TurfLoader v-if="loading" label="Cargando" />
     <p v-else-if="!player" class="text-body-md text-on-surface-variant">No se encontró el jugador.</p>
 
     <template v-else>

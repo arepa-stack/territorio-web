@@ -39,7 +39,7 @@
       >{{ r.label }} · {{ countRole(r.value) }}</button>
     </div>
 
-    <p v-if="loading" class="page__lead">Cargando usuarios…</p>
+    <TurfLoader v-if="loading" label="Cargando usuarios" />
     <p v-else-if="!filtered.length" class="page__empty">Ningún usuario coincide con la búsqueda.</p>
 
     <div v-else class="u-list">

@@ -28,7 +28,7 @@
       <button v-if="isFiltered" type="button" class="btn-ghost self-end" @click="selectedTournament = selectedRival = 'ALL'">Quitar filtros</button>
     </div>
 
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando…</p>
+    <TurfLoader v-if="loading" label="Cargando" />
 
     <template v-else-if="stats">
       <section>

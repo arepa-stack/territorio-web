@@ -13,7 +13,7 @@
       </router-link>
     </div>
 
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando…</p>
+    <TurfLoader v-if="loading" label="Cargando" />
     <div v-else-if="!teams.length" class="card flex flex-col gap-space-sm p-space-lg">
       <p class="m-0 text-body-md text-on-surface-variant">
         Todavía no estás en ningún equipo activo. Un capitán te puede fichar con tu cédula o puedes postularte a un equipo que busque jugadores.

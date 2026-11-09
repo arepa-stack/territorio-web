@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-space-lg">
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando perfil…</p>
+    <TurfLoader v-if="loading" label="Cargando perfil" />
 
     <template v-else-if="me">
       <header class="card flex flex-col gap-space-md p-space-lg sm:flex-row sm:items-center sm:justify-between">

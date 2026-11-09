@@ -77,7 +77,7 @@
       </div>
     </form>
 
-    <p v-if="loading" class="page__lead">Cargando…</p>
+    <TurfLoader v-if="loading" label="Cargando" />
     <p v-else-if="!providers.length" class="page__lead">No hay proveedores en {{ COUNTRIES[country].name }} todavía.</p>
     <div v-else class="table-box">
       <table class="t-table">

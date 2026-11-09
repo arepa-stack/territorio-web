@@ -9,7 +9,7 @@
       </p>
     </div>
 
-    <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando…</p>
+    <TurfLoader v-if="loading" label="Cargando" />
     <p v-else-if="error" class="text-body-md text-error">{{ error }}</p>
 
     <template v-else>

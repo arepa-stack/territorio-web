@@ -14,7 +14,7 @@
         <p class="page__lead">Toca una zona para ver quién manda, los equipos que pelean por ella y sus canchas.</p>
       </div>
 
-      <p v-if="loading" class="page__lead">Cargando zonas…</p>
+      <TurfLoader v-if="loading" label="Cargando zonas" />
       <p v-else-if="!zones.length" class="page__empty">Todavía no hay zonas activas.</p>
       <div v-else class="layout">
         <div class="layout__map">

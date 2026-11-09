@@ -3,7 +3,7 @@
     <PublicHeader />
 
     <main class="mx-auto flex max-w-xl flex-col gap-space-lg px-gutter py-space-lg md:px-margin-md">
-      <p v-if="loading" class="text-body-md text-on-surface-variant">Cargando invitación…</p>
+      <TurfLoader v-if="loading" label="Cargando invitación" />
       <section v-else-if="!invite" class="card flex flex-col gap-space-sm p-space-lg">
         <h1 class="m-0 font-headline-lg-mobile text-headline-lg-mobile uppercase">Invitación no encontrada</h1>
         <p class="m-0 text-body-md text-on-surface-variant">El link no existe o está mal copiado. Pídele uno nuevo a tu capitán.</p>

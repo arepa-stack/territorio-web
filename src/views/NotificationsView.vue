@@ -15,7 +15,7 @@
       <button type="button" class="filter-chip" :aria-pressed="filter === 'UNREAD'" @click="setFilter('UNREAD')">No leídas · {{ unreadCount }}</button>
     </div>
 
-    <p v-if="loading" class="nv__lead">Cargando notificaciones…</p>
+    <TurfLoader v-if="loading" label="Cargando notificaciones" />
     <div v-else-if="!items.length" class="nv__empty">
       <span class="icon">notifications_off</span>
       {{ filter === 'UNREAD' ? 'Estás al día: nada sin leer.' : 'Todavía no tienes notificaciones.' }}

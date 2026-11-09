@@ -67,7 +67,7 @@
                 >{{ f.label }} ({{ countByStatus(f.value) }})</button>
             </div>
 
-            <p v-if="isLoading" class="text-body-md text-on-surface-variant">Cargando torneos…</p>
+            <TurfLoader v-if="isLoading" label="Cargando torneos" />
 
             <div v-else-if="filteredTournaments.length === 0" class="card flex flex-col items-center gap-space-sm p-space-xl text-center">
                 <span class="icon text-[40px] text-on-surface-variant">emoji_events</span>

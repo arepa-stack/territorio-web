@@ -27,7 +27,7 @@
         </div>
       </div>
 
-      <p v-if="loading" class="page__lead">Cargando equipos…</p>
+      <TurfLoader v-if="loading" label="Cargando equipos" />
       <div v-else-if="!teams.length" class="page__empty">
         Ningún equipo está buscando jugadores con estos filtros. Crea tu cuenta igual: un capitán te puede fichar con tu cédula.
         <router-link :to="ctaLink(authStore.isAuthenticated, 'PLAYER', '/app/player')" class="btn-blaze">

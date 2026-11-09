@@ -7,7 +7,7 @@
       <p v-if="team" class="m-0 mt-1 text-body-md text-on-surface-variant">Agregando jugadores a <strong class="text-on-surface">{{ team.name }}</strong>.</p>
     </div>
 
-    <p v-if="loadingTeam" class="text-body-md text-on-surface-variant">Cargando tu equipo…</p>
+    <TurfLoader v-if="loadingTeam" label="Cargando tu equipo" />
     <div v-else-if="!team" class="card flex flex-col gap-space-sm p-space-md">
       <p class="m-0 text-body-md">Primero crea tu equipo.</p>
       <router-link to="/app/captain" class="btn-primary self-start">Crear mi equipo</router-link>

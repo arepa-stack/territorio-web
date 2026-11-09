@@ -31,7 +31,7 @@
       </div>
     </div>
 
-    <p v-if="loading" class="cat__lead">Cargando torneos…</p>
+    <TurfLoader v-if="loading" label="Cargando torneos" />
     <p v-else-if="!filtered.length" class="cat__empty">No hay torneos con este filtro.</p>
 
     <div v-else class="cat__list">

@@ -43,7 +43,7 @@
       <section>
         <h3 class="label-tactical m-0 mb-space-sm flex items-center gap-space-xs"><span class="icon text-[18px] text-secondary">location_on</span>Ubicación</h3>
         <p class="m-0 mb-space-sm text-body-md">{{ t.location }}</p>
-        <p v-if="loading" class="m-0 text-body-sm text-on-surface-variant">Cargando canchas…</p>
+        <TurfLoader v-if="loading" label="Cargando canchas" size="sm" />
         <p v-else-if="!t.venues?.length" class="m-0 text-body-sm text-on-surface-variant">El organizador aún no asignó canchas.</p>
         <article v-for="v in t.venues" :key="v.id" class="mb-space-md rounded bg-surface-container-high p-space-md last:mb-0">
           <div class="flex flex-wrap items-start justify-between gap-space-sm">
@@ -71,7 +71,7 @@
 
       <section>
         <h3 class="label-tactical m-0 mb-space-sm flex items-center gap-space-xs"><span class="icon text-[18px] text-secondary">sports</span>Árbitros</h3>
-        <p v-if="loading" class="m-0 text-body-sm text-on-surface-variant">Cargando…</p>
+        <TurfLoader v-if="loading" label="Cargando" size="sm" />
         <ul v-else-if="t.referees?.length" class="m-0 flex list-none flex-wrap gap-space-sm p-0">
           <li v-for="r in t.referees" :key="r.id" class="flex items-center gap-space-xs rounded bg-surface-container-high px-space-sm py-1 text-body-sm">
             <img v-if="r.avatarUrl" :src="r.avatarUrl" alt="" class="h-6 w-6 rounded-full object-cover" />

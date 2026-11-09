@@ -6,6 +6,7 @@ import 'vue-toastification/dist/index.css'
 import './styles/tailwind.css'
 
 import App from './App.vue'
+import TurfLoader from './components/TurfLoader.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
 
@@ -24,6 +25,7 @@ app.use(Toast, {
   newestOnTop: true
 })
 app.use(router)
+app.component('TurfLoader', TurfLoader)
 
 app.config.errorHandler = (err, vm, info) => {
   console.error('Vue Error:', err, info)

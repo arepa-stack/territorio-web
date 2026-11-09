@@ -123,7 +123,7 @@
           <h2 id="torneos-t" class="display section-title">Inscripciones<br />abiertas</h2>
           <router-link to="/torneos" class="link-under">Ver todos los torneos</router-link>
         </div>
-        <p v-if="loading" class="lead">Cargando torneos…</p>
+        <TurfLoader v-if="loading" label="Cargando torneos" />
         <div v-else-if="!openTournaments.length" class="empty-box">
           No hay torneos con inscripciones abiertas ahora mismo.
           <router-link to="/torneos?estado=IN_PROGRESS" class="link-under">Ver torneos en curso</router-link>

@@ -75,7 +75,7 @@
       </button>
     </div>
 
-    <p v-if="loading" class="ts__muted">Cargando sanciones…</p>
+    <TurfLoader v-if="loading" label="Cargando sanciones" size="sm" />
     <p v-else-if="!shown.length" class="ts__empty">{{ sanctions.length ? 'Nada con este filtro.' : 'Este torneo no tiene sanciones. Ojalá siga así.' }}</p>
 
     <article v-for="s in shown" :key="s.id" class="ts__item" :class="{ 'is-off': !s.isActive, 'is-appealed': s.isAppealed }">

@@ -373,4 +373,23 @@ router.beforeEach(async (to, from, next) => {
   next()
 })
 
+const STALE_CHUNK = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i
+router.onError((error, to) => {
+  if (!STALE_CHUNK.test(error?.message || '')) return
+  try {
+    if (sessionStorage.getItem('chunk-reload') === to.fullPath) return // already tried: don't loop
+    sessionStorage.setItem('chunk-reload', to.fullPath)
+  } catch {
+    /* no storage: reload anyway */
+  }
+  window.location.assign(to.fullPath)
+})
+router.afterEach(() => {
+  try {
+    sessionStorage.removeItem('chunk-reload')
+  } catch {
+    /* ignore */
+  }
+})
+
 export default router

@@ -4,7 +4,7 @@
       <span class="icon">arrow_back</span> {{ match.tournament.name }}
     </router-link>
 
-    <p v-if="loading" class="ls__muted">Cargando planilla…</p>
+    <TurfLoader v-if="loading" label="Cargando planilla" />
 
     <template v-else-if="match">
       <!-- Scoreboard -->
