@@ -7,8 +7,9 @@
         class="clock__shot"
         :class="{ 'clock__shot--end': shotLeft === 0, 'clock__shot--off': shotOff }"
         role="timer"
-        :aria-label="`Posesión ${possession === 'home' ? 'local' : 'visitante'} ${shotDisplay}. Tocar para cambiar de equipo`"
-        @click="newPossession(possession === 'home' ? 'away' : 'home', false)"
+        :aria-label="`Posesión ${possession === 'home' ? 'local' : 'visitante'} ${shotDisplay}. Doble toque: la bola al otro equipo y 24`"
+        title="Doble toque: cambia la posesión y reinicia a 24"
+        @click="tapShot"
       >
         <span class="icon clock__arrow" :class="{ 'is-hidden': possession !== 'home' }">arrow_left</span>
         {{ shotOff ? '--' : shotDisplay }}
@@ -89,14 +90,22 @@ const shotReset = secs => {
   save()
 }
 
-// Ball goes to a team: after a basket the match sheet calls this with the other team and a fresh 24.
-// Tapping the shot clock only switches the arrow (fixing a mistake), it keeps the time
-const newPossession = (side, reset = true) => {
+// Ball goes to a team with a fresh 24: after a basket (called by the match sheet) or a steal (double tap)
+const newPossession = side => {
   possession.value = side
-  if (reset) shotReset(24)
-  else save()
+  shotReset(24)
 }
 defineExpose({ newPossession })
+
+// Double tap by hand: the dblclick event is unreliable on touch screens. A single tap does nothing
+let lastTap = 0
+const tapShot = () => {
+  const t = Date.now()
+  if (t - lastTap < 350) {
+    newPossession(possession.value === 'home' ? 'away' : 'home')
+    lastTap = 0
+  } else lastTap = t
+}
 
 // FIBA style: mm:ss, and ss.d in the last minute
 const display = computed(() => {
@@ -223,6 +232,8 @@ onBeforeUnmount(() => clearInterval(timer))
   align-items: center;
   border: 0;
   cursor: pointer;
+  touch-action: manipulation; /* no double-tap zoom */
+  user-select: none;
 }
 
 .clock__arrow {
