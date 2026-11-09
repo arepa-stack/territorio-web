@@ -13,7 +13,7 @@
     </span>
     <span class="t-row__fact">
       <span class="mono t-row__label">Inscripción</span>
-      <span class="mono t-row__value">{{ Number(tournament.entryFee) > 0 ? `$${tournament.entryFee}` : 'Gratis' }}</span>
+      <span class="mono t-row__value">{{ fee(tournament.entryFee, tournament.country) }}</span>
     </span>
     <span v-if="tournament.status === 'REGISTRATION'" class="t-row__slots">
       <span class="mono t-row__slots-head">
@@ -27,6 +27,7 @@
 </template>
 
 <script setup>
+import { fee } from '@/composables/useCountry'
 import { computed } from 'vue'
 import { CATEGORIES, POSTER_STATUS, formatDate } from '@/utils/labels'
 

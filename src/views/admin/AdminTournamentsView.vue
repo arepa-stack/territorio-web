@@ -62,6 +62,7 @@ import tournamentsService from '@/services/tournaments'
 import { handleApiError } from '@/services/api'
 import { CATEGORIES, POSTER_STATUS, formatDate } from '@/utils/labels'
 import PosterPager from '@/components/poster/PosterPager.vue'
+import { country } from '@/composables/useCountry'
 
 const PER_PAGE = 15
 const STATUS_FILTERS = [
@@ -99,6 +100,7 @@ watch(status, () => {
   else page.value = 1 // the page watcher reloads
 })
 watch(page, load, { immediate: true })
+watch(country, () => (page.value === 1 ? load() : (page.value = 1)))
 </script>
 
 <style scoped>

@@ -51,6 +51,8 @@
 </template>
 
 <script setup>
+import { watch as watchCountry } from 'vue'
+import { country } from '@/composables/useCountry'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import tournamentsService from '@/services/tournaments'
@@ -93,7 +95,8 @@ const filtered = computed(() =>
   tournaments.value.filter(t => matchesFilters(t) && (status.value === 'ALL' || t.status === status.value))
 )
 
-onMounted(async () => {
+const load = async () => {
+  loading.value = true
   try {
     // ponytail: client-side filtering over the first 200; move filters to the API when there are more tournaments
     const res = await tournamentsService.getAll({ limit: 200 })
@@ -107,7 +110,9 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+onMounted(load)
+watchCountry(country, load)
 </script>
 
 <style scoped>

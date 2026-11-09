@@ -241,7 +241,13 @@
                                 <input id="t-quarter" v-model.number="formData.quarterDuration" class="input font-mono" type="number" min="8" max="12" />
                             </div>
                             <div>
-                                <label class="field-label" for="t-fee">Costo ($)</label>
+                                <label class="field-label" for="t-country">País</label>
+                                <select id="t-country" v-model="formData.country" class="input">
+                                    <option v-for="c in COUNTRIES" :key="c.code" :value="c.code">{{ c.name }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="field-label" for="t-fee">Costo ({{ COUNTRIES[formData.country]?.currency || 'USD' }})</label>
                                 <input id="t-fee" v-model.number="formData.entryFee" class="input font-mono" type="number" min="0" />
                             </div>
                         </div>
@@ -281,7 +287,7 @@
                         <p class="m-0 text-body-sm text-on-surface-variant">
                             Los capitanes verán estos datos para pagar y reportar su pago. Llena al menos un método.
                         </p>
-                        <PaymentInfoFields v-model="formData.paymentInfo" id-prefix="t-pay" />
+                        <PaymentInfoFields v-model="formData.paymentInfo" id-prefix="t-pay" :country="formData.country" />
                     </section>
 
                     <!-- 4. Árbitros -->
@@ -312,6 +318,8 @@
 </template>
 
 <script setup>
+import { watch as watchCountry } from 'vue'
+import { COUNTRIES, country } from '@/composables/useCountry'
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
@@ -377,6 +385,7 @@ const formData = ref({
     format: 'ROUND_ROBIN',
     requireIdVerification: false,
     entryFee: 10,
+    country: country.value,
     playersPerTeam: 12,
     quarterDuration: 10,
     rulesText: '',
@@ -450,6 +459,7 @@ const fetchTournaments = async () => {
         isLoading.value = false
     }
 }
+watchCountry(country, fetchTournaments)
 
 // With zones chosen, only their venues are offered
 const availableVenues = computed(() => {
@@ -508,6 +518,7 @@ const createTournament = async (prefill = {}) => {
         format: 'ROUND_ROBIN',
         requireIdVerification: false,
         entryFee: 10,
+    country: country.value,
         playersPerTeam: 12,
         quarterDuration: 10,
         rulesText: '',
@@ -586,6 +597,7 @@ const saveTournament = async () => {
             maxTeams: Number(formData.value.maxTeams),
             minTeams: Number(formData.value.minTeams),
             entryFee: Number(formData.value.entryFee),
+            country: formData.value.country,
             playersPerTeam: Number(formData.value.playersPerTeam),
             quarterDuration: Number(formData.value.quarterDuration),
             playoffTeams: Number(formData.value.playoffTeams),

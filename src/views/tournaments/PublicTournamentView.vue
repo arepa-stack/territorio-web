@@ -36,7 +36,7 @@
           </div>
           <div class="facts__cell">
             <span class="mono facts__label">Inscripción</span>
-            <span class="mono facts__value">{{ Number(tournament.entryFee) > 0 ? `$${tournament.entryFee}` : 'Gratis' }}</span>
+            <span class="mono facts__value">{{ fee(tournament.entryFee, tournament.country) }}</span>
           </div>
           <div class="facts__cell">
             <span class="mono facts__label facts__slots"><span>Cupos</span><span>{{ tournament.registeredTeams }}/{{ tournament.maxTeams }}</span></span>
@@ -172,6 +172,7 @@
 </template>
 
 <script setup>
+import { fee } from '@/composables/useCountry'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import tournamentsService from '@/services/tournaments'

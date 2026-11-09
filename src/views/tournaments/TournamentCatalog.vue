@@ -53,7 +53,7 @@
           </div>
           <div class="row__fact">
             <span class="row__label">Inscripción</span>
-            <span class="row__value">{{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}</span>
+            <span class="row__value">{{ fee(t.entryFee, t.country) }}</span>
           </div>
           <div class="row__fact row__slots">
             <span class="row__label row__slots-head">
@@ -122,6 +122,8 @@
 </template>
 
 <script setup>
+import { watch as watchCountry } from 'vue'
+import { country, fee } from '@/composables/useCountry'
 import { CATEGORIES, POSTER_STATUS, formatDate } from '@/utils/labels'
 import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
@@ -199,6 +201,8 @@ const loadTournaments = async () => {
     loading.value = false
   }
 }
+
+watchCountry(country, loadTournaments)
 
 const loadTeam = async () => {
   if (!isCaptain.value) return (loadingTeam.value = false)

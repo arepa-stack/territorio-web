@@ -9,7 +9,7 @@
       <div class="hero__shade" />
       <div class="wrap hero__body">
         <p class="eyebrow hero__kicker">
-          <span class="text-blaze">Temporada {{ year }}</span><span>Caracas</span>
+          <span class="text-blaze">Temporada {{ year }}</span><span>{{ country === 'VE' ? 'Caracas' : COUNTRIES[country].name }}</span>
           <span v-if="summary">{{ summary.stats.activeTournaments }} torneos en juego</span>
         </p>
         <h1 class="display hero__title">
@@ -199,6 +199,8 @@
 </template>
 
 <script setup>
+import { watch as watchCountry } from 'vue'
+import { COUNTRIES, country } from '@/composables/useCountry'
 import { computed, onMounted, ref } from 'vue'
 import '@/styles/poster.css'
 import tournamentsService from '@/services/tournaments'
@@ -254,7 +256,7 @@ const counters = computed(() => [
 // Dates are stored as UTC calendar days; reading them in local time (UTC-4) shows the day before
 const shortDay = d => new Date(d).toLocaleDateString('es-VE', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' })
 
-onMounted(async () => {
+const loadAll = async () => {
   const [t, s, z] = await Promise.allSettled([
     tournamentsService.getAll({ status: 'REGISTRATION', limit: 12 }),
     tournamentsService.getLandingSummary(),
@@ -264,7 +266,9 @@ onMounted(async () => {
   summary.value = s.status === 'fulfilled' ? s.value.data : null
   mapZones.value = z.status === 'fulfilled' ? (z.value.data?.data || []).filter(zone => zone.isActive) : []
   loading.value = false
-})
+}
+onMounted(loadAll)
+watchCountry(country, loadAll)
 </script>
 
 <style scoped>

@@ -55,7 +55,7 @@
           <h3 class="label-tactical m-0 mb-space-sm text-secondary">1 · Datos de pago</h3>
           <div class="mb-space-md rounded-lg bg-surface-container-high p-space-md text-center">
             <span class="label-tactical text-on-surface-variant">Monto a pagar</span>
-            <p class="m-0 font-scoreboard-num text-[44px] leading-none tabular text-primary">${{ fee }}</p>
+            <p class="m-0 font-scoreboard-num text-[44px] leading-none tabular text-primary">{{ money(fee, payCountry) }}</p>
           </div>
 
           <p v-if="!methods.length" class="m-0 mb-space-md flex items-center gap-space-xs rounded border border-solid border-secondary/50 bg-secondary/10 p-space-sm text-body-sm">
@@ -105,7 +105,7 @@
                 <input id="pay-ref" v-model.trim="form.reference" class="input font-mono" inputmode="numeric" maxlength="50" required placeholder="00123456" />
               </div>
               <div>
-                <label class="field-label" for="pay-amount">Monto ($) *</label>
+                <label class="field-label" for="pay-amount">Monto ({{ COUNTRIES[payCountry]?.currency }}) *</label>
                 <input id="pay-amount" v-model.number="form.amount" class="input font-mono" type="number" min="0.01" step="0.01" required />
               </div>
             </div>
@@ -115,20 +115,20 @@
             </div>
             <div>
               <label class="field-label" for="pay-bank">Banco de origen *</label>
-              <input id="pay-bank" v-model.trim="form.payerBank" class="input" list="ve-banks" maxlength="80" required placeholder="Banesco (0134)" />
-              <BankList />
+              <input id="pay-bank" v-model.trim="form.payerBank" class="input" :list="isCO ? 'co-banks' : 've-banks'" maxlength="80" required :placeholder="isCO ? 'Bancolombia' : 'Banesco (0134)'" />
+              <BankList :country="payCountry" />
             </div>
             <div class="grid gap-space-md sm:grid-cols-2">
               <div>
-                <label class="field-label" for="pay-ci">Cédula / RIF del pagador *</label>
+                <label class="field-label" for="pay-ci">{{ isCO ? 'Cédula / NIT' : 'Cédula / RIF' }} del pagador *</label>
                 <input
                   id="pay-ci"
                   v-model.trim="form.payerId"
                   class="input font-mono"
                   required
                   pattern="([VvEeJjGgPp]-?)?\d{5,10}(-?\d)?"
-                  title="Ej. V-12345678 o J-123456789"
-                  placeholder="V-12345678"
+                  :title="isCO ? 'Ej. 1012345678 o 900123456-7' : 'Ej. V-12345678 o J-123456789'"
+                  :placeholder="isCO ? '1012345678' : 'V-12345678'"
                 />
               </div>
               <div>
@@ -140,8 +140,8 @@
                   inputmode="tel"
                   :required="form.method === 'PAGO_MOVIL'"
                   pattern="\+?[\d\s()\-]{7,20}"
-                  title="Ej. 0414-1234567"
-                  placeholder="0414-1234567"
+                  :title="isCO ? 'Ej. 300 1234567' : 'Ej. 0414-1234567'"
+                  :placeholder="isCO ? '300 1234567' : '0414-1234567'"
                 />
               </div>
             </div>
@@ -210,7 +210,8 @@ import { computed, nextTick, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import paymentsService from '@/services/payments'
 import { handleApiError } from '@/services/api'
-import { PAYMENT_METHODS, PAYMENT_STATUS } from '@/utils/labels'
+import { PAYMENT_METHODS, PAYMENT_STATUS, paymentMethodLabel } from '@/utils/labels'
+import { COUNTRIES, money } from '@/composables/useCountry'
 import StatusChip from '@/components/ui/StatusChip.vue'
 import BankList from './BankList.vue'
 
@@ -237,12 +238,15 @@ const form = ref({})
 
 const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local time
 const fee = computed(() => Number(reg.value?.tournament.entryFee || 0))
+const payCountry = computed(() => reg.value?.tournament.country || 'VE')
+const isCO = computed(() => payCountry.value === 'CO')
+const feeText = computed(() => (isCO.value ? String(Math.round(fee.value)) : fee.value.toFixed(2)))
 const info = computed(() => reg.value?.tournament.paymentInfo || {})
 const methods = computed(() => ['PAGO_MOVIL', 'TRANSFERENCIA'].filter(m => (m === 'PAGO_MOVIL' ? info.value.pagoMovil : info.value.transferencia)))
 const methodOptions = computed(() =>
   (methods.value.length ? methods.value : Object.keys(PAYMENT_METHODS)).map(value => ({
     value,
-    label: PAYMENT_METHODS[value],
+    label: paymentMethodLabel(value, payCountry.value),
     icon: value === 'PAGO_MOVIL' ? 'smartphone' : 'account_balance'
   }))
 )
@@ -255,8 +259,8 @@ const details = computed(() => {
     return [
       { label: 'Banco', value: p.banco },
       { label: 'Teléfono', value: p.telefono },
-      { label: 'Cédula / RIF', value: p.cedula },
-      { label: 'Monto', value: fee.value.toFixed(2) }
+      { label: isCO.value ? 'Cédula' : 'Cédula / RIF', value: p.cedula },
+      { label: 'Monto', value: feeText.value }
     ]
   }
   if (form.value.method === 'TRANSFERENCIA' && info.value.transferencia) {
@@ -265,8 +269,8 @@ const details = computed(() => {
       { label: 'Banco', value: t.banco },
       { label: 'Cuenta', value: t.cuenta },
       { label: 'Titular', value: t.titular },
-      { label: 'RIF / Cédula', value: t.rif },
-      { label: 'Monto', value: fee.value.toFixed(2) }
+      { label: isCO.value ? 'NIT / Cédula' : 'RIF / Cédula', value: t.rif },
+      { label: 'Monto', value: feeText.value }
     ]
   }
   return []

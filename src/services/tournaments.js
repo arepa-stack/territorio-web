@@ -1,9 +1,10 @@
 import api from './api'
+import { country } from '@/composables/useCountry'
 
 const tournamentsService = {
     // Get all tournaments (public with filters)
     async getAll(params = {}) {
-        return await api.get('/tournaments', { params })
+        return await api.get('/tournaments', { params: { country: country.value, ...params } })
     },
 
     // Get tournament by ID
@@ -81,7 +82,7 @@ const tournamentsService = {
         return await api.get('/tournaments/zone-standings')
     },
     async getLandingSummary() {
-        return await api.get('/tournaments/landing-summary')
+        return await api.get('/tournaments/landing-summary', { params: { country: country.value } })
     },
 
     // Court photo used as the tournament cover; returns { url }

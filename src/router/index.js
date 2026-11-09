@@ -75,6 +75,12 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/proveedores',
+    name: 'PublicProviders',
+    component: () => import('@/views/ProvidersView.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/torneo/:id',
     name: 'PublicTournament',
     component: () => import('@/views/tournaments/PublicTournamentView.vue'),
@@ -131,6 +137,12 @@ const routes = [
         name: 'AdminTournaments',
         component: () => import('@/views/admin/AdminTournamentsView.vue'),
         meta: { requiresAuth: true, roles: ['ADMIN'], title: 'Torneos' }
+      },
+      {
+        path: 'providers',
+        name: 'AdminProviders',
+        component: () => import('@/views/admin/AdminProvidersView.vue'),
+        meta: { requiresAuth: true, roles: ['ADMIN'], title: 'Proveedores' }
       }
     ]
   },

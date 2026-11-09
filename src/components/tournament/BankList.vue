@@ -1,11 +1,30 @@
 <template>
-  <!-- Suggestions for bank inputs (list="ve-banks"); free text is still allowed -->
-  <datalist id="ve-banks">
-    <option v-for="b in BANKS" :key="b" :value="b" />
+  <!-- Suggestions for bank inputs (list="ve-banks" / "co-banks"); free text is still allowed -->
+  <datalist :id="country === 'CO' ? 'co-banks' : 've-banks'">
+    <option v-for="b in country === 'CO' ? CO_BANKS : BANKS" :key="b" :value="b" />
   </datalist>
 </template>
 
 <script setup>
+defineProps({ country: { type: String, default: 'VE' } })
+
+const CO_BANKS = [
+  'Nequi',
+  'Daviplata',
+  'Bancolombia',
+  'Davivienda',
+  'Banco de Bogotá',
+  'BBVA Colombia',
+  'Banco de Occidente',
+  'Banco Popular',
+  'Scotiabank Colpatria',
+  'Banco AV Villas',
+  'Banco Caja Social',
+  'Itaú',
+  'Banco Falabella',
+  'Nu Colombia',
+  'Lulo Bank'
+]
 const BANKS = [
   'Banco de Venezuela (0102)',
   'Banesco (0134)',

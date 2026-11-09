@@ -36,6 +36,7 @@
       </nav>
 
       <div class="side__foot">
+        <CountrySwitcher class="side__country" />
         <button type="button" class="side__bell" @click="openPanel">
           <span class="icon">notifications</span>
           Notificaciones
@@ -68,6 +69,7 @@ import { useToast } from 'vue-toastification'
 import { useAuthStore } from '@/stores/auth'
 import { useNotifications } from '@/composables/useNotifications'
 import NotificationsPanel from '@/components/NotificationsPanel.vue'
+import CountrySwitcher from '@/components/CountrySwitcher.vue'
 import { useCourtTheme } from '@/composables/useCourtTheme'
 import { NAV_BY_ROLE, HOME_BY_ROLE, ROLE_LABEL } from '@/router/navigation'
 
@@ -230,6 +232,10 @@ const logout = async () => {
 
 .side__link.is-active .side__num {
   color: rgb(255 79 18);
+}
+
+.side__country {
+  align-self: flex-start;
 }
 
 .side__foot {

@@ -31,7 +31,7 @@
           </span>
           <span class="flex items-center gap-space-xs">
             <span class="icon text-[18px]">payments</span>
-            <span class="font-stat-mono tabular text-on-surface">{{ Number(tournament.entryFee) > 0 ? `$${tournament.entryFee}` : 'Gratis' }}</span>
+            <span class="font-stat-mono tabular text-on-surface">{{ fee(tournament.entryFee, tournament.country) }}</span>
           </span>
           <label class="flex cursor-pointer items-center gap-1.5 text-on-surface">
             <input
@@ -95,7 +95,13 @@
             <input id="e-max" v-model.number="editForm.maxTeams" type="number" :min="Math.max(editForm.minTeams || 2, registrations.length)" max="32" class="input" required />
           </div>
           <div>
-            <label class="field-label" for="e-fee">Inscripción ($)</label>
+            <label class="field-label" for="e-country">País</label>
+            <select id="e-country" v-model="editForm.country" class="input">
+              <option v-for="c in COUNTRIES" :key="c.code" :value="c.code">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="e-fee">Inscripción ({{ COUNTRIES[editForm.country]?.currency || 'USD' }})</label>
             <input id="e-fee" v-model.number="editForm.entryFee" type="number" min="0" step="0.01" class="input" required />
           </div>
           <div>
@@ -112,12 +118,12 @@
       <details v-if="tournament.entryFee > 0" class="card p-space-md">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-space-sm [&::-webkit-details-marker]:hidden">
           <span class="label-tactical flex items-center gap-space-xs text-on-surface">
-            <span class="icon text-[18px] text-secondary">account_balance_wallet</span> Datos de pago · ${{ tournament.entryFee }}
+            <span class="icon text-[18px] text-secondary">account_balance_wallet</span> Datos de pago · {{ money(tournament.entryFee, tournament.country) }}
           </span>
           <span class="text-body-sm text-on-surface-variant">{{ tournament.paymentInfo ? 'Publicados' : 'Sin publicar' }}</span>
         </summary>
         <form class="mt-space-md flex flex-col gap-space-md" @submit.prevent="savePaymentInfo">
-          <PaymentInfoFields v-model="paymentInfoForm" id-prefix="m-pay" />
+          <PaymentInfoFields v-model="paymentInfoForm" id-prefix="m-pay" :country="tournament.country" />
           <button type="submit" class="btn-primary self-end" :disabled="busy || ['IN_PROGRESS', 'FINISHED'].includes(tournament.status)">
             <span class="icon">save</span> Guardar datos de pago
           </button>
@@ -225,11 +231,11 @@
           <div v-if="tournament.entryFee > 0" class="flex w-full flex-col gap-space-xs border-0 border-t border-solid border-outline-variant/40 pt-space-sm md:basis-full">
             <div class="flex flex-wrap items-center gap-space-xs">
               <StatusChip :status="reg.payment?.status || 'UNPAID'" :label="reg.payment ? PAYMENT_STATUS[reg.payment.status] : 'Sin pago reportado'" />
-              <span v-if="reg.payment" class="text-body-sm text-on-surface-variant">{{ PAYMENT_METHODS[reg.payment.method] }}</span>
+              <span v-if="reg.payment" class="text-body-sm text-on-surface-variant">{{ paymentMethodLabel(reg.payment.method, tournament.country) }}</span>
             </div>
             <dl v-if="reg.payment" class="m-0 grid grid-cols-2 gap-x-space-md gap-y-1 text-body-sm sm:grid-cols-4">
               <div><dt class="label-tactical text-on-surface-variant">Referencia</dt><dd class="m-0 break-all font-stat-mono">{{ reg.payment.reference }}</dd></div>
-              <div><dt class="label-tactical text-on-surface-variant">Monto</dt><dd class="m-0 font-stat-mono" :class="{ 'text-error': reg.payment.amount < tournament.entryFee }">${{ reg.payment.amount }}</dd></div>
+              <div><dt class="label-tactical text-on-surface-variant">Monto</dt><dd class="m-0 font-stat-mono" :class="{ 'text-error': reg.payment.amount < tournament.entryFee }">{{ money(reg.payment.amount, tournament.country) }}</dd></div>
               <div><dt class="label-tactical text-on-surface-variant">Fecha</dt><dd class="m-0">{{ formatDate(reg.payment.paidAt) }}</dd></div>
               <div><dt class="label-tactical text-on-surface-variant">Banco</dt><dd class="m-0">{{ reg.payment.payerBank }}</dd></div>
               <div><dt class="label-tactical text-on-surface-variant">Cédula / RIF</dt><dd class="m-0 font-stat-mono">{{ reg.payment.payerId }}</dd></div>
@@ -512,6 +518,7 @@
 </template>
 
 <script setup>
+import { COUNTRIES, fee, money } from '@/composables/useCountry'
 import { computed, onMounted, ref, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
@@ -531,7 +538,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import PlayoffBracket from '@/components/PlayoffBracket.vue'
 import TournamentSanctions from '@/components/organizer/TournamentSanctions.vue'
 import FixtureBuilder from '@/components/organizer/FixtureBuilder.vue'
-import { PAYMENT_METHODS, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload, formatDate, PLAYOFF_OPTIONS, SANCTION_TYPES } from '@/utils/labels'
+import { paymentMethodLabel, PAYMENT_STATUS, RESCHEDULE_STATUS, emptyPaymentInfo, paymentInfoPayload, formatDate, PLAYOFF_OPTIONS, SANCTION_TYPES } from '@/utils/labels'
 
 const route = useRoute()
 const router = useRouter()
@@ -672,7 +679,7 @@ const reviewPayment = async (reg, status) => {
   const note = await confirm({
     title: verified ? 'Verificar pago' : 'Rechazar pago',
     message: verified
-      ? `Confirma que recibiste $${reg.payment.amount} de ${reg.team.name} (ref. ${reg.payment.reference}).`
+      ? `Confirma que recibiste ${money(reg.payment.amount, tournament.value.country)} de ${reg.team.name} (ref. ${reg.payment.reference}).`
       : `El capitán de ${reg.team.name} será notificado y podrá reenviar el pago.`,
     confirmText: verified ? 'Verificar' : 'Rechazar',
     danger: !verified,
@@ -743,6 +750,7 @@ const fillEditForm = () => {
     minTeams: t.minTeams,
     maxTeams: t.maxTeams,
     entryFee: Number(t.entryFee),
+    country: t.country || 'VE',
     quarterDuration: t.quarterDuration || 10
   }
 }

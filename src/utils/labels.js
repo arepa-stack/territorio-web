@@ -55,6 +55,10 @@ export const PAYMENT_METHODS = {
   TRANSFERENCIA: 'Transferencia'
 }
 
+// Venezuela pays by Pago Móvil; Colombia's phone wallets are Nequi / Daviplata (same fields: bank, phone, id)
+export const paymentMethodLabel = (method, country) =>
+  method === 'PAGO_MOVIL' && country === 'CO' ? 'Nequi / Daviplata' : PAYMENT_METHODS[method] || method
+
 export const PAYMENT_STATUS = {
   PENDING_REVIEW: 'Pago pendiente de verificación',
   VERIFIED: 'Pago verificado',

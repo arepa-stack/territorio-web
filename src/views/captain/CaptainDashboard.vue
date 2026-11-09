@@ -191,7 +191,7 @@
               <div class="flex flex-col gap-1">
                 <StatusChip
                   :status="r.payment?.status || 'UNPAID'"
-                  :label="r.payment ? PAYMENT_STATUS[r.payment.status] : `Pago pendiente · $${r.tournament.entryFee}`"
+                  :label="r.payment ? PAYMENT_STATUS[r.payment.status] : `Pago pendiente · ${money(r.tournament.entryFee, r.tournament.country)}`"
                 />
                 <span v-if="r.payment?.status === 'PENDING_REVIEW' && !r.payment.hasReceipt" class="text-body-sm text-on-surface-variant">Falta subir el comprobante</span>
                 <span v-if="r.payment?.status === 'REJECTED' && r.payment.reviewNote" class="text-body-sm text-error">{{ r.payment.reviewNote }}</span>
@@ -619,6 +619,7 @@
 </template>
 
 <script setup>
+import { money } from '@/composables/useCountry'
 import { computed, onMounted, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import teamsService from '@/services/teams'

@@ -9,6 +9,7 @@
         <router-link v-for="l in links" :key="l.to" :to="l.to" active-class="is-active">{{ l.label }}</router-link>
       </nav>
       <div class="poster-header__actions">
+        <CountrySwitcher />
         <template v-if="authStore.isAuthenticated">
           <router-link :to="homeRoute" class="btn-blaze">Mi panel</router-link>
         </template>
@@ -25,13 +26,15 @@
 import { computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { HOME_BY_ROLE } from '@/router/navigation'
+import CountrySwitcher from '@/components/CountrySwitcher.vue'
 
 const authStore = useAuthStore()
 const homeRoute = computed(() => HOME_BY_ROLE[authStore.userRole] || '/app')
 const links = [
   { label: 'Torneos', to: '/torneos' },
   { label: 'Equipos', to: '/equipos' },
-  { label: 'Zonas', to: '/zonas' }
+  { label: 'Zonas', to: '/zonas' },
+  { label: 'Proveedores', to: '/proveedores' }
 ]
 </script>
 
@@ -115,6 +118,10 @@ const links = [
 
   .poster-header__logo {
     font-size: 22px;
+  }
+
+  .poster-header__actions {
+    gap: 10px;
   }
 
   .poster-header__actions .btn-blaze {

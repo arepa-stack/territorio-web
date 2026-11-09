@@ -28,7 +28,7 @@
         <span class="rounded bg-surface-container-high px-space-sm py-1">Cuartos de {{ t.quarterDuration }} min</span>
         <span class="rounded bg-surface-container-high px-space-sm py-1">Máx. {{ t.maxTeams }} equipos</span>
         <span class="rounded bg-surface-container-high px-space-sm py-1">
-          Inscripción {{ Number(t.entryFee) > 0 ? `$${t.entryFee}` : 'Gratis' }}
+          Inscripción {{ fee(t.entryFee, t.country) }}
         </span>
       </div>
 
@@ -106,6 +106,7 @@
 </template>
 
 <script setup>
+import { fee } from '@/composables/useCountry'
 import { computed, ref } from 'vue'
 import { useToast } from 'vue-toastification'
 import tournamentsService from '@/services/tournaments'

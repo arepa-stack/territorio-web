@@ -11,6 +11,7 @@
           <router-link v-for="item in NAV" :key="item.to" :to="item.to" class="a-head__link" active-class="is-active">{{ item.label }}</router-link>
         </nav>
         <div class="a-head__user">
+          <CountrySwitcher />
           <span class="a-head__name">{{ authStore.userName }}</span>
           <button type="button" class="link-under a-head__out" @click="logout">Salir</button>
         </div>
@@ -27,11 +28,13 @@ import { useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import '@/styles/poster.css'
 import { useAuthStore } from '@/stores/auth'
+import CountrySwitcher from '@/components/CountrySwitcher.vue'
 
 const NAV = [
   { label: 'Usuarios', to: '/app/admin/users' },
   { label: 'Zonas', to: '/app/admin/zones' },
-  { label: 'Torneos', to: '/app/admin/tournaments' }
+  { label: 'Torneos', to: '/app/admin/tournaments' },
+  { label: 'Proveedores', to: '/app/admin/providers' }
 ]
 
 const authStore = useAuthStore()
