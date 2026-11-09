@@ -87,13 +87,21 @@
         </section>
       </div>
 
+      <p v-if="!finished && (!online || outbox.length)" class="ls__warn" role="status">
+        {{ online ? '' : 'Sin conexión. ' }}{{
+          outbox.length
+            ? `${outbox.length} cambio${outbox.length > 1 ? 's' : ''} sin enviar: quedan guardados en este dispositivo y se envían solos al volver la señal.`
+            : 'Sigue anotando: las jugadas se guardan en este dispositivo.'
+        }}
+      </p>
+
       <div v-if="!finished" class="ls__actions">
         <button type="button" class="btn-secondary" :disabled="!undoable" @click="undoLast">
           <span class="icon">undo</span> Deshacer última
         </button>
-        <button type="button" class="btn-primary ls__finish" :disabled="busy || !events.length || pendingCount > 0" @click="finish">
+        <button type="button" class="btn-primary ls__finish" :disabled="busy || !events.length || pendingCount > 0 || outbox.length > 0" @click="finish">
           <span class="icon">flag</span>
-          {{ pendingCount ? `Asigna ${pendingCount} jugada${pendingCount > 1 ? 's' : ''} sin jugador` : `Finalizar partido (${score.home}–${score.away})` }}
+          {{ outbox.length ? `Enviando ${outbox.length} cambio${outbox.length > 1 ? 's' : ''}…` : pendingCount ? `Asigna ${pendingCount} jugada${pendingCount > 1 ? 's' : ''} sin jugador` : `Finalizar partido (${score.home}–${score.away})` }}
         </button>
         <button type="button" class="btn-ghost" :disabled="busy" @click="markForfeit(match.homeTeam)">W.O. {{ match.homeTeam.name }}</button>
         <button type="button" class="btn-ghost" :disabled="busy" @click="markForfeit(match.awayTeam)">W.O. {{ match.awayTeam.name }}</button>
@@ -108,8 +116,8 @@
           <span class="log__what" :class="{ 'is-pts': pointsOf(e.eventType) }">{{ shortOf(e.eventType) }}</span>
           <span class="log__num">#{{ e.player.jerseyNumber }}</span>
           <span class="log__who">{{ e.player.user?.fullName || e.player.fullName || 'Jugador' }} · {{ e.player.team.name }}</span>
-          <span v-if="e.saving" class="log__state">Guardando…</span>
-          <button v-else-if="!finished" type="button" class="log__del" :aria-label="`Borrar ${labelOf(e.eventType)} de #${e.player.jerseyNumber}`" @click="removeEvent(e)">✕</button>
+          <span v-if="e.saving" class="log__state">{{ online ? 'Guardando…' : 'En cola' }}</span>
+          <button v-if="!finished" type="button" class="log__del" :aria-label="`Borrar ${labelOf(e.eventType)} de #${e.player.jerseyNumber}`" @click="removeEvent(e)">✕</button>
         </div>
       </section>
     </template>
@@ -117,7 +125,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import GameClock from '@/components/organizer/GameClock.vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
@@ -167,10 +175,35 @@ const busy = ref(false)
 const quarter = ref(1)
 
 // Fast entry state
-const pending = ref([]) // plays tapped without a player yet, per side, FIFO
+// Saved on this device so a reload or a dead connection loses nothing
+const OUTBOX_KEY = `outbox:${id}`
+const PENDING_KEY = `pending:${id}`
+const readLocal = key => {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || []
+  } catch {
+    return []
+  }
+}
+const pending = ref(readLocal(PENDING_KEY)) // plays tapped without a player yet, per side, FIFO
+// changes not confirmed by the API yet, sent in order: { op: 'add', body, ev, label } | { op: 'del', id }
+const outbox = ref(readLocal(OUTBOX_KEY))
+watch(
+  [pending, outbox],
+  () => {
+    try {
+      localStorage.setItem(PENDING_KEY, JSON.stringify(pending.value))
+      localStorage.setItem(OUTBOX_KEY, JSON.stringify(outbox.value))
+    } catch {
+      /* private mode: the queue still works while the page stays open */
+    }
+  },
+  { deep: true }
+)
+const online = ref(navigator.onLine)
 const armed = ref(null) // player tapped first: the next play of their team goes to them
 const assist = ref(null) // { side, scorerId } right after a basket is assigned
-let seq = 0
+let seq = Math.max(0, ...pending.value.map(p => p.key))
 
 const finished = computed(() => ['FINISHED', 'FORFEIT'].includes(match.value?.status))
 const isSuspended = playerId => (match.value?.suspendedPlayerIds || []).includes(playerId)
@@ -210,7 +243,7 @@ const promptOf = side => {
   if (armed.value && sides.value.find(s => s.key === side).players.includes(armed.value)) return `#${armed.value.jerseyNumber}: elige la jugada`
   return ''
 }
-const undoable = computed(() => pending.value.length || events.value.some(e => !e.saving))
+const undoable = computed(() => pending.value.length || events.value.length)
 
 // ---- taps ----
 const tapAction = (side, action) => {
@@ -238,10 +271,58 @@ const tapJersey = (side, player) => {
 
 const dropPending = p => (pending.value = pending.value.filter(x => x !== p))
 
-// Optimistic: the play shows at once and is saved in the background
-const record = async (side, player, action, q = quarter.value) => {
+// ---- outbox: one request at a time, in order; network errors wait and retry, never drop the play ----
+const SEND_TIMEOUT = 8000 // a stuck request goes back to the queue fast instead of hanging 30s
+let inflight = null
+let retryTimer = null
+let backoff = 2000
+const isTransient = error => !error.response || error.response.status >= 500 || [401, 408, 429].includes(error.response.status)
+const flush = async () => {
+  if (inflight) return
+  clearTimeout(retryTimer)
+  while (outbox.value.length) {
+    const item = (inflight = outbox.value[0])
+    try {
+      if (item.op === 'add') {
+        await api.post('/matches/events', item.body, { timeout: SEND_TIMEOUT })
+        item.ev.saving = false
+        if (match.value?.status === 'SCHEDULED') match.value.status = 'IN_PROGRESS'
+      } else {
+        await api.delete(`/matches/events/${item.id}`, { timeout: SEND_TIMEOUT })
+      }
+    } catch (error) {
+      error._handled = true // the banner tells the scorer, no toast per failed retry
+      if (item.op === 'del' && error.response?.status === 404) {
+        // already gone
+      } else if (isTransient(error)) {
+        inflight = null
+        retryTimer = setTimeout(flush, backoff)
+        backoff = Math.min(backoff * 2, 30000)
+        return
+      } else {
+        // the API said no (finished match, suspended player...): retrying won't help
+        if (item.op === 'add') events.value = events.value.filter(e => e.id !== item.body.id)
+        toast.error(handleApiError(error, item.op === 'add' ? `No se guardó: ${item.label}` : 'No se pudo borrar la jugada'))
+      }
+    }
+    outbox.value = outbox.value.filter(x => x !== item)
+    events.value = [...events.value]
+    inflight = null
+    backoff = 2000
+  }
+}
+const onOnline = () => {
+  online.value = true
+  backoff = 2000
+  flush()
+}
+const onOffline = () => (online.value = false)
+
+// Optimistic: the play shows at once and goes to the outbox. The id is made here so a retry
+// that already reached the API doesn't duplicate it
+const record = (side, player, action, q = quarter.value) => {
   const temp = {
-    id: `tmp-${++seq}`,
+    id: crypto.randomUUID(),
     saving: true,
     eventType: action.type,
     quarter: q,
@@ -249,39 +330,29 @@ const record = async (side, player, action, q = quarter.value) => {
   }
   events.value.push(temp)
   if (action.points && action.type !== 'POINT_1') assist.value = { side, scorerId: player.id }
-  try {
-    const { data } = await api.post('/matches/events', {
-      matchId: id,
-      playerId: player.id,
-      eventType: action.type,
-      quarter: q,
-      ...(action.points && { points: action.points })
-    })
-    Object.assign(temp, { id: data?.id ?? temp.id, saving: false })
-    events.value = [...events.value] // re-render the row with its real id
-    if (match.value.status === 'SCHEDULED') match.value.status = 'IN_PROGRESS'
-  } catch (error) {
-    events.value = events.value.filter(e => e !== temp)
-    if (assist.value?.scorerId === player.id) assist.value = null
-    toast.error(handleApiError(error, `No se guardó: ${action.label} de #${player.jerseyNumber}`))
-  }
+  outbox.value.push({
+    op: 'add',
+    label: `${action.label} de #${player.jerseyNumber}`,
+    body: { id: temp.id, matchId: id, playerId: player.id, eventType: action.type, quarter: q, ...(action.points && { points: action.points }) },
+    ev: temp
+  })
+  flush()
 }
 
-const removeEvent = async e => {
-  events.value = events.value.filter(x => x !== e)
+const removeEvent = e => {
+  events.value = events.value.filter(x => x.id !== e.id)
   if (assist.value) assist.value = null
-  try {
-    await matchesService.deleteEvent(e.id)
-  } catch (error) {
-    events.value = [...events.value, e].sort((a, b) => a.quarter - b.quarter)
-    toast.error(handleApiError(error, 'No se pudo borrar la jugada'))
-  }
+  const queued = outbox.value.find(i => i.op === 'add' && i.body.id === e.id)
+  // never sent: just drop it. Being sent right now: let it land and delete it after
+  if (queued && queued !== inflight) outbox.value = outbox.value.filter(i => i !== queued)
+  else outbox.value.push({ op: 'del', id: e.id })
+  flush()
 }
 
-// Last thing done: an unassigned play first, otherwise the newest saved play
+// Last thing done: an unassigned play first, otherwise the newest play
 const undoLast = () => {
   if (pending.value.length) return pending.value.pop()
-  const last = [...events.value].reverse().find(e => !e.saving)
+  const last = events.value.at(-1)
   if (last) removeEvent(last)
 }
 
@@ -343,6 +414,8 @@ const markForfeit = async absentTeam => {
 
 onMounted(async () => {
   document.addEventListener('fullscreenchange', onFsChange)
+  window.addEventListener('online', onOnline)
+  window.addEventListener('offline', onOffline)
   try {
     match.value = (await api.get(`/matches/${id}`)).data
     const [home, away] = await Promise.all([
@@ -353,6 +426,13 @@ onMounted(async () => {
     const byNumber = list => [...list.data].sort((a, b) => a.jerseyNumber - b.jerseyNumber)
     homePlayers.value = byNumber(home)
     awayPlayers.value = byNumber(away)
+    // Changes still in this device's queue: show them over what the API has, then keep sending
+    const saved = new Set(events.value.map(e => e.id))
+    for (const item of outbox.value) {
+      if (item.op === 'add' && !saved.has(item.body.id)) events.value.push(item.ev)
+      if (item.op === 'del') events.value = events.value.filter(e => e.id !== item.id)
+    }
+    flush()
     // Resume on the latest period already played
     quarter.value = Math.max(1, ...events.value.map(e => e.quarter))
   } catch (error) {
@@ -361,7 +441,12 @@ onMounted(async () => {
     loading.value = false
   }
 })
-onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFsChange))
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', onFsChange)
+  window.removeEventListener('online', onOnline)
+  window.removeEventListener('offline', onOffline)
+  clearTimeout(retryTimer)
+})
 </script>
 
 <style scoped>
