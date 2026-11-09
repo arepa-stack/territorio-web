@@ -551,7 +551,7 @@ const fetchOptions = async () => {
         isLoadingOptions.value = true
         const [zonesRes, venuesRes, refereesRes] = await Promise.allSettled([
             zonesService.getAll(),
-            venuesService.getAll(),
+            venuesService.getAll(undefined, country.value),
             usersService.getReferees()
         ])
 

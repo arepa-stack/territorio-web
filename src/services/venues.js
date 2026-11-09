@@ -1,8 +1,8 @@
 import api from './api'
 
 const venuesService = {
-    async getAll(zoneId) {
-        return await api.get('/venues', { params: zoneId ? { zoneId } : {} })
+    async getAll(zoneId, country) {
+        return await api.get('/venues', { params: { ...(zoneId && { zoneId }), ...(country && { country }) } })
     },
 
     async getById(venueId) {

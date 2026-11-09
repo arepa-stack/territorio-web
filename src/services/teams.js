@@ -1,4 +1,5 @@
 import api from './api'
+import { country } from '@/composables/useCountry'
 
 const teamsService = {
     // Get all teams (public with filters)
@@ -23,7 +24,7 @@ const teamsService = {
 
     // Create team
     async create(teamData) {
-        return await api.post('/teams', teamData)
+        return await api.post('/teams', { country: country.value, ...teamData }) // a new team belongs to the selected country
     },
 
     // Create team with logo
@@ -116,7 +117,7 @@ const teamsService = {
 
     // Teams looking for players
     async getRecruitingTeams(params = {}) {
-        return await api.get('/teams/recruiting', { params })
+        return await api.get('/teams/recruiting', { params: { country: country.value, ...params } })
     },
 
     // Join requests

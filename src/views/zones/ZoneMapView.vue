@@ -219,6 +219,7 @@
 </template>
 
 <script setup>
+import { country } from '@/composables/useCountry'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -233,7 +234,12 @@ import '@/styles/poster.css'
 import ZonePanel from '@/components/zone/ZonePanel.vue'
 import { POSTER_STATUS, formatDate } from '@/utils/labels'
 
-const DEFAULT_CENTER = [10.4806, -66.9036] // Caracas; solo se usa si no hay zonas
+// Capital of each country; only used when it has no zones yet
+const CENTER = { VE: [10.4806, -66.9036], CO: [4.711, -74.0721] }
+const recenter = () => {
+    if (zones.value.length) map.fitBounds(L.featureGroup(layers.getLayers()).getBounds(), { padding: [24, 24] })
+    else map.setView(CENTER[country.value] || CENTER.VE, 12)
+}
 const MIN_RADIUS = 100 // mismos límites que CreateZoneDto
 const MAX_RADIUS = 10000
 const colors = ['#FF4F12', '#007BFF', '#28A745', '#FFC107', '#9C27B0', '#E91E63', '#00BCD4', '#795548']
@@ -527,6 +533,10 @@ const load = async () => {
         toast.error(handleApiError(error, 'No se pudieron cargar las zonas'))
     }
 }
+watch(country, async () => {
+    await load()
+    recenter()
+})
 
 const run = async (action, okMessage) => {
     saving.value = true
@@ -549,7 +559,7 @@ const saveZone = async () => {
     const { id, lat, lng, venues, ...rest } = zoneForm.value
     const payload = { ...rest, coordinates: { lat, lng } }
     await run(
-        () => (id ? zonesService.update(id, payload) : zonesService.create(payload)),
+        () => (id ? zonesService.update(id, payload) : zonesService.create({ ...payload, country: country.value })),
         id ? 'Zona actualizada' : 'Zona creada'
     )
 }
@@ -566,7 +576,7 @@ const saveVenue = async () => {
         ...(capacity !== null && capacity !== '' && { capacity: Number(capacity) })
     }
     await run(
-        () => (id ? venuesService.update(id, payload) : venuesService.create(payload)),
+        () => (id ? venuesService.update(id, payload) : venuesService.create({ ...payload, country: country.value })),
         id ? 'Cancha actualizada' : 'Cancha creada'
     )
 }
@@ -578,7 +588,7 @@ watch(() => zoneForm.value && [zoneForm.value.radius, zoneForm.value.color], dra
 
 onMounted(async () => {
     // Canvas keeps circles crisp at rest; during flights they are hidden (see fly)
-    map = L.map(mapEl.value, { preferCanvas: true }).setView(DEFAULT_CENTER, 12)
+    map = L.map(mapEl.value, { preferCanvas: true }).setView(CENTER[country.value] || CENTER.VE, 12)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map)
@@ -591,9 +601,7 @@ onMounted(async () => {
         z.radius = Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, meters))
     })
     await load()
-    if (zones.value.length) {
-        map.fitBounds(L.featureGroup(layers.getLayers()).getBounds(), { padding: [24, 24] })
-    }
+    recenter()
 })
 
 onBeforeUnmount(() => map?.remove())

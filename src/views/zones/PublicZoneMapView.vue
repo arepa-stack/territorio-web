@@ -73,6 +73,8 @@
 </template>
 
 <script setup>
+import { watch as watchCountry } from 'vue'
+import { country } from '@/composables/useCountry'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import '@/styles/poster.css'
@@ -95,12 +97,15 @@ const selectedStanding = computed(() => standings.value[selectedId.value])
 
 const select = id => router.replace({ query: { ...route.query, zona: id } })
 
-onMounted(async () => {
+const load = async () => {
+  loading.value = true
   const [z, s] = await Promise.allSettled([zonesService.getAll(), tournamentsService.getZoneStandings()])
   zones.value = z.status === 'fulfilled' ? (z.value.data?.data || []).filter(zone => zone.isActive) : []
   standings.value = s.status === 'fulfilled' ? Object.fromEntries((s.value.data || []).map(row => [row.id, row])) : {}
   loading.value = false
-})
+}
+onMounted(load)
+watchCountry(country, load)
 </script>
 
 <style scoped>

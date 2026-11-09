@@ -42,6 +42,7 @@
 </template>
 
 <script setup>
+import { country } from '@/composables/useCountry'
 import { onMounted, ref, watch } from 'vue'
 import teamsService from '@/services/teams'
 import { useAuthStore } from '@/stores/auth'
@@ -69,6 +70,7 @@ const load = async () => {
     loading.value = false
   }
 }
+watch(country, load)
 watch([city, category], () => {
   clearTimeout(timer)
   timer = setTimeout(load, 300)

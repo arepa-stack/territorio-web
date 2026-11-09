@@ -79,7 +79,7 @@ const tournamentsService = {
 
     // Public landing: counters, upcoming matches, leaders and zone owners
     async getZoneStandings() {
-        return await api.get('/tournaments/zone-standings')
+        return await api.get('/tournaments/zone-standings', { params: { country: country.value } })
     },
     async getLandingSummary() {
         return await api.get('/tournaments/landing-summary', { params: { country: country.value } })

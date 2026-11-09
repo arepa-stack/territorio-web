@@ -92,7 +92,7 @@
             <span class="eyebrow text-gold">El juego dentro del juego</span>
             <h2 id="zonas-t" class="display section-title">Zonas de control</h2>
             <p class="lead">
-              Cada zona de Caracas tiene sus canchas. Gana torneos ahí y tu equipo suma títulos: con más de la mitad, la zona es tuya. Si nadie llega, está en disputa.
+              Cada zona de {{ country === 'VE' ? 'Caracas' : 'tu ciudad' }} tiene sus canchas. Gana torneos ahí y tu equipo suma títulos: con más de la mitad, la zona es tuya. Si nadie llega, está en disputa.
             </p>
           </div>
           <router-link to="/zonas" class="btn-line">

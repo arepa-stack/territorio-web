@@ -1,9 +1,10 @@
 import api from './api'
+import { country } from '@/composables/useCountry'
 
 // Only endpoints that exist in the backend ZonesController.
 const zonesService = {
-  async getAll() {
-    return await api.get('/zones')
+  async getAll(params = {}) {
+    return await api.get('/zones', { params: { country: country.value, ...params } })
   },
 
   async create(zoneData) {

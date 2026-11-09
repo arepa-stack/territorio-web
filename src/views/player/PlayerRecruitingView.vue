@@ -162,6 +162,8 @@
 </template>
 
 <script setup>
+import { watch as watchCountry } from 'vue'
+import { country } from '@/composables/useCountry'
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
@@ -227,6 +229,8 @@ const loadRecruiting = async () => {
     loading.value = false
   }
 }
+
+watchCountry(country, loadRecruiting)
 
 const loadMyRequests = async () => {
   try {
