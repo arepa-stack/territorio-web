@@ -63,12 +63,14 @@
           </div>
 
           <div class="ar-pad" aria-label="Controles táctiles">
-            <div class="ar-pad__group">
-              <button v-for="b in moveButtons" :key="b.name" type="button" class="ar-btn" :aria-label="b.label" v-bind="pad(b.name)">
+            <!-- keyboard-style inverted T; the finger can slide from one arrow to the next without lifting -->
+            <div class="ar-dpad" @pointerdown="dpadMove" @pointermove="dpadMove" @pointerup="dpadEnd" @pointercancel="dpadEnd" @contextmenu.prevent>
+              <button v-for="b in moveButtons" :key="b.name" type="button" class="ar-btn ar-dpad__key"
+                :class="[`is-${b.area}`, { 'is-pressed': pressed.has(b.name) }]" :data-dir="b.name" :aria-label="b.label">
                 <span class="icon">{{ b.icon }}</span>
               </button>
             </div>
-            <div class="ar-pad__group">
+            <div class="ar-pad__group ar-pad__actions">
               <button type="button" class="ar-btn ar-btn--alt mono" v-bind="pad('cross')">Cross / Robo</button>
               <button type="button" class="ar-btn ar-btn--main mono" v-bind="pad('shoot')">Tiro / Salto</button>
             </div>
@@ -147,16 +149,47 @@ const loadingBoard = ref(true)
 const playList = Object.values(PLAYS)
 const moveButtons = is3d
   ? [
-      { name: SIDE_L, label: 'Izquierda', icon: 'arrow_back' },
-      { name: TO_HOOP, label: 'Hacia el aro', icon: 'arrow_upward' },
-      { name: BACK, label: 'Atrás', icon: 'arrow_downward' },
-      { name: SIDE_R, label: 'Derecha', icon: 'arrow_forward' }
+      { name: TO_HOOP, label: 'Hacia el aro', icon: 'arrow_upward', area: 'up' },
+      { name: SIDE_L, label: 'Izquierda', icon: 'arrow_back', area: 'left' },
+      { name: BACK, label: 'Atrás', icon: 'arrow_downward', area: 'down' },
+      { name: SIDE_R, label: 'Derecha', icon: 'arrow_forward', area: 'right' }
     ]
   : [
-      { name: 'left', label: 'Izquierda', icon: 'arrow_back' },
-      { name: 'right', label: 'Derecha', icon: 'arrow_forward' }
+      { name: 'left', label: 'Izquierda', icon: 'arrow_back', area: 'left' },
+      { name: 'right', label: 'Derecha', icon: 'arrow_forward', area: 'right' }
     ]
 let game
+const buzz = () => navigator.vibrate?.(8)
+
+// D-pad: one direction per finger, tracked by pointer id so sliding to another arrow switches direction
+const held = new Map()
+const pressed = reactive(new Set())
+// name null = finger still down but over a gap between arrows; the pointer stays tracked until it lifts
+const dpadSet = (id, name) => {
+  const prev = held.get(id)
+  if (prev === name) return
+  if (prev) {
+    game?.input(prev, false)
+    pressed.delete(prev)
+  }
+  if (name) {
+    game?.input(name, true)
+    pressed.add(name)
+    buzz()
+  }
+  held.set(id, name)
+}
+const dpadMove = e => {
+  if (e.type === 'pointerdown') {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId) // the release always reaches the pad, even off it
+  } else if (!held.has(e.pointerId)) return
+  dpadSet(e.pointerId, document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-dir]')?.dataset.dir ?? null)
+}
+const dpadEnd = e => {
+  dpadSet(e.pointerId, null)
+  held.delete(e.pointerId)
+}
 const MUTE_KEY = 'turf:arcadeMuted'
 const readMuted = () => {
   try {
@@ -224,6 +257,7 @@ const pad = name => ({
   onPointerdown: e => {
     e.preventDefault()
     game?.input(name, true)
+    buzz()
   },
   onPointerup: () => game?.input(name, false),
   onPointerleave: () => game?.input(name, false),
@@ -397,12 +431,49 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 .ar-pad {
-  flex-wrap: wrap;
   display: none;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding-top: 4px;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.ar-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 58px);
+  grid-template-rows: repeat(2, 58px);
+  grid-template-areas: '. up .' 'left down right';
+  gap: 6px;
+  touch-action: none;
+}
+.ar-dpad__key {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  font-size: 26px;
+  border-bottom-width: 4px;
+  transition: transform 0.05s, border-bottom-width 0.05s;
+}
+.ar-dpad__key.is-up { grid-area: up; }
+.ar-dpad__key.is-left { grid-area: left; }
+.ar-dpad__key.is-down { grid-area: down; }
+.ar-dpad__key.is-right { grid-area: right; }
+.ar-dpad__key.is-pressed {
+  background: var(--line);
+  border-color: var(--blaze);
+  border-bottom-width: 1px;
+  transform: translateY(3px);
+}
+.ar-pad__actions {
+  flex-direction: column;
+  width: 130px;
+}
+.ar-pad__actions .ar-btn {
+  min-height: 56px;
 }
 .ar-pad__group {
   display: flex;
