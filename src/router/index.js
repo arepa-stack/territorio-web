@@ -81,19 +81,14 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
-    // 1vs1 mini game while waiting for a match; anyone plays, the ranking needs a session
+    // 1vs1 mini game (3D) while waiting for a match; anyone plays, the ranking needs a session
     path: '/jugar',
     name: 'ArcadeGame',
     component: () => import('@/views/ArcadeView.vue'),
     meta: { requiresAuth: false }
   },
-  {
-    // v2: same game and HUD, Three.js court + ball physics (/jugar stays the 2D version)
-    path: '/jugar-v2',
-    name: 'ArcadeGame3D',
-    component: () => import('@/views/ArcadeView.vue'),
-    meta: { requiresAuth: false, engine: '3d' }
-  },
+  // old beta links
+  { path: '/jugar-v2', redirect: '/jugar' },
   {
     path: '/torneo/:id',
     name: 'PublicTournament',

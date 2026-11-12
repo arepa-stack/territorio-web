@@ -1,4 +1,4 @@
-// Everything you see in /jugar-v2: procedural PBR textures, the night street court, the hoop, the jointed
+// Everything you see in /jugar: procedural PBR textures, the night street court, the hoop, the jointed
 // players, lights and post-processing. No game logic here (rules: oneOnOne.js, poses/physics: render3d.js).
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'

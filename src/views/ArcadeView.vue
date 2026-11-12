@@ -10,10 +10,7 @@
           </router-link>
           <h1 class="display page__h1">1vs1 al aro<span v-if="is3d" class="ar-badge">3D</span></h1>
         </div>
-        <p class="page__lead">Calienta mientras empieza tu partido. Gana el primero en llegar a {{ TARGET }} canastas: el triple vale 2.
-          <!-- ponytail: plain link on purpose, both routes share this component and Vue Router would reuse it without re-mounting -->
-          <a :href="is3d ? '/jugar' : '/jugar-v2'" class="link-under ar-switch">{{ is3d ? 'Volver a la versión clásica 2D' : 'Prueba la versión 3D (beta)' }}</a>
-        </p>
+        <p class="page__lead">Calienta mientras empieza tu partido. Gana el primero en llegar a {{ TARGET }} canastas: el triple vale 2.</p>
       </div>
 
       <p v-if="!authStore.isAuthenticated" class="ar-notice">
@@ -138,7 +135,8 @@ const KEYS_3D = {
 }
 
 const authStore = useAuthStore()
-const is3d = useRoute().meta.engine === '3d' // /jugar-v2: same rules and HUD, Three.js render + ball physics
+// /jugar is the 3D version. ponytail: the 2D legacy render is kept unpublished (no route); add a route with meta.engine '2d' to bring it back
+const is3d = useRoute().meta.engine !== '2d'
 const canvas = ref(null)
 const screen = ref('intro')
 const hud = reactive({ you: 0, cpu: 0, points: 0 })
@@ -296,11 +294,6 @@ onBeforeUnmount(() => {
   vertical-align: top;
   background: var(--blaze);
   color: #fff;
-}
-.ar-switch {
-  display: block;
-  margin-top: 8px;
-  font-weight: 700;
 }
 .ar-notice {
   display: flex;
