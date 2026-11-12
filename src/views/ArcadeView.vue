@@ -8,9 +8,12 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M19 12H5M11 5l-7 7 7 7" /></svg>
             Volver al inicio
           </router-link>
-          <h1 class="display page__h1">1vs1 al aro</h1>
+          <h1 class="display page__h1">1vs1 al aro<span v-if="is3d" class="ar-badge">3D</span></h1>
         </div>
-        <p class="page__lead">Calienta mientras empieza tu partido. Gana el primero en llegar a {{ TARGET }} canastas: el triple vale 2.</p>
+        <p class="page__lead">Calienta mientras empieza tu partido. Gana el primero en llegar a {{ TARGET }} canastas: el triple vale 2.
+          <!-- ponytail: plain link on purpose, both routes share this component and Vue Router would reuse it without re-mounting -->
+          <a :href="is3d ? '/jugar' : '/jugar-v2'" class="link-under ar-switch">{{ is3d ? 'Volver a la versión clásica 2D' : 'Prueba la versión 3D (beta)' }}</a>
+        </p>
       </div>
 
       <p v-if="!authStore.isAuthenticated" class="ar-notice">
@@ -105,6 +108,7 @@
 
 <script setup>
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import '@/styles/poster.css'
 import PosterHeader from '@/components/PosterHeader.vue'
 import TurfLoader from '@/components/TurfLoader.vue'
@@ -116,6 +120,7 @@ const PENDING = 'turf:pendingGameScore'
 const KEYS = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'shoot', ArrowUp: 'shoot', w: 'shoot', W: 'shoot', x: 'cross', X: 'cross', k: 'cross', K: 'cross' }
 
 const authStore = useAuthStore()
+const is3d = useRoute().meta.engine === '3d' // /jugar-v2: same rules and HUD, Three.js render + ball physics
 const canvas = ref(null)
 const screen = ref('intro')
 const hud = reactive({ you: 0, cpu: 0, points: 0 })
@@ -160,18 +165,18 @@ const onEnd = r => {
 
 const play = () => {
   screen.value = 'playing'
-  game.start()
+  game?.start()
   canvas.value.focus?.()
 }
 
 const pad = name => ({
   onPointerdown: e => {
     e.preventDefault()
-    game.input(name, true)
+    game?.input(name, true)
   },
-  onPointerup: () => game.input(name, false),
-  onPointerleave: () => game.input(name, false),
-  onPointercancel: () => game.input(name, false),
+  onPointerup: () => game?.input(name, false),
+  onPointerleave: () => game?.input(name, false),
+  onPointercancel: () => game?.input(name, false),
   onContextmenu: e => e.preventDefault()
 })
 
@@ -179,7 +184,7 @@ const onKey = e => {
   const name = KEYS[e.key]
   if (!name || screen.value !== 'playing' || e.target.closest?.('input, textarea')) return
   e.preventDefault() // space and arrows would scroll the page
-  if (!e.repeat) game.input(name, e.type === 'keydown')
+  if (!e.repeat) game?.input(name, e.type === 'keydown')
 }
 
 const resize = () => {
@@ -191,9 +196,11 @@ const resize = () => {
 let observer
 
 onMounted(async () => {
-  game = createGame(canvas.value, { onHud: h => Object.assign(hud, h), onEnd })
-  observer = new ResizeObserver(resize)
-  observer.observe(canvas.value)
+  // three.js only downloads on /jugar-v2
+  const engine3d = is3d ? (await import('@/game/render3d')).create3D(canvas.value) : {}
+  game = createGame(canvas.value, { onHud: h => Object.assign(hud, h), onEnd, ...engine3d })
+  if (!is3d) observer = new ResizeObserver(resize) // the 3D renderer sizes its own canvas
+  observer?.observe(canvas.value)
   window.addEventListener('keydown', onKey)
   window.addEventListener('keyup', onKey)
   let pending = null
@@ -217,6 +224,19 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.ar-badge {
+  margin-left: 0.25em;
+  padding: 0 0.15em;
+  font-size: 0.45em;
+  vertical-align: top;
+  background: var(--blaze);
+  color: #fff;
+}
+.ar-switch {
+  display: block;
+  margin-top: 8px;
+  font-weight: 700;
+}
 .ar-notice {
   display: flex;
   gap: 12px;

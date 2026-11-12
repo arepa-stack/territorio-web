@@ -1,0 +1,21 @@
+{
+  "units": "meters, FIBA half court. World origin = rim center projected on the floor, +x toward the baseline, +y up, +z toward the camera",
+  "halfCourt": { "length": 14, "width": 15 },
+  "lineWidth": 0.05,
+  "rim": { "height": 3.05, "radius": 0.225, "tube": 0.012, "toBaseline": 1.575 },
+  "backboard": { "width": 1.8, "height": 1.05, "thickness": 0.05, "bottom": 2.9, "toBaseline": 1.2 },
+  "threePoint": { "radius": 6.75, "cornerZ": 6.6 },
+  "key": { "width": 4.9, "length": 5.8 },
+  "freeThrowCircle": 1.8,
+  "restrictedArea": 1.25,
+  "centerCircle": 1.8,
+  "ball": { "radius": 0.12, "mass": 0.62 },
+  "players": { "height": 1.95, "radius": 0.26, "offenseZ": 0.4, "defenseZ": -0.4 },
+  "logic": {
+    "note": "oneOnOne.js runs in 2D pixels: x along the court, y = height above the floor. These map them to meters",
+    "pxToMeters": 0.01731,
+    "jumpPxToMeters": 0.008,
+    "textPxToMeters": 0.017
+  },
+  "camera": { "height": 3.6, "distance": 10.5, "dunkDistance": 7, "fov": 42 }
+}

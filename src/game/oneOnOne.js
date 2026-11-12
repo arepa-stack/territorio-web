@@ -1,13 +1,15 @@
 // 1vs1 half-court mini game (/jugar). Side view: everyone attacks the hoop on the right.
-// Canvas 2D, no dependencies. createGame(canvas, { onHud, onEnd }) → { start, input, destroy }
+// Canvas 2D by default, no dependencies. createGame(canvas, { onHud, onEnd, renderer?, ballPhysics? }) → { start, input, destroy }
+// renderer: { draw(view), destroy() } replaces the 2D drawing (v2 uses Three.js, see render3d.js)
+// ballPhysics: { launch(ball, shooter), step(dt) → "make" | "miss" | null } lets a physics engine decide shots that are not blocked
 
 export const W = 960
 export const H = 540
-const FLOOR = 468 // feet line
+export const FLOOR = 468 // feet line
 const BACK = 422 // far edge of the floor
 const FRONT = 528 // near edge
 const MID = (BACK + FRONT) / 2
-const HOOP_X = 846
+export const HOOP_X = 846
 const RIM_Y = 250
 const RIM_R = 22
 const BOARD_X = 878
@@ -45,14 +47,26 @@ export const releaseQuality = m => 1 - Math.min(1, Math.abs(m - 0.8) / 0.4)
 const rand = (a, b) => a + Math.random() * (b - a)
 const player = (color, num, ai) => ({ x: 0, y: 0, vy: 0, vx: 0, stun: 0, fallen: false, color, num, ai, run: 0, hand: 1, handT: 1, crossCd: 0, stealCd: 0, shooting: null, blockAt: null })
 
-export function createGame(canvas, { onHud = () => {}, onEnd = () => {} } = {}) {
-  const ctx = canvas.getContext('2d')
+export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, renderer = null, ballPhysics = null } = {}) {
+  const ctx = renderer ? null : canvas.getContext('2d')
   const you = player('#ff4f12', '7', false)
   const cpu = player('#2f6fde', '99', true)
   const keys = { left: false, right: false }
   let off, def, phase, ball, pauseT, nextOff, texts, buckets, points, possT, crossPaid, aiT, stealT, netT, raf, last
   let clock = 0
   let running = false // before start() the court is drawn as the intro background
+
+  // read-only window for an external renderer (getters: these variables are reassigned every possession)
+  const view = {
+    get you() { return you },
+    get cpu() { return cpu },
+    get off() { return off },
+    get phase() { return phase },
+    get ball() { return ball },
+    get texts() { return texts },
+    get netT() { return netT || 0 },
+    get clock() { return clock }
+  }
 
   const hud = () => onHud({ you: buckets.you, cpu: buckets.cpu, points, target: TARGET })
   const say = (text, color = '#ede8dc', x, y) => texts.push({ text, color, x: x ?? off.x, y: y ?? FLOOR - 170, t: 0 })
@@ -134,6 +148,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {} } = {}) 
       free: null
     }
     phase = 'flight'
+    ballPhysics?.launch(ball, p)
   }
 
   function resolve() {
@@ -299,7 +314,15 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {} } = {}) 
     }
     physics(you, dt)
     physics(cpu, dt)
-    if (ball) moveBall(dt)
+    if (ball) {
+      const outcome = ballPhysics?.step(dt)
+      if (!ballPhysics || ball.result === 'block') moveBall(dt) // blocks keep the scripted deflection
+      else if (outcome && !ball.done) {
+        ball.done = true
+        ball.result = outcome
+        resolve()
+      }
+    }
     if (phase === 'pause') {
       pauseT -= dt
       if (pauseT <= 0) {
@@ -602,7 +625,8 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {} } = {}) 
     const dt = Math.min(0.033, (now - last) / 1000)
     last = now
     if (running && phase !== 'over') update(dt)
-    draw()
+    if (renderer) renderer.draw(view, dt)
+    else draw()
     raf = requestAnimationFrame(frame)
   }
 
@@ -617,6 +641,9 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {} } = {}) 
       running = true
     },
     input,
-    destroy: () => cancelAnimationFrame(raf)
+    destroy() {
+      cancelAnimationFrame(raf)
+      renderer?.destroy()
+    }
   }
 }

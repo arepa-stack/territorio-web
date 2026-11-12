@@ -88,6 +88,13 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    // v2: same game and HUD, Three.js court + ball physics (/jugar stays the 2D version)
+    path: '/jugar-v2',
+    name: 'ArcadeGame3D',
+    component: () => import('@/views/ArcadeView.vue'),
+    meta: { requiresAuth: false, engine: '3d' }
+  },
+  {
     path: '/torneo/:id',
     name: 'PublicTournament',
     component: () => import('@/views/tournaments/PublicTournamentView.vue'),
