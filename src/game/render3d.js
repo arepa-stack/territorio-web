@@ -3,6 +3,7 @@
 import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import C from './court-config.json'
+import { loadPlayerModel, makeSkinnedPlayer } from './playerModel'
 import { FLOOR, HOOP_X } from './oneOnOne'
 import { BOARD_X, RIG, RIM, buildEnvironment, buildHoop, createComposer, makeBall, makeBurst, makeFire, makeMotes, makePlayer, makeRing, nightEnvironment } from './scene3d'
 
@@ -148,12 +149,23 @@ export function create3D(canvas, { onImpact } = {}) {
       if (surface === 'rim') sparks.burst(ballMesh.position, 0.05, 1.6 * k, 2.2 * k)
     }
   }
-  const rigs = new Map() // logic player object → capsule rig
+  const rigs = new Map() // logic player object → rig (same joints for the skinned model and the primitive one)
+  // the real player model arrives a moment after the first frame; until then (or if it fails to load)
+  // the primitive mannequins stand in, then they are swapped out
+  let model = null
+  loadPlayerModel()
+    .then(m => {
+      model = m
+      for (const rig of rigs.values()) scene.remove(rig.root)
+      rigs.clear()
+    })
+    .catch(e => console.warn('player model not loaded, keeping the mannequins', e))
   const rigFor = p => {
     if (!rigs.has(p)) {
-      const rig = p.ai
-        ? makePlayer({ jersey: '#2f6fde', shorts: '#1d4796', skin: '#8a5a3c', num: p.num, shoe: '#e8e8e4' })
-        : makePlayer({ jersey: '#ff4f12', shorts: '#c23a0c', skin: '#c68a5e', num: p.num, headband: '#ff4f12' })
+      const look = p.ai
+        ? { jersey: '#2f6fde', shorts: '#1d4796', skin: '#8a5a3c', num: p.num, shoe: '#e8e8e4' }
+        : { jersey: '#ff4f12', shorts: '#c23a0c', skin: '#c68a5e', num: p.num, headband: '#ff4f12' }
+      const rig = model ? makeSkinnedPlayer(model, look) : makePlayer(look)
       scene.add(rig.root)
       rigs.set(p, rig)
     }
