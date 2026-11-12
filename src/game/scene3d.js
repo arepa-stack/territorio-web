@@ -5,6 +5,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 import C from './court-config.json'
 
 export const BASE_X = C.rim.toBaseline // baseline, world x
@@ -173,7 +174,21 @@ function courtMaterial() {
     rg.fillStyle = grad
     rg.fillRect(x - r, y - r, r * 2, r * 2)
   }
+  const worn = (x, z, r, a) => {
+    const grad = rg.createRadialGradient(cx(x), cz(z), 0, cx(x), cz(z), r * PPM)
+    grad.addColorStop(0, `rgba(58,58,58,${a})`)
+    grad.addColorStop(1, 'rgba(58,58,58,0)')
+    rg.fillStyle = grad
+    rg.fillRect(cx(x - r), cz(z - r), r * 2 * PPM, r * 2 * PPM)
+  }
+  for (let i = 0; i < 16; i++) worn(rnd(BASE_X - C.key.length, BASE_X - 0.5), rnd(-C.key.width / 2, C.key.width / 2), rnd(0.5, 1.5), rnd(0.35, 0.7))
+  for (let i = 0; i < 22; i++) {
+    const a = rnd(Math.PI * 0.55, Math.PI * 1.45)
+    const r = C.threePoint.radius + rnd(-0.7, 0.9)
+    worn(Math.cos(a) * r, Math.sin(a) * r, rnd(0.5, 1.3), rnd(0.3, 0.6))
+  }
   return new THREE.MeshStandardMaterial({
+    envMapIntensity: 0.9,
     map: texOf(col),
     bumpMap: texOf(grain, false),
     bumpScale: 1.4,
@@ -240,53 +255,112 @@ function boardMarkings() {
   return texOf(c)
 }
 
-// net = diamond mesh of lines whose vertices follow a damped spring (stretch + sway)
+// net = rope links simulated with Verlet integration: top row pinned to the rim, gravity, a little wind,
+// and real collision with the ball (it bulges and drags as the ball squeezes through)
 function makeNet() {
-  const N = 12
-  const R = 6
-  const LEN = 0.42
-  const pos = new Float32Array((R + 1) * N * 3)
+  const N = 14
+  const R = 7
+  const LEN = 0.45
+  const count = (R + 1) * N
+  const pos = new Float32Array(count * 3)
+  const prev = new Float32Array(count * 3)
+  const rest = (r, c) => {
+    const t = r / R
+    const rad = C.rim.radius + (0.1 - C.rim.radius) * Math.pow(t, 0.75)
+    const a = ((c + (r % 2) * 0.5) / N) * Math.PI * 2
+    return [Math.cos(a) * rad, -t * LEN, Math.sin(a) * rad]
+  }
+  for (let r = 0; r <= R; r++) for (let c = 0; c < N; c++) pos.set(rest(r, c), (r * N + c) * 3)
+  prev.set(pos)
+  const dist = (a, b) => Math.hypot(pos[a * 3] - pos[b * 3], pos[a * 3 + 1] - pos[b * 3 + 1], pos[a * 3 + 2] - pos[b * 3 + 2])
+  const ropes = [] // diamond links: can go slack, never stretch
+  const hoops = [] // links around each row keep the tube shape
   const idx = []
   for (let r = 0; r < R; r++) for (let c = 0; c < N; c++) {
     const a = r * N + c
-    idx.push(a, (r + 1) * N + c, a, (r + 1) * N + ((c + (r % 2 ? 1 : N - 1)) % N))
+    for (const b of [(r + 1) * N + c, (r + 1) * N + ((c + (r % 2 ? 1 : N - 1)) % N)]) {
+      ropes.push([a, b, dist(a, b)])
+      idx.push(a, b)
+    }
   }
+  for (let r = 1; r <= R; r++) for (let c = 0; c < N; c++) hoops.push([r * N + c, r * N + ((c + 1) % N), dist(r * N + c, r * N + ((c + 1) % N))])
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
   geo.setIndex(idx)
   const mesh = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: '#e9e4d8', transparent: true, opacity: 0.9 }))
   mesh.frustumCulled = false
-  const st = { s: 0, vs: 0, x: 0, vx: 0, z: 0, vz: 0, t: 0 }
-  function update(dt) {
-    st.t += dt
-    for (const [p, v, k, damp] of [['s', 'vs', 260, 7], ['x', 'vx', 120, 3.2], ['z', 'vz', 120, 3.2]]) {
-      st[v] += (-st[p] * k - st[v] * damp) * dt
-      st[p] += st[v] * dt
-    }
-    for (let r = 0; r <= R; r++) {
-      const t = r / R
-      const rad = (C.rim.radius + (0.115 - C.rim.radius) * Math.pow(t, 0.75)) * (1 - 0.35 * Math.max(0, st.s) * Math.sin(Math.PI * t))
-      const y = -t * LEN * (1 + st.s * 0.9)
-      const ripple = Math.sin(t * 7 - st.t * 22) * 0.012 * Math.min(1, Math.abs(st.vs) + Math.abs(st.vx) + Math.abs(st.vz)) * t
-      for (let c = 0; c < N; c++) {
-        const a = ((c + (r % 2) * 0.5) / N) * Math.PI * 2
-        const i = (r * N + c) * 3
-        pos[i] = Math.cos(a) * (rad + ripple) + st.x * t * t
-        pos[i + 1] = y
-        pos[i + 2] = Math.sin(a) * (rad + ripple) + st.z * t * t
+
+  const ballLocal = new THREE.Vector3()
+  const BALL = C.ball.radius + 0.012
+  let clock = 0
+  let flip = -1 // countdown to the upward snap after a swish
+  const solve = (a, b, len, rope) => {
+    const ax = a * 3
+    const bx = b * 3
+    const dx = pos[bx] - pos[ax]
+    const dy = pos[bx + 1] - pos[ax + 1]
+    const dz = pos[bx + 2] - pos[ax + 2]
+    const d = Math.hypot(dx, dy, dz) || 1e-6
+    if (rope && d <= len) return
+    const k = (d - len) / d
+    const wa = a < N ? 0 : b < N ? 1 : 0.5 // the top row is tied to the rim
+    const wb = b < N ? 0 : a < N ? 1 : 0.5
+    pos[ax] += dx * k * wa
+    pos[ax + 1] += dy * k * wa
+    pos[ax + 2] += dz * k * wa
+    pos[bx] -= dx * k * wb
+    pos[bx + 1] -= dy * k * wb
+    pos[bx + 2] -= dz * k * wb
+  }
+  function step(h, ball) {
+    clock += h
+    for (let i = N; i < count; i++) {
+      const j = i * 3
+      const t = Math.floor(i / N) / R
+      const wind = Math.sin(clock * 1.3 + t * 2) * 0.35 * t
+      for (let k = 0; k < 3; k++) {
+        const p = pos[j + k]
+        const acc = k === 1 ? -5.5 : k === 2 ? wind : wind * 0.4
+        pos[j + k] = p + (p - prev[j + k]) * 0.982 + acc * h * h
+        prev[j + k] = p
       }
     }
-    geo.attributes.position.needsUpdate = true
+    for (let it = 0; it < 4; it++) {
+      for (const [a, b, len] of ropes) solve(a, b, len, true)
+      for (const [a, b, len] of hoops) solve(a, b, len, false)
+      if (ball) for (let i = N; i < count; i++) {
+        const j = i * 3
+        const dx = pos[j] - ball.x
+        const dy = pos[j + 1] - ball.y
+        const dz = pos[j + 2] - ball.z
+        const d = Math.hypot(dx, dy, dz)
+        if (d < BALL && d > 1e-5) {
+          const k = BALL / d
+          pos[j] = ball.x + dx * k
+          pos[j + 1] = ball.y + dy * k
+          pos[j + 2] = ball.z + dz * k
+        }
+      }
+    }
   }
-  update(0)
   return {
     mesh,
-    update,
-    swish: () => (st.vs += 7), // ball drops through: pulled down, then snaps back
+    update(dt, ballWorld) {
+      const ball = ballWorld ? mesh.worldToLocal(ballLocal.copy(ballWorld)) : null
+      const near = ball && ball.lengthSq() < 1 ? ball : null
+      const steps = Math.min(4, Math.max(1, Math.round(dt / (1 / 120))))
+      for (let i = 0; i < steps; i++) step(dt / steps, near)
+      if (flip > 0 && (flip -= dt) <= 0) for (let i = N; i < count; i++) prev[i * 3 + 1] -= 0.03 * (Math.floor(i / N) / R) // snaps up after the ball leaves
+      geo.attributes.position.needsUpdate = true
+    },
+    swish: () => (flip = 0.16),
     kick(k, dx = rnd(-1, 1), dz = rnd(-1, 1)) {
-      st.vx += dx * k * 1.6
-      st.vz += dz * k * 1.6
-      st.vs += k * 1.2
+      for (let i = N; i < count; i++) {
+        const t = Math.floor(i / N) / R
+        prev[i * 3] -= dx * k * 0.012 * t
+        prev[i * 3 + 2] -= dz * k * 0.012 * t
+        prev[i * 3 + 1] -= k * 0.006 * t
+      }
     }
   }
 }
@@ -298,35 +372,44 @@ export function buildHoop(scene) {
   pole.position.set(poleX, 1.75, 0)
   const foot = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.12, 20), metal))
   foot.position.set(poleX, 0.06, 0)
-  const arm = shadowed(new THREE.Mesh(new THREE.BoxGeometry(poleX - BOARD_X, 0.12, 0.12), metal))
-  arm.position.set((poleX + BOARD_X) / 2, 3.38, 0)
-  const brace = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.06, 0.06), metal))
-  brace.position.set(BOARD_X + 0.62, 3.05, 0)
-  brace.rotation.z = -0.5
+  // everything hanging off the pole (arm, board, rim, net) shakes together around the top of the pole
+  const PIVOT = new THREE.Vector3(poleX, 3.38, 0)
+  const rig = new THREE.Group()
+  rig.position.copy(PIVOT)
+  const hang = (obj, x, y, z) => {
+    obj.position.set(x - PIVOT.x, y - PIVOT.y, z - PIVOT.z)
+    rig.add(obj)
+    return obj
+  }
+  hang(shadowed(new THREE.Mesh(new THREE.BoxGeometry(poleX - BOARD_X, 0.12, 0.12), metal)), (poleX + BOARD_X) / 2, 3.38, 0)
+  hang(shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.06, 0.06), metal)), BOARD_X + 0.62, 3.05, 0).rotation.z = -0.5
   const b = C.backboard
   const cy = b.bottom + b.height / 2
-  // acrylic board: see-through, glossy, with a dark metal frame and crisp white markings
-  const glass = new THREE.Mesh(
+  // acrylic board: see-through, glossy (it mirrors the night around it), dark metal frame, crisp white markings
+  hang(new THREE.Mesh(
     new THREE.BoxGeometry(b.thickness * 0.5, b.height, b.width),
-    new THREE.MeshPhysicalMaterial({ color: '#cfe4ee', transparent: true, opacity: 0.2, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03, specularIntensity: 1, depthWrite: false })
-  )
-  glass.position.set(BOARD_X + b.thickness / 2, cy, 0)
-  const frame = new THREE.Group()
+    new THREE.MeshPhysicalMaterial({ color: '#cfe4ee', transparent: true, opacity: 0.22, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, specularIntensity: 1, envMapIntensity: 1.6, depthWrite: false })
+  ), BOARD_X + b.thickness / 2, cy, 0)
   const t = 0.05
   for (const [h, w, y, z] of [[t, b.width + t, cy + b.height / 2, 0], [t, b.width + t, cy - b.height / 2, 0], [b.height + t, t, cy, b.width / 2], [b.height + t, t, cy, -b.width / 2]]) {
-    const bar = shadowed(new THREE.Mesh(new THREE.BoxGeometry(b.thickness * 1.3, h, w), metal))
-    bar.position.set(BOARD_X + b.thickness / 2, y, z)
-    frame.add(bar)
+    hang(shadowed(new THREE.Mesh(new THREE.BoxGeometry(b.thickness * 1.3, h, w), metal)), BOARD_X + b.thickness / 2, y, z)
   }
-  const marks = new THREE.Mesh(new THREE.PlaneGeometry(b.width, b.height), new THREE.MeshBasicMaterial({ map: boardMarkings(), transparent: true, depthWrite: false, side: THREE.DoubleSide }))
+  const marks = hang(new THREE.Mesh(new THREE.PlaneGeometry(b.width, b.height), new THREE.MeshBasicMaterial({ map: boardMarkings(), transparent: true, depthWrite: false, side: THREE.DoubleSide })), BOARD_X - 0.004, cy, 0)
   marks.rotation.y = -Math.PI / 2
-  marks.position.set(BOARD_X - 0.004, cy, 0)
-  // rim (slightly emissive so the bloom catches it), neck and net hang from a pivot so a dunk can bend them
-  const rimMat = std('#ff4f12', { metalness: 0.6, roughness: 0.3, emissive: '#ff3a00', emissiveIntensity: 0.55 })
+  // steel support behind the board: two struts fanning out to its top corners, plus a back plate
+  for (const side of [-1, 1]) {
+    const to = new THREE.Vector3(BOARD_X + b.thickness, cy + b.height / 2 - 0.05, side * (b.width / 2 - 0.08))
+    const strut = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, PIVOT.distanceTo(to), 8), metal))
+    strut.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(PIVOT).normalize())
+    const mid = PIVOT.clone().lerp(to, 0.5)
+    hang(strut, mid.x, mid.y, mid.z)
+  }
+  hang(shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.62), metal)), BOARD_X + b.thickness + 0.02, RIM.y + 0.16, 0)
+  // steel rim (slightly emissive so the bloom catches it), neck and net on their own pivot so a dunk can bend them
+  const rimMat = std('#ff4f12', { metalness: 0.75, roughness: 0.28, emissive: '#ff3a00', emissiveIntensity: 0.5 })
   const rim = shadowed(new THREE.Mesh(new THREE.TorusGeometry(C.rim.radius, C.rim.tube * 1.5, 12, 48), rimMat))
   rim.rotation.x = Math.PI / 2
-  const flex = new THREE.Group()
-  flex.position.set(BOARD_X, RIM.y, 0)
+  const flex = hang(new THREE.Group(), BOARD_X, RIM.y, 0)
   rim.position.set(RIM.x - BOARD_X, 0, 0)
   const neck = shadowed(new THREE.Mesh(new THREE.BoxGeometry(BOARD_X - C.rim.radius, 0.03, 0.09), rimMat))
   neck.position.set((C.rim.radius - BOARD_X) / 2, 0, 0)
@@ -335,23 +418,47 @@ export function buildHoop(scene) {
   const net = makeNet()
   net.mesh.position.set(RIM.x - BOARD_X, 0, 0)
   flex.add(rim, neck, plate, net.mesh)
-  const support = new THREE.Group()
-  for (const side of [-1, 1]) {
-    const from = new THREE.Vector3(poleX, 3.38, 0)
-    const to = new THREE.Vector3(BOARD_X + b.thickness, cy + b.height / 2 - 0.05, side * (b.width / 2 - 0.08))
-    const strut = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, from.distanceTo(to), 8), metal))
-    strut.position.copy(from).lerp(to, 0.5)
-    strut.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize())
-    support.add(strut)
+  scene.add(pole, foot, rig)
+
+  // damped spring: the whole assembly rocks after a dunk or a hard hit on the iron
+  const s = { a: 0, va: 0, b: 0, vb: 0 }
+  return {
+    net,
+    flex,
+    board: {
+      kick(k) {
+        s.va += k * 0.55
+        s.vb += rnd(-1, 1) * k * 0.25
+      },
+      update(dt) {
+        s.va += (-s.a * 900 - s.va * 7) * dt
+        s.a += s.va * dt
+        s.vb += (-s.b * 700 - s.vb * 6) * dt
+        s.b += s.vb * dt
+        rig.rotation.set(0, s.b, s.a)
+      }
+    }
   }
-  const backPlate = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.62), metal))
-  backPlate.position.set(BOARD_X + b.thickness + 0.02, RIM.y + 0.16, 0)
-  support.add(backPlate)
-  scene.add(pole, foot, arm, brace, glass, frame, marks, flex, support)
-  return { net, flex }
 }
 
 // ---------- players: jointed mannequins (hips, knees, shoulders, elbows) until the .glb models arrive ----------
+// athletic mesh fabric: rows of tiny holes
+function fabric(rx, ry) {
+  const [c, g] = canvasOf(64)
+  g.fillStyle = '#b0b0b0'
+  g.fillRect(0, 0, 64, 64)
+  g.fillStyle = '#202020'
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+    g.beginPath()
+    g.arc(x * 8 + (y % 2 ? 6 : 2), y * 8 + 4, 1.7, 0, 7)
+    g.fill()
+  }
+  const t = texOf(c, false)
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.repeat.set(rx, ry)
+  return t
+}
+
 function numberTexture(num) {
   const [c, g] = canvasOf(128)
   g.font = '96px Anton, Impact, sans-serif'
@@ -370,9 +477,9 @@ export function makePlayer({ jersey, shorts, skin, num, headband, shoe = '#16181
   const root = new THREE.Group()
   const body = new THREE.Group()
   root.add(body)
-  const skinMat = std(skin, { roughness: 0.55 })
-  const jerseyMat = std(jersey, { roughness: 0.85, side: THREE.DoubleSide })
-  const shortsMat = std(shorts, { roughness: 0.9 })
+  const skinMat = new THREE.MeshPhysicalMaterial({ color: skin, roughness: 0.4, clearcoat: 0.15, clearcoatRoughness: 0.35 }) // sweat sheen
+  const jerseyMat = std(jersey, { roughness: 0.8, side: THREE.DoubleSide, bumpMap: fabric(9, 14), bumpScale: 0.8 })
+  const shortsMat = std(shorts, { roughness: 0.85, bumpMap: fabric(9, 6), bumpScale: 0.8 })
   const add = (parent, mesh, x = 0, y = 0, z = 0) => {
     mesh.position.set(x, y, z)
     parent.add(shadowed(mesh))
@@ -670,7 +777,7 @@ export function buildEnvironment(scene) {
     scene.add(pole, arm, head, bulb, spot, spot.target, lightShaft(from, to, 5.5))
   }
   // cold night ambience + a soft fill from the camera side so the players never go black
-  scene.add(new THREE.HemisphereLight('#44528a', '#17130f', 0.55))
+  scene.add(new THREE.HemisphereLight('#44528a', '#17130f', 0.3)) // the environment map carries the rest of the ambient
   const fill = new THREE.DirectionalLight('#a9b8ee', 0.95)
   fill.position.set(-18, 11, 3) // from behind the camera
   scene.add(fill)
@@ -761,9 +868,121 @@ export function createComposer(gl, scene, camera) {
   const bloom = new UnrealBloomPass(new THREE.Vector2(4, 4), 0.5, 0.55, 1.6) // strength, radius, threshold (HDR, before tone mapping)
   composer.addPass(bloom)
   composer.addPass(new OutputPass())
+  composer.addPass(new ShaderPass(GradeShader)) // on the displayed image: color grade + vignette
   return { composer, bloom }
 }
 
 export function makeBall() {
   return shadowed(new THREE.Mesh(new THREE.SphereGeometry(C.ball.radius, 40, 28), ballMaterial()))
+}
+
+// ---------- image-based lighting: a tiny night city rendered into a PMREM cube, used as scene.environment ----------
+export function nightEnvironment(gl) {
+  const env = new THREE.Scene()
+  const [c, g] = canvasOf(512, 256)
+  const grad = g.createLinearGradient(0, 0, 0, 256)
+  grad.addColorStop(0, '#05070f')
+  grad.addColorStop(0.42, '#101a3a')
+  grad.addColorStop(0.5, '#6a4636') // glow of the city on the horizon
+  grad.addColorStop(0.56, '#17130f')
+  grad.addColorStop(1, '#0b0a09') // asphalt
+  g.fillStyle = grad
+  g.fillRect(0, 0, 512, 256)
+  for (let i = 0; i < 260; i++) {
+    g.fillStyle = Math.random() < 0.75 ? 'rgba(255,205,140,0.9)' : 'rgba(170,205,255,0.8)'
+    g.fillRect(Math.random() * 512, rnd(104, 127), rnd(1, 3), rnd(1, 2.5)) // lit windows around the horizon
+  }
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(60, 32, 16), new THREE.MeshBasicMaterial({ map: texOf(c), side: THREE.BackSide }))
+  env.add(sky)
+  // the two street lamps as bright warm panels, where they are on the court
+  for (const z of [-7, 7]) {
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.2, 1.2), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd9a8').multiplyScalar(60) }))
+    lamp.position.set(BASE_X + 0.8, 7.6, z)
+    env.add(lamp)
+  }
+  const pmrem = new THREE.PMREMGenerator(gl)
+  const tex = pmrem.fromScene(env, 0.02, 0.1, 100).texture
+  pmrem.dispose()
+  return tex
+}
+
+// final pass on the displayed image: warm highlights / cool shadows, a touch of contrast and a soft vignette
+export const GradeShader = {
+  uniforms: { tDiffuse: { value: null } },
+  vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(tDiffuse, vUv);
+      float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+      c.rgb *= mix(vec3(0.90, 0.98, 1.12), vec3(1.08, 1.0, 0.88), smoothstep(0.05, 0.65, l)); // teal shadows, sodium highlights
+      c.rgb = mix(vec3(l), c.rgb, 1.12);
+      c.rgb = (c.rgb - 0.5) * 1.07 + 0.5;
+      float d = distance(vUv, vec2(0.5));
+      c.rgb *= 1.0 - smoothstep(0.42, 0.95, d) * 0.6;
+      gl_FragColor = c;
+    }`
+}
+
+// ---------- particles ----------
+function softSprite() {
+  const [c, g] = canvasOf(64)
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+  grad.addColorStop(0, 'rgba(255,255,255,1)')
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.35)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, 64, 64)
+  return texOf(c)
+}
+
+// pooled one-shot burst (sparks off the iron, dust kicked up by sneakers)
+export function makeBurst({ n, size, color, additive = true, opacity = 1, gravity = 0, life = 0.8 }) {
+  const pos = new Float32Array(n * 3)
+  const vel = new Float32Array(n * 3)
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  const mat = new THREE.PointsMaterial({ map: softSprite(), size, color, transparent: true, opacity: 0, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending })
+  const points = new THREE.Points(geo, mat)
+  points.frustumCulled = false
+  let t = 0
+  return {
+    points,
+    burst(at, spread, up, speed) {
+      t = 1
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2
+        pos.set([at.x + Math.cos(a) * spread * Math.random(), at.y, at.z + Math.sin(a) * spread * Math.random()], i * 3)
+        vel.set([Math.cos(a) * rnd(0.2, 1) * speed, rnd(0.2, 1) * up, Math.sin(a) * rnd(0.2, 1) * speed], i * 3)
+      }
+    },
+    update(dt) {
+      if (t <= 0) return
+      t = Math.max(0, t - dt / life)
+      for (let i = 0; i < n; i++) {
+        vel[i * 3 + 1] += gravity * dt
+        for (let k = 0; k < 3; k++) pos[i * 3 + k] += vel[i * 3 + k] * dt
+      }
+      geo.attributes.position.needsUpdate = true
+      mat.opacity = opacity * t
+    }
+  }
+}
+
+// dust and humidity hanging in the lamp light over the court
+export function makeMotes() {
+  const n = 320
+  const pos = new Float32Array(n * 3)
+  for (let i = 0; i < n; i++) pos.set([rnd(-11, 2.5), rnd(0.4, 7), rnd(-8, 8)], i * 3)
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  const points = new THREE.Points(geo, new THREE.PointsMaterial({ map: softSprite(), size: 0.07, color: '#ffe2b8', transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }))
+  points.frustumCulled = false
+  return {
+    points,
+    update(clock) {
+      // the whole cloud drifts: cheap, and reads as slow air
+      points.position.set(Math.sin(clock * 0.11) * 0.6, Math.sin(clock * 0.17) * 0.35, Math.cos(clock * 0.09) * 0.6)
+    }
+  }
 }

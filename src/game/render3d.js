@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import C from './court-config.json'
 import { FLOOR, HOOP_X } from './oneOnOne'
-import { BOARD_X, RIG, RIM, buildEnvironment, buildHoop, createComposer, makeBall, makeFire, makePlayer, makeRing } from './scene3d'
+import { BOARD_X, RIG, RIM, buildEnvironment, buildHoop, createComposer, makeBall, makeBurst, makeFire, makeMotes, makePlayer, makeRing, nightEnvironment } from './scene3d'
 
 const G = 9.82
 const wx = gx => (gx - HOOP_X) * C.logic.pxToMeters // logic x (px) → world x (rim at 0)
@@ -116,7 +116,16 @@ export function create3D(canvas, { onImpact } = {}) {
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(C.camera.fov, 16 / 9, 0.1, 160)
   buildEnvironment(scene)
-  const { net, flex } = buildHoop(scene)
+  // image-based lighting: glass, steel, leather and sweat reflect the night city and the lamps
+  scene.environment = nightEnvironment(gl)
+  scene.environmentIntensity = 0.6
+  const { net, flex, board } = buildHoop(scene)
+  const sparks = makeBurst({ n: 36, size: 0.1, color: new THREE.Color('#ffd27a').multiplyScalar(4), gravity: -7, life: 0.45 })
+  const dust = makeBurst({ n: 26, size: 0.55, color: '#b9ab95', additive: false, opacity: 0.3, life: 0.7 })
+  const motes = makeMotes()
+  scene.add(sparks.points, dust.points, motes.points)
+  const feet = new THREE.Vector3()
+  let shake = 0
   const ballMesh = makeBall()
   const { ring, material: ringMat } = makeRing()
   const fire = makeFire()
@@ -132,6 +141,12 @@ export function create3D(canvas, { onImpact } = {}) {
   const impact = (surface, k) => {
     onImpact?.(surface, k)
     if (surface === 'rim') net.kick(k)
+    // a hard hit on the iron or the glass: the whole hoop rattles, sparks fly, the camera feels it
+    if ((surface === 'rim' || surface === 'board') && k > 0.45) {
+      board.kick(k)
+      shake = Math.max(shake, k * 0.12)
+      if (surface === 'rim') sparks.burst(ballMesh.position, 0.05, 1.6 * k, 2.2 * k)
+    }
   }
   const rigs = new Map() // logic player object → capsule rig
   const rigFor = p => {
@@ -189,7 +204,6 @@ export function create3D(canvas, { onImpact } = {}) {
   const facing = new WeakMap() // smoothed heading of each player (rotation.y)
   let rimBend = 0
   let rimVel = 0
-  let shake = 0
   const smooth = t => t * t * (3 - 2 * t)
   const ARM = RIG.arm // shoulder to hand
   const SHOULDER = RIG.shoulder
@@ -197,6 +211,25 @@ export function create3D(canvas, { onImpact } = {}) {
   // player-local offset (forward, side) → world x/z for a heading ry
   const local = (x, z, ry, fwd, side) => [x + fwd * Math.cos(ry) + side * Math.sin(ry), z - fwd * Math.sin(ry) + side * Math.cos(ry)]
   const tmp = new THREE.Euler()
+  // two-bone IK: put a hand on a world point (shoulder → elbow → hand), elbow bending forward
+  const UPPER = 0.34
+  const FORE = RIG.arm - UPPER
+  const DOWN = new THREE.Vector3(0, -1, 0)
+  const AXIS_Z = new THREE.Vector3(0, 0, 1)
+  const qz = new THREE.Quaternion()
+  const ikTarget = new THREE.Vector3()
+  function reach(rig, i, world) {
+    const shoulder = rig.arms[i]
+    const d = rig.body.worldToLocal(ikTarget.copy(world)).sub(shoulder.position)
+    const dist = Math.min(UPPER + FORE - 0.002, Math.max(0.12, d.length()))
+    const a = Math.acos(clamp1((UPPER * UPPER + dist * dist - FORE * FORE) / (2 * UPPER * dist)))
+    const bend = Math.PI - Math.acos(clamp1((UPPER * UPPER + FORE * FORE - dist * dist) / (2 * UPPER * FORE)))
+    shoulder.quaternion.setFromUnitVectors(DOWN, d.normalize()).multiply(qz.setFromAxisAngle(AXIS_Z, -a))
+    rig.elbows[i].rotation.set(0, 0, bend)
+  }
+  const dribblePos = new THREE.Vector3() // where the ball is while it is being dribbled (the hand goes to it)
+  const handWas = new WeakMap()
+  const shotWas = new WeakMap()
   const lastPos = new WeakMap() // previous floor position, for the lean into the direction of travel
   const clamp1 = v => Math.max(-1, Math.min(1, v))
 
@@ -263,7 +296,12 @@ export function create3D(canvas, { onImpact } = {}) {
         const [hx, hz] = local(x, z, ry, Math.sin(th) * reach, 0)
         handsOf.set(p, new THREE.Vector3(hx, lift + SHOULDER - Math.cos(th) * reach, hz))
       } else {
-        if (!dunkT.has(p)) shake = 0.3 // first frame after the release is the slam
+        if (!dunkT.has(p)) {
+          // first frame after the release is the slam
+          shake = 0.3
+          board.kick(1.6)
+          sparks.burst(RIM, C.rim.radius, 2.2, 2.6)
+        }
         const t = (dunkT.get(p) ?? 0) + dt
         dunkT.set(p, t)
         if (t < 0.12) {
@@ -375,6 +413,21 @@ export function create3D(canvas, { onImpact } = {}) {
     rig.root.position.set(x, lift, z)
     rig.root.rotation.y = ry
     rig.body.position.set(p.fallen ? -0.3 : 0, p.fallen ? C.players.radius : -drop, 0)
+
+    if (isOff && !s && !p.fallen && !air) {
+      // the dribble: the ball's spot, and the hand that rides it up and down (IK), hand to hand on a crossover
+      const cross = p.handT < 1
+      const [bx, bz] = cross ? local(x, z, ry, 0.38, p.hand * 0.36 * (2 * smooth(p.handT) - 1)) : local(x, z, ry, 0.3, p.hand * 0.36)
+      const by = C.ball.radius + (cross ? 0.5 * Math.abs(Math.cos(Math.PI * p.handT)) : Math.abs(Math.sin(view.clock * 9)) * 0.75)
+      dribblePos.set(bx, by, bz)
+      const newArm = p.hand > 0 ? 0 : 1
+      rig.root.updateMatrixWorld(true)
+      reach(rig, cross && p.handT < 0.5 ? 1 - newArm : newArm, v3.set(bx, by + C.ball.radius * 0.85, bz))
+    }
+    // sneakers kick up dust on a hard crossover and when he plants to shoot
+    if (p.handT < (handWas.get(p) ?? 1) || (s && !shotWas.get(p) && !dunk)) dust.burst(feet.set(x, 0.08, z), 0.25, 0.7, 1.1)
+    handWas.set(p, p.handT)
+    shotWas.set(p, !!s)
     return z
   }
 
@@ -412,15 +465,7 @@ export function create3D(canvas, { onImpact } = {}) {
         else if (off.shooting && !off.shooting.released) {
           const [bx, bz] = local(x, z, ry, 0.12, 0)
           ballMesh.position.set(bx, C.players.height + 0.5 + jumpM(off.y), bz)
-        } else if (off.handT < 1) {
-          // crossover: one low, hard bounce in front of the body from the old hand to the new one
-          const u = smooth(off.handT)
-          const [bx, bz] = local(x, z, ry, 0.38, off.hand * 0.36 * (2 * u - 1))
-          ballMesh.position.set(bx, C.ball.radius + 0.5 * Math.abs(Math.cos(Math.PI * off.handT)), bz)
-        } else {
-          const [bx, bz] = local(x, z, ry, 0.3, off.hand * 0.36)
-          ballMesh.position.set(bx, C.ball.radius + Math.abs(Math.sin(view.clock * 9)) * 0.75 + jumpM(off.y), bz)
-        }
+        } else ballMesh.position.copy(dribblePos)
         ballMesh.rotation.z = -view.clock * 6
       }
 
@@ -430,13 +475,17 @@ export function create3D(canvas, { onImpact } = {}) {
         if (view.ball?.perfect) fire.burst() // green release that goes in: the rim catches fire
       }
       fire.update(dt)
+      sparks.update(dt)
+      dust.update(dt)
+      motes.update(view.clock)
+      board.update(dt)
       ring.visible = view.phase !== 'over' && !view.ball
       ring.position.set(wx(off.x), 0.02, zByPlayer.get(off))
       ring.rotation.y = facing.get(off) ?? 0
       ring.scale.setScalar(1 + Math.sin(view.clock * 5) * 0.05)
       ringMat.color.copy(off.ai ? RING_CPU : RING_YOU)
       netWas = view.netT
-      net.update(dt)
+      net.update(dt, view.ball ? ballMesh.position : null) // the ball pushes the net links aside
 
       // the rim bends while someone hangs on it, then wobbles back (damped spring)
       const hanging = [you, cpu].some(p => p.hang > 0 && p.shooting?.kind === 'dunk')
@@ -457,8 +506,13 @@ export function create3D(canvas, { onImpact } = {}) {
       const fx = view.ball ? ballMesh.position.x : px
       const fz = view.ball ? ballMesh.position.z : pz
       lookTarget.set(fx * 0.45, drive ? 2.3 : 1.7, fz * 0.45)
-      camPos.lerp(camTarget, ease(dt, 3))
-      look.lerp(lookTarget, ease(dt, 3))
+      if (dunk) {
+        // hero shot: drop low under the play and look up at the rim; eases back to the 2K camera after he lands
+        camTarget.set(-K.dunkBack, K.dunkHeight, pz * K.lateral + K.shoulder * 0.8)
+        lookTarget.set(-0.3, RIM.y - 0.1, 0)
+      }
+      camPos.lerp(camTarget, ease(dt, dunk ? 5 : 3))
+      look.lerp(lookTarget, ease(dt, dunk ? 5 : 3))
       camera.position.copy(camPos)
       if (shake > 0) {
         shake = Math.max(0, shake - dt)
