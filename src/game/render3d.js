@@ -1,5 +1,5 @@
 // v2 of the 1vs1 game: Three.js renderer + cannon-es ball physics, plugged into oneOnOne.js (the rules stay there).
-// create3D(canvas) → { renderer, ballPhysics } for createGame(canvas, { ...create3D(canvas) })
+// create3D(canvas, { onImpact }) → { renderer, ballPhysics } for createGame(canvas, { ...create3D(canvas) })
 import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import C from './court-config.json'
@@ -290,13 +290,19 @@ function buildWorld() {
   world.addBody(board)
   world.addBody(rim)
   world.addBody(ball)
-  return { world, ball }
+  return { world, ball, floor, board, rim }
 }
 
 // ---- ball physics: decides every shot that is not blocked. Separate from the renderer so it can be measured alone ----
-export function createBallPhysics(zOf = () => 0) {
-  const { world, ball } = buildWorld()
+export function createBallPhysics(zOf = () => 0, onImpact = () => {}) {
+  const { world, ball, floor, board, rim } = buildWorld()
   let shot = null
+  // collisions drive the rim/board/floor sounds, louder the harder the hit
+  ball.addEventListener('collide', e => {
+    const v = Math.abs(e.contact.getImpactVelocityAlongNormal())
+    if (!shot || v < 0.6) return
+    onImpact(e.body === rim ? 'rim' : e.body === board ? 'board' : e.body === floor ? 'floor' : null, Math.min(1, v / 7))
+  })
   return {
     body: ball,
     launch(b, shooter) {
@@ -342,7 +348,7 @@ export function createBallPhysics(zOf = () => 0) {
   }
 }
 
-export function create3D(canvas) {
+export function create3D(canvas, { onImpact } = {}) {
   const gl = new THREE.WebGLRenderer({ canvas, antialias: true })
   gl.shadowMap.enabled = true
   gl.shadowMap.type = THREE.PCFSoftShadowMap
@@ -440,7 +446,7 @@ export function create3D(canvas) {
     return z
   }
 
-  const ballPhysics = createBallPhysics(p => zs.get(p) ?? C.players.offenseZ)
+  const ballPhysics = createBallPhysics(p => zs.get(p) ?? C.players.offenseZ, onImpact)
   const ball = ballPhysics.body
 
   const renderer = {

@@ -2,6 +2,7 @@
 // Canvas 2D by default, no dependencies. createGame(canvas, { onHud, onEnd, renderer?, ballPhysics? }) → { start, input, destroy }
 // renderer: { draw(view), destroy() } replaces the 2D drawing (v2 uses Three.js, see render3d.js)
 // ballPhysics: { launch(ball, shooter), step(dt) → "make" | "miss" | null } lets a physics engine decide shots that are not blocked
+// onEvent(name, data): dribble, release, make, miss, block, cross, steal (sounds hook here, see audio.js)
 
 export const W = 960
 export const H = 540
@@ -47,13 +48,14 @@ export const releaseQuality = m => 1 - Math.min(1, Math.abs(m - 0.8) / 0.4)
 const rand = (a, b) => a + Math.random() * (b - a)
 const player = (color, num, ai) => ({ x: 0, y: 0, vy: 0, vx: 0, stun: 0, fallen: false, color, num, ai, run: 0, hand: 1, handT: 1, crossCd: 0, stealCd: 0, shooting: null, blockAt: null })
 
-export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, renderer = null, ballPhysics = null } = {}) {
+export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, renderer = null, ballPhysics = null, onEvent = () => {} } = {}) {
   const ctx = renderer ? null : canvas.getContext('2d')
   const you = player('#ff4f12', '7', false)
   const cpu = player('#2f6fde', '99', true)
   const keys = { left: false, right: false }
   let off, def, phase, ball, pauseT, nextOff, texts, buckets, points, possT, crossPaid, aiT, stealT, netT, raf, last
   let clock = 0
+  let bounces = 0 // dribbles so far, one sound per floor touch
   let running = false // before start() the court is drawn as the intro background
 
   // read-only window for an external renderer (getters: these variables are reassigned every possession)
@@ -148,6 +150,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
       free: null
     }
     phase = 'flight'
+    onEvent('release', { kind: s.kind, byYou: !p.ai })
     ballPhysics?.launch(ball, p)
   }
 
@@ -163,6 +166,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
       if (def === you) award('block', def.x)
       else say('¡TAPÓN DE LA CPU!', '#7fa6f0', def.x)
     } else say('¡FALLÓ!', '#a8a397', HOOP_X - 120)
+    onEvent(result, { kind, byYou: result === 'block' ? def === you : off === you })
     hud()
     endPossession()
   }
@@ -180,10 +184,12 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
     if (r < ankle) {
       d.stun = 1.6
       d.fallen = true
+      onEvent('cross', { ankle: true, byYou: !p.ai })
       if (pay) award('ankle', d.x)
       else say(p.ai ? '¡TE TUMBÓ!' : 'AL PISO', p.ai ? '#7fa6f0' : '#ede8dc', d.x)
     } else if (r < beat) {
       d.stun = 0.7
+      onEvent('cross', { ankle: false, byYou: !p.ai })
       if (pay) award('cross', d.x)
     } else {
       say('LEÍDO', '#a8a397', d.x)
@@ -197,6 +203,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
     p.stealCd = 1
     if (Math.abs(carrier.x - p.x) < 65 && carrier.y === 0 && !carrier.shooting && Math.random() < 0.3) {
       say(p.ai ? 'TE ROBARON' : '¡ROBO!', p.ai ? '#7fa6f0' : '#8be28b', p.x)
+      onEvent('steal', { byYou: !p.ai })
       endPossession(0.9)
     } else p.stun = 0.35 // reaching costs a step
   }
@@ -288,6 +295,12 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
 
   function update(dt) {
     clock += dt
+    // the dribble animation touches the floor every π/9 s (|sin(clock·9)| = 0)
+    const b = Math.floor((clock * 9) / Math.PI)
+    if (b !== bounces) {
+      bounces = b
+      if (phase !== 'over' && !ball && !off.shooting && !off.fallen && off.y === 0) onEvent('dribble')
+    }
     const prevX = off.x
     if (phase === 'play') {
       if (you.stun <= 0 && you.y === 0 && !you.shooting) {

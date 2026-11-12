@@ -32,6 +32,9 @@
             <span class="ar-side ar-side--you">Tú <b class="display">{{ hud.you }}</b></span>
             <span class="ar-pts">Puntos <b class="display">{{ hud.points }}</b></span>
             <span class="ar-side ar-side--cpu"><b class="display">{{ hud.cpu }}</b> CPU</span>
+            <button type="button" class="ar-mute" :aria-pressed="muted" :aria-label="muted ? 'Activar sonido' : 'Silenciar'" @click="toggleMute">
+              <span class="icon">{{ muted ? 'volume_off' : 'volume_up' }}</span>
+            </button>
           </div>
 
           <div class="ar-stage">
@@ -115,6 +118,7 @@ import TurfLoader from '@/components/TurfLoader.vue'
 import { useAuthStore } from '@/stores/auth'
 import arcadeService from '@/services/arcade'
 import { createGame, PLAYS, TARGET } from '@/game/oneOnOne'
+import { createAudio } from '@/game/audio'
 
 const PENDING = 'turf:pendingGameScore'
 const KEYS = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'shoot', ArrowUp: 'shoot', w: 'shoot', W: 'shoot', x: 'cross', X: 'cross', k: 'cross', K: 'cross' }
@@ -130,6 +134,24 @@ const leaders = ref([])
 const loadingBoard = ref(true)
 const playList = Object.values(PLAYS)
 let game
+const MUTE_KEY = 'turf:arcadeMuted'
+const readMuted = () => {
+  try {
+    return localStorage.getItem(MUTE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const muted = ref(readMuted())
+const audio = createAudio({ physicsImpacts: is3d })
+audio.setMuted(muted.value)
+const toggleMute = () => {
+  muted.value = !muted.value
+  audio.setMuted(muted.value)
+  try {
+    localStorage.setItem(MUTE_KEY, muted.value ? '1' : '0')
+  } catch {}
+}
 
 const loadBoard = async () => {
   try {
@@ -154,6 +176,9 @@ const save = async ({ score, won }) => {
 
 const onEnd = r => {
   result.value = r
+  audio.stopCrowd()
+  audio.play('buzzer')
+  if (r.won) audio.play('cheer', 1)
   screen.value = 'over'
   saveState.value = ''
   if (authStore.isAuthenticated) return save(r)
@@ -165,6 +190,9 @@ const onEnd = r => {
 
 const play = () => {
   screen.value = 'playing'
+  audio.unlock() // inside the click: browsers only allow audio after a user gesture
+  audio.startCrowd()
+  audio.play('whistle')
   game?.start()
   canvas.value.focus?.()
 }
@@ -197,8 +225,8 @@ let observer
 
 onMounted(async () => {
   // three.js only downloads on /jugar-v2
-  const engine3d = is3d ? (await import('@/game/render3d')).create3D(canvas.value) : {}
-  game = createGame(canvas.value, { onHud: h => Object.assign(hud, h), onEnd, ...engine3d })
+  const engine3d = is3d ? (await import('@/game/render3d')).create3D(canvas.value, { onImpact: audio.impact }) : {}
+  game = createGame(canvas.value, { onHud: h => Object.assign(hud, h), onEnd, onEvent: audio.event, ...engine3d })
   if (!is3d) observer = new ResizeObserver(resize) // the 3D renderer sizes its own canvas
   observer?.observe(canvas.value)
   window.addEventListener('keydown', onKey)
@@ -217,6 +245,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   game?.destroy()
+  audio.destroy()
   observer?.disconnect()
   window.removeEventListener('keydown', onKey)
   window.removeEventListener('keyup', onKey)
@@ -281,6 +310,19 @@ onBeforeUnmount(() => {
 }
 .ar-side--cpu b {
   color: #7fa6f0;
+}
+.ar-mute {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--chalk);
+  cursor: pointer;
+}
+.ar-mute[aria-pressed='true'] {
+  color: var(--muted);
 }
 .ar-pts b {
   color: var(--gold);
