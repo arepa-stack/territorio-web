@@ -50,7 +50,8 @@ export const NAV_BY_ROLE = {
     tournaments,
     { label: 'Calendario', icon: 'calendar_month', to: '/app/player/schedule' },
     { label: 'Estadísticas', icon: 'bar_chart', to: '/app/player/stats' },
-    { label: 'Perfil', icon: 'person', to: '/app/player/profile' }
+    { label: 'Perfil', icon: 'person', to: '/app/player/profile' },
+    { label: 'Jugar 1vs1', icon: 'sports_esports', to: '/jugar' }
   ],
   REFEREE: [tournaments, courts],
   MODERATOR: [tournaments, courts]

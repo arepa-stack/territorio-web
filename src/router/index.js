@@ -81,6 +81,13 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    // 1vs1 mini game while waiting for a match; anyone plays, the ranking needs a session
+    path: '/jugar',
+    name: 'ArcadeGame',
+    component: () => import('@/views/ArcadeView.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/torneo/:id',
     name: 'PublicTournament',
     component: () => import('@/views/tournaments/PublicTournamentView.vue'),

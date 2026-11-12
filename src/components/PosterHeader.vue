@@ -34,7 +34,8 @@ const links = [
   { label: 'Torneos', to: '/torneos' },
   { label: 'Equipos', to: '/equipos' },
   { label: 'Zonas', to: '/zonas' },
-  { label: 'Proveedores', to: '/proveedores' }
+  { label: 'Proveedores', to: '/proveedores' },
+  { label: 'Jugar', to: '/jugar' }
 ]
 </script>
 
