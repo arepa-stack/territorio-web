@@ -4,269 +4,14 @@ import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import C from './court-config.json'
 import { FLOOR, HOOP_X } from './oneOnOne'
+import { BOARD_X, RIM, buildEnvironment, buildHoop, createComposer, makeBall, makePlayer } from './scene3d'
 
 const G = 9.82
-const BASE_X = C.rim.toBaseline // baseline, world x
-const BOARD_X = C.rim.toBaseline - C.backboard.toBaseline // backboard face, world x
-const RIM = new THREE.Vector3(0, C.rim.height, 0)
 const wx = gx => (gx - HOOP_X) * C.logic.pxToMeters // logic x (px) → world x (rim at 0)
 const wz = gz => gz * C.logic.pxToMeters // logic z (px) → world z
 const jumpM = py => py * C.logic.jumpPxToMeters
 const rand = (a, b) => a + Math.random() * (b - a)
 const ease = (dt, k) => 1 - Math.exp(-dt * k)
-
-// ---------- procedural textures ----------
-const X0 = -13 // court texture covers x ∈ [-13, 3], z ∈ [-8, 8]
-const Z0 = -8
-const PPM = 128
-const cx = x => (x - X0) * PPM
-const cz = z => (z - Z0) * PPM
-
-function courtTexture() {
-  const c = document.createElement('canvas')
-  c.width = c.height = 16 * PPM
-  const g = c.getContext('2d')
-  g.fillStyle = '#23221d'
-  g.fillRect(0, 0, c.width, c.height)
-  for (let i = 0; i < 16000; i++) {
-    const v = (28 + Math.random() * 34) | 0
-    g.fillStyle = `rgba(${v},${v},${v - 4},0.55)`
-    g.fillRect(Math.random() * c.width, Math.random() * c.height, 2, 2)
-  }
-  const half = C.halfCourt.width / 2
-  const midX = BASE_X - C.halfCourt.length
-  const keyX = BASE_X - C.key.length
-  g.fillStyle = 'rgba(70,66,56,0.5)'
-  g.fillRect(cx(midX), cz(-half), C.halfCourt.length * PPM, C.halfCourt.width * PPM)
-  g.fillStyle = 'rgba(255,79,18,0.55)'
-  g.fillRect(cx(keyX), cz(-C.key.width / 2), C.key.length * PPM, C.key.width * PPM)
-  g.font = `${2.4 * PPM}px Anton, Impact, sans-serif`
-  g.textAlign = 'center'
-  g.fillStyle = 'rgba(255,79,18,0.3)'
-  g.fillText('TURF.', cx(midX + 3.4), cz(5.2))
-
-  g.strokeStyle = '#ede8dc'
-  g.lineWidth = C.lineWidth * PPM
-  g.strokeRect(cx(midX), cz(-half), C.halfCourt.length * PPM, C.halfCourt.width * PPM)
-  g.strokeRect(cx(keyX), cz(-C.key.width / 2), C.key.length * PPM, C.key.width * PPM)
-  const arc = (x, z, r, a0, a1, dash) => {
-    g.setLineDash(dash ? [24, 24] : [])
-    g.beginPath()
-    g.arc(cx(x), cz(z), r * PPM, a0, a1)
-    g.stroke()
-  }
-  arc(keyX, 0, C.freeThrowCircle, Math.PI / 2, Math.PI * 1.5) // toward the court: solid
-  arc(keyX, 0, C.freeThrowCircle, -Math.PI / 2, Math.PI / 2, true) // inside the key: dashed
-  arc(0, 0, C.restrictedArea, Math.PI / 2, Math.PI * 1.5)
-  arc(midX, 0, C.centerCircle, -Math.PI / 2, Math.PI / 2)
-  g.setLineDash([])
-  // three-point line: straight in the corners, arc around the rim
-  const r3 = C.threePoint.radius
-  const z3 = C.threePoint.cornerZ
-  const xj = -Math.sqrt(r3 * r3 - z3 * z3)
-  const a = Math.atan2(z3, xj)
-  g.beginPath()
-  g.moveTo(cx(BASE_X), cz(z3))
-  g.lineTo(cx(xj), cz(z3))
-  g.arc(cx(0), cz(0), r3 * PPM, a, Math.PI * 2 - a)
-  g.lineTo(cx(BASE_X), cz(-z3))
-  g.stroke()
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  return tex
-}
-
-function ballTexture() {
-  const c = document.createElement('canvas')
-  c.width = 512
-  c.height = 256
-  const g = c.getContext('2d')
-  g.fillStyle = '#d4601e'
-  g.fillRect(0, 0, 512, 256)
-  for (let i = 0; i < 5000; i++) {
-    g.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`
-    g.fillRect(Math.random() * 512, Math.random() * 256, 2, 2)
-  }
-  g.strokeStyle = '#1b0e07'
-  g.lineWidth = 6
-  g.beginPath()
-  g.moveTo(0, 128)
-  g.lineTo(512, 128)
-  for (const u of [128, 384]) {
-    g.moveTo(u, 0)
-    g.lineTo(u, 256)
-  }
-  g.stroke()
-  for (const s of [1, -1]) {
-    g.beginPath()
-    for (let u = 0; u <= 512; u += 8) g.lineTo(u, 128 + s * 90 * Math.cos((u / 512) * Math.PI * 2))
-    g.stroke()
-  }
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  return tex
-}
-
-function fenceTexture() {
-  const c = document.createElement('canvas')
-  c.width = c.height = 64
-  const g = c.getContext('2d')
-  g.strokeStyle = 'rgba(200,200,190,0.55)'
-  g.lineWidth = 2
-  g.beginPath()
-  g.moveTo(0, 0)
-  g.lineTo(64, 64)
-  g.moveTo(64, 0)
-  g.lineTo(0, 64)
-  g.stroke()
-  const tex = new THREE.CanvasTexture(c)
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping
-  return tex
-}
-
-function numberTexture(num, color) {
-  const c = document.createElement('canvas')
-  c.width = c.height = 128
-  const g = c.getContext('2d')
-  g.font = '96px Anton, Impact, sans-serif'
-  g.textAlign = 'center'
-  g.textBaseline = 'middle'
-  g.fillStyle = color
-  g.fillText(num, 64, 70)
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  return tex
-}
-
-// ---------- meshes ----------
-const std = (color, extra) => new THREE.MeshStandardMaterial({ color, roughness: 0.75, ...extra })
-const shadowed = m => {
-  m.castShadow = true
-  m.receiveShadow = true
-  return m
-}
-
-// ponytail: capsule placeholder rig (body, two legs, two arms); swapped for the Higgsfield .glb in phase 3
-function makePlayer({ jersey, shorts, skin, num, headband }) {
-  const root = new THREE.Group()
-  const body = new THREE.Group()
-  root.add(body)
-  const torso = shadowed(new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.5, 6, 14), std(jersey)))
-  torso.position.y = 1.27
-  const hips = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.27, 0.3, 16), std(shorts)))
-  hips.position.y = 0.9
-  const head = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.13, 18, 14), std(skin)))
-  head.position.y = 1.8
-  body.add(torso, hips, head)
-  if (headband) {
-    const band = new THREE.Mesh(new THREE.TorusGeometry(0.128, 0.022, 8, 24), std(headband))
-    band.rotation.x = Math.PI / 2
-    band.position.y = 1.86
-    body.add(band)
-  }
-  const number = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), new THREE.MeshBasicMaterial({ map: numberTexture(num, '#ffffff'), transparent: true }))
-  number.position.set(0, 1.3, 0.245)
-  const numberBack = number.clone()
-  numberBack.position.z = -0.245
-  numberBack.rotation.y = Math.PI
-  body.add(number, numberBack)
-  const limb = (y, z, r, len, color) => {
-    const pivot = new THREE.Group()
-    pivot.position.set(0, y, z)
-    const m = shadowed(new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), std(color)))
-    m.position.y = -(len / 2 + r)
-    pivot.add(m)
-    body.add(pivot)
-    return pivot
-  }
-  const legs = [limb(0.86, 0.12, 0.085, 0.62, skin), limb(0.86, -0.12, 0.085, 0.62, skin)]
-  for (const l of legs) {
-    const shoe = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.1, 0.13), std('#111111')))
-    shoe.position.set(0.05, -0.82, 0)
-    l.add(shoe)
-  }
-  const arms = [limb(1.52, 0.3, 0.06, 0.5, skin), limb(1.52, -0.3, 0.06, 0.5, skin)]
-  return { root, body, legs, arms }
-}
-
-function buildHoop(scene) {
-  const poleX = BASE_X + 1
-  const pole = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 3.5, 16), std('#4d4a43', { metalness: 0.6, roughness: 0.4 })))
-  pole.position.set(poleX, 1.75, 0)
-  const arm = shadowed(new THREE.Mesh(new THREE.BoxGeometry(poleX - BOARD_X, 0.12, 0.12), std('#4d4a43', { metalness: 0.6 })))
-  arm.position.set((poleX + BOARD_X) / 2, 3.35, 0)
-  const b = C.backboard
-  const board = shadowed(new THREE.Mesh(new THREE.BoxGeometry(b.thickness, b.height, b.width), std('#f2f2ee', { transparent: true, opacity: 0.88, roughness: 0.2 })))
-  board.position.set(BOARD_X + b.thickness / 2, b.bottom + b.height / 2, 0)
-  // shooter's square on the board
-  const sq = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.PlaneGeometry(0.59, 0.45)),
-    new THREE.LineBasicMaterial({ color: '#ff4f12' })
-  )
-  sq.rotation.y = Math.PI / 2
-  sq.position.set(BOARD_X - 0.002, RIM.y + 0.225, 0)
-  const borderLine = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(b.width - 0.04, b.height - 0.04)), new THREE.LineBasicMaterial({ color: '#ff4f12' }))
-  borderLine.rotation.y = Math.PI / 2
-  borderLine.position.set(BOARD_X - 0.002, b.bottom + b.height / 2, 0)
-  const rimMat = std('#ff4f12', { metalness: 0.5, roughness: 0.35 })
-  const rim = shadowed(new THREE.Mesh(new THREE.TorusGeometry(C.rim.radius, C.rim.tube * 1.4, 10, 40), rimMat))
-  rim.rotation.x = Math.PI / 2
-  // rim, neck and net hang from a pivot on the board so a dunk can bend them down
-  const flex = new THREE.Group()
-  flex.position.set(BOARD_X, RIM.y, 0)
-  rim.position.set(RIM.x - BOARD_X, 0, 0)
-  const neck = new THREE.Mesh(new THREE.BoxGeometry(BOARD_X - C.rim.radius, 0.03, 0.08), rimMat)
-  neck.position.set((C.rim.radius - BOARD_X) / 2, 0, 0)
-  const net = new THREE.Mesh(
-    new THREE.CylinderGeometry(C.rim.radius, 0.13, 0.42, 14, 4, true),
-    new THREE.MeshBasicMaterial({ color: '#ede8dc', wireframe: true, transparent: true, opacity: 0.75 })
-  )
-  net.position.set(RIM.x - BOARD_X, -0.21, 0)
-  flex.add(rim, neck, net)
-  scene.add(pole, arm, board, sq, borderLine, flex)
-  return { net, flex }
-}
-
-function buildEnvironment(scene) {
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), std('#151410', { roughness: 0.95 }))
-  ground.rotation.x = -Math.PI / 2
-  ground.position.y = -0.005
-  ground.receiveShadow = true
-  const court = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), std('#ffffff', { map: courtTexture(), roughness: 0.9 }))
-  court.rotation.x = -Math.PI / 2
-  court.position.set(X0 + 8, 0, Z0 + 8)
-  court.receiveShadow = true
-  scene.add(ground, court)
-  // chain-link fence behind the court and behind the baseline
-  const fenceTex = fenceTexture()
-  const fence = (w, h, x, z, rotY) => {
-    const t = fenceTex.clone()
-    t.repeat.set(w * 3, h * 3)
-    t.needsUpdate = true
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: true, side: THREE.DoubleSide, depthWrite: false }))
-    m.position.set(x, h / 2, z)
-    m.rotation.y = rotY
-    scene.add(m)
-    for (let i = 0; i <= w; i += 3) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, h, 8), std('#5a574f', { metalness: 0.6 }))
-      const along = -w / 2 + i
-      post.position.set(x + (rotY ? 0 : along), h / 2, z + (rotY ? along : 0))
-      scene.add(post)
-    }
-  }
-  fence(20, 3.6, -5, -9.5, 0)
-  fence(19, 3.6, BASE_X + 2.6, 0, Math.PI / 2)
-  // street lamps
-  for (const x of [-11, -1]) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 7, 10), std('#3d3b35', { metalness: 0.5 }))
-    pole.position.set(x, 3.5, -10.2)
-    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), new THREE.MeshBasicMaterial({ color: '#ffe2b0' }))
-    lamp.position.set(x, 7, -10)
-    const light = new THREE.PointLight('#ffd59a', 60, 26, 1.4)
-    light.position.copy(lamp.position)
-    scene.add(pole, lamp, light)
-  }
-}
 
 // ---------- physics ----------
 function buildWorld() {
@@ -362,34 +107,33 @@ export function createBallPhysics(zOf = () => 0, onImpact = () => {}, handOf = (
 }
 
 export function create3D(canvas, { onImpact } = {}) {
-  const gl = new THREE.WebGLRenderer({ canvas, antialias: true })
+  let netWas = 0
+  const gl = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
   gl.shadowMap.enabled = true
   gl.shadowMap.type = THREE.PCFSoftShadowMap
   gl.toneMapping = THREE.ACESFilmicToneMapping
-  gl.toneMappingExposure = 1.15
+  gl.toneMappingExposure = 1.05
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color('#0b0d14')
-  scene.fog = new THREE.Fog('#0b0d14', 20, 48)
-  const camera = new THREE.PerspectiveCamera(C.camera.fov, 16 / 9, 0.1, 120)
-
-  scene.add(new THREE.HemisphereLight('#8a96b8', '#2a261c', 0.9))
-  const sun = new THREE.DirectionalLight('#fff1dc', 2.2)
-  sun.position.set(-8, 14, 9)
-  sun.target.position.set(-4, 0, 0)
-  sun.castShadow = true
-  sun.shadow.mapSize.set(1024, 1024)
-  Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 11, bottom: -11, near: 1, far: 45 })
-  scene.add(sun, sun.target)
-
+  const camera = new THREE.PerspectiveCamera(C.camera.fov, 16 / 9, 0.1, 160)
   buildEnvironment(scene)
   const { net, flex } = buildHoop(scene)
-  const ballMesh = shadowed(new THREE.Mesh(new THREE.SphereGeometry(C.ball.radius, 28, 20), std('#ffffff', { map: ballTexture(), roughness: 0.65 })))
+  const ballMesh = makeBall()
   scene.add(ballMesh)
+  const { composer } = createComposer(gl, scene, camera)
+  // quality steps down by itself if the device cannot hold the frame rate: 0 full, 1 = 1x pixels, 2 = no bloom, 3 = small shadows
+  let quality = 0
+  let slow = 0
+  let frames = 0
+  let fpsT = 0
+  const impact = (surface, k) => {
+    onImpact?.(surface, k)
+    if (surface === 'rim') net.kick(k)
+  }
   const rigs = new Map() // logic player object → capsule rig
   const rigFor = p => {
     if (!rigs.has(p)) {
       const rig = p.ai
-        ? makePlayer({ jersey: '#2f6fde', shorts: '#1d4796', skin: '#8a5a3c', num: p.num })
+        ? makePlayer({ jersey: '#2f6fde', shorts: '#1d4796', skin: '#8a5a3c', num: p.num, shoe: '#e8e8e4' })
         : makePlayer({ jersey: '#ff4f12', shorts: '#c23a0c', skin: '#c68a5e', num: p.num, headband: '#ff4f12' })
       scene.add(rig.root)
       rigs.set(p, rig)
@@ -438,11 +182,15 @@ export function create3D(canvas, { onImpact } = {}) {
   const smooth = t => t * t * (3 - 2 * t)
   const ARM = 0.62 // shoulder to hand
   const SHOULDER = 1.52
+  const LEG = 0.86 // hip to sole
   // player-local offset (forward, side) → world x/z for a heading ry
   const local = (x, z, ry, fwd, side) => [x + fwd * Math.cos(ry) + side * Math.sin(ry), z - fwd * Math.sin(ry) + side * Math.cos(ry)]
+  const tmp = new THREE.Euler()
 
   function poseRig(p, view, dt) {
     const rig = rigFor(p)
+    const joints = [...rig.arms, ...rig.elbows, ...rig.legs, ...rig.knees, rig.body]
+    const before = joints.map(j => [j.rotation.x, j.rotation.y, j.rotation.z])
     const isOff = p === view.off
     const other = p === view.you ? view.cpu : view.you
     const s = p.shooting
@@ -451,16 +199,20 @@ export function create3D(canvas, { onImpact } = {}) {
     let z = wz(p.z)
     let lift = jumpM(p.y)
     const air = p.y > 0
-    const swing = air ? 0 : Math.sin(p.run) * 0.65
-    let legF = air ? 0.5 : swing
-    let legB = air ? -0.25 : -swing
-    let lean = 0 // forward/back
+    const stride = Math.sin(p.run)
+    let legF = air ? 0.55 : stride * 0.7
+    let legB = air ? -0.2 : -stride * 0.7
+    // knees fold on the leg that swings back; both tuck in the air
+    let kneeF = air ? 0.9 : 0.15 + Math.max(0, -stride) * 0.9
+    let kneeB = air ? 0.45 : 0.15 + Math.max(0, stride) * 0.9
+    let lean = 0 // forward (+) / back (-)
     let tilt = 0 // sideways
-    let drop = 0
+    let crouch = 0 // hip + knee flex, lowers the body
     let spread = 0
+    let blend = 16 // how fast the joints chase the pose (1/s)
     const [a0, a1] = rig.arms
-    a0.rotation.set(0, 0, 0)
-    a1.rotation.set(0, 0, 0)
+    const [e0, e1] = rig.elbows
+    for (const j of [a0, a1, e0, e1]) j.rotation.set(0, 0, 0)
     handsOf.delete(p)
 
     // heading: the ball handler squares up to the rim, the defender to the ball handler
@@ -470,6 +222,7 @@ export function create3D(canvas, { onImpact } = {}) {
     facing.set(p, ry)
 
     if (dunk) {
+      blend = 40 // the slam must snap
       lift *= 1.5 // hands must get above the rim: render-only boost of the rules' jump
       if (!s.released) {
         // wind-up: knees up, ball from the chest to behind the head
@@ -478,7 +231,9 @@ export function create3D(canvas, { onImpact } = {}) {
         a0.rotation.z = a1.rotation.z = th
         lean = 0.12 * u
         legF = 0.9
-        legB = -0.6
+        legB = -0.5
+        kneeF = 1.4
+        kneeB = 1.0
         dunkT.delete(p)
         const reach = ARM + C.ball.radius * 0.8
         const [hx, hz] = local(x, z, ry, Math.sin(th) * reach, 0)
@@ -494,7 +249,8 @@ export function create3D(canvas, { onImpact } = {}) {
         } else {
           // hanging from the front of the rim, legs swinging
           a0.rotation.z = a1.rotation.z = Math.PI - 0.15
-          legF = legB = 0.5 + Math.sin(t * 9) * 0.25
+          legF = legB = 0.45 + Math.sin(t * 9) * 0.25
+          kneeF = kneeB = 0.7
         }
         // hands on the front of the (bent) rim
         const hangX = RIM.x - C.rim.radius - Math.sin(0.15) * ARM
@@ -505,45 +261,71 @@ export function create3D(canvas, { onImpact } = {}) {
         lift = p.hang > 0 ? lift + (hangLift - lift) * k : Math.min(lift, hangLift)
       }
     } else if (s && !s.released) {
-      a0.rotation.z = a1.rotation.z = Math.PI * 0.92
+      // jump shot / layup: both arms up, shooting elbow cocked, follow-through as the meter fills
+      const cock = 1 - Math.min(1, s.t / 0.35)
+      a0.rotation.z = a1.rotation.z = Math.PI * 0.86
+      e0.rotation.z = e1.rotation.z = 0.25 + 0.9 * cock
+      a1.rotation.x = 0.2
+      lean = -0.05
     } else if (!isOff) {
-      // defensive stance: arms wide, knees bent; jumping to block: arms straight up
-      a0.rotation.x = air ? -2.7 : -1.9
-      a1.rotation.x = air ? 2.7 : 1.9
+      // defensive stance: knees bent, arms wide; jumping to block: arms straight up
+      a0.rotation.x = air ? -2.75 : -1.75
+      a1.rotation.x = air ? 2.75 : 1.75
+      e0.rotation.x = air ? 0 : -0.5
+      e1.rotation.x = air ? 0 : 0.5
       if (!air) {
-        drop = 0.1
-        spread = 0.25
+        crouch = 0.42
+        spread = 0.22
+        lean = 0.12
       }
       if (p.stun > 0 && !p.fallen) {
         // beaten by the crossover: stumbles back, off balance
         tilt = Math.sin(p.stun * 14) * 0.3
-        lean = -0.25
+        lean = -0.28
       }
     } else {
       // dribbling; a crossover (handT 0 → 1) drops the hips, leans into the new side and widens the stance
       const c = p.handT < 1 ? Math.sin(Math.PI * p.handT) : 0
-      drop = 0.2 * c
+      crouch = 0.22 + 0.5 * c
       tilt = p.hand * 0.4 * c
-      spread = 0.55 * c
-      lean = 0.15 + 0.2 * c
-      const dribbleArm = p.hand > 0 ? a0 : a1
-      const offArm = p.hand > 0 ? a1 : a0
-      dribbleArm.rotation.z = 0.75
-      dribbleArm.rotation.x = -p.hand * 0.35 * (1 + c)
-      offArm.rotation.z = 0.35
-      offArm.rotation.x = p.hand * 0.5 // guards the ball
+      spread = 0.1 + 0.5 * c
+      lean = 0.16 + 0.2 * c
+      const [dArm, dElbow, oArm, oElbow] = p.hand > 0 ? [a0, e0, a1, e1] : [a1, e1, a0, e0]
+      // the dribbling hand pumps with the ball (same clock as the bounce)
+      const pump = Math.abs(Math.sin(view.clock * 9))
+      dArm.rotation.z = 0.35 + 0.25 * pump
+      dArm.rotation.x = -p.hand * 0.3 * (1 + c)
+      dElbow.rotation.z = 0.5 + 0.55 * pump
+      oArm.rotation.z = 0.3
+      oArm.rotation.x = p.hand * 0.45 // guards the ball
+      oElbow.rotation.z = 1.0
+      blend = 22
     }
-    rig.legs[0].rotation.set(-spread, 0, legF)
-    rig.legs[1].rotation.set(spread, 0, legB)
-    rig.root.position.set(x, lift, z)
-    rig.root.rotation.y = ry
+    if (air && !dunk) crouch = 0
+    rig.legs[0].rotation.set(-spread, 0, legF + crouch)
+    rig.legs[1].rotation.set(spread, 0, legB + crouch)
+    rig.knees[0].rotation.set(0, 0, -(kneeF + crouch * 2))
+    rig.knees[1].rotation.set(0, 0, -(kneeB + crouch * 2))
     // ankle breaker: on the floor, sitting back
     rig.body.rotation.set(p.fallen ? 0 : tilt, 0, p.fallen ? Math.PI / 2 : -lean)
+
+    // ease every joint from where it was toward the pose: no popping between states
+    const k = ease(dt, blend)
+    joints.forEach((j, i) => {
+      const [bx, by, bz] = before[i]
+      tmp.copy(j.rotation)
+      j.rotation.set(bx + (tmp.x - bx) * k, by + (tmp.y - by) * k, bz + (tmp.z - bz) * k)
+    })
+    // hips drop by what the (eased) knee bend takes off the leg length, so the feet stay on the floor
+    const bend = air ? 0 : Math.max(0, -(rig.knees[0].rotation.z + rig.knees[1].rotation.z) / 4)
+    const drop = p.fallen ? 0 : LEG * (1 - Math.cos(bend)) + 0.43 * (1 - Math.cos(Math.abs(rig.legs[0].rotation.x)))
+    rig.root.position.set(x, lift, z)
+    rig.root.rotation.y = ry
     rig.body.position.set(p.fallen ? -0.3 : 0, p.fallen ? C.players.radius : -drop, 0)
     return z
   }
 
-  const ballPhysics = createBallPhysics(p => wz(p.z), onImpact, p => handsOf.get(p))
+  const ballPhysics = createBallPhysics(p => wz(p.z), impact, p => handsOf.get(p))
   const ball = ballPhysics.body
 
   const renderer = {
@@ -553,8 +335,11 @@ export function create3D(canvas, { onImpact } = {}) {
       if (w !== cw || h !== ch) {
         cw = w
         ch = h
-        gl.setPixelRatio(Math.min(2, window.devicePixelRatio || 1))
+        const pr = quality > 0 ? 1 : Math.min(2, window.devicePixelRatio || 1)
+        gl.setPixelRatio(pr)
         gl.setSize(w, h, false)
+        composer.setPixelRatio(pr)
+        composer.setSize(w, h)
         camera.aspect = w / h
         camera.updateProjectionMatrix()
       }
@@ -586,10 +371,10 @@ export function create3D(canvas, { onImpact } = {}) {
         ballMesh.rotation.z = -view.clock * 6
       }
 
-      // net swish
-      const stretch = view.netT > 0 ? Math.sin((view.netT / 0.5) * Math.PI) * 0.4 : 0
-      net.scale.y = 1 + stretch
-      net.position.y = -0.21 * (1 + stretch)
+      // net: pulled down when the ball drops through (netT restarts on every make), then springs back
+      if (view.netT > netWas) net.swish()
+      netWas = view.netT
+      net.update(dt)
 
       // the rim bends while someone hangs on it, then wobbles back (damped spring)
       const hanging = [you, cpu].some(p => p.hang > 0 && p.shooting?.kind === 'dunk')
@@ -613,7 +398,32 @@ export function create3D(canvas, { onImpact } = {}) {
         camera.position.y += (Math.random() - 0.5) * shake * 0.5
       }
       camera.lookAt(look)
-      gl.render(scene, camera)
+      if (quality < 2) composer.render(dt)
+      else gl.render(scene, camera)
+
+      // measured frame rate (also exposed on the canvas for testing) drives the automatic quality steps
+      frames++
+      fpsT += dt
+      if (fpsT >= 1) {
+        const fps = frames / fpsT
+        canvas.dataset.fps = fps.toFixed(0)
+        canvas.dataset.quality = String(quality)
+        slow = fps < 45 ? slow + 1 : 0
+        if (slow >= 2 && quality < 3) {
+          quality++
+          slow = 0
+          cw = 0 // re-apply the pixel ratio
+          if (quality === 3) scene.traverse(o => {
+            if (o.isSpotLight) {
+              o.shadow.mapSize.set(1024, 1024)
+              o.shadow.map?.dispose()
+              o.shadow.map = null
+            }
+          })
+        }
+        frames = 0
+        fpsT = 0
+      }
 
       // overlay
       const fontPx = Math.max(16, cw / 30)
@@ -639,6 +449,7 @@ export function create3D(canvas, { onImpact } = {}) {
     },
     destroy() {
       overlay.remove()
+      composer.dispose()
       gl.dispose()
       gl.forceContextLoss()
     }
