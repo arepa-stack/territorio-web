@@ -67,8 +67,8 @@
 
           <div class="ar-pad" aria-label="Controles táctiles">
             <div class="ar-pad__group">
-              <button v-for="b in ['left', 'right']" :key="b" type="button" class="ar-btn" :aria-label="b === 'left' ? 'Izquierda' : 'Derecha'" v-bind="pad(b)">
-                <span class="icon">{{ b === 'left' ? 'arrow_back' : 'arrow_forward' }}</span>
+              <button v-for="b in moveButtons" :key="b.name" type="button" class="ar-btn" :aria-label="b.label" v-bind="pad(b.name)">
+                <span class="icon">{{ b.icon }}</span>
               </button>
             </div>
             <div class="ar-pad__group">
@@ -77,7 +77,7 @@
             </div>
           </div>
 
-          <p class="ar-keys mono">← → moverse · Espacio tirar (mantén y suelta en la zona verde) / saltar a tapar · X crossover / robar</p>
+          <p class="ar-keys mono">{{ is3d ? '← → ↑ ↓ moverse por toda la cancha' : '← → moverse' }} · Espacio tirar (mantén y suelta en la zona verde) / saltar a tapar · X crossover / robar</p>
         </section>
 
         <aside class="ar-side-col">
@@ -122,6 +122,8 @@ import { createAudio } from '@/game/audio'
 
 const PENDING = 'turf:pendingGameScore'
 const KEYS = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'shoot', ArrowUp: 'shoot', w: 'shoot', W: 'shoot', x: 'cross', X: 'cross', k: 'cross', K: 'cross' }
+// 3D: up/down walk across the court (away from / toward the camera); shooting stays on Space (and J)
+const KEYS_3D = { ...KEYS, ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', j: 'shoot', J: 'shoot' }
 
 const authStore = useAuthStore()
 const is3d = useRoute().meta.engine === '3d' // /jugar-v2: same rules and HUD, Three.js render + ball physics
@@ -133,6 +135,11 @@ const saveState = ref('')
 const leaders = ref([])
 const loadingBoard = ref(true)
 const playList = Object.values(PLAYS)
+const moveButtons = [
+  { name: 'left', label: 'Izquierda', icon: 'arrow_back' },
+  ...(is3d ? [{ name: 'up', label: 'Arriba', icon: 'arrow_upward' }, { name: 'down', label: 'Abajo', icon: 'arrow_downward' }] : []),
+  { name: 'right', label: 'Derecha', icon: 'arrow_forward' }
+]
 let game
 const MUTE_KEY = 'turf:arcadeMuted'
 const readMuted = () => {
@@ -209,7 +216,7 @@ const pad = name => ({
 })
 
 const onKey = e => {
-  const name = KEYS[e.key]
+  const name = (is3d ? KEYS_3D : KEYS)[e.key]
   if (!name || screen.value !== 'playing' || e.target.closest?.('input, textarea')) return
   e.preventDefault() // space and arrows would scroll the page
   if (!e.repeat) game?.input(name, e.type === 'keydown')
@@ -226,7 +233,7 @@ let observer
 onMounted(async () => {
   // three.js only downloads on /jugar-v2
   const engine3d = is3d ? (await import('@/game/render3d')).create3D(canvas.value, { onImpact: audio.impact }) : {}
-  game = createGame(canvas.value, { onHud: h => Object.assign(hud, h), onEnd, onEvent: audio.event, ...engine3d })
+  game = createGame(canvas.value, { onHud: h => Object.assign(hud, h), onEnd, onEvent: audio.event, lateral: is3d, ...engine3d })
   if (!is3d) observer = new ResizeObserver(resize) // the 3D renderer sizes its own canvas
   observer?.observe(canvas.value)
   window.addEventListener('keydown', onKey)
@@ -368,6 +375,7 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 .ar-pad {
+  flex-wrap: wrap;
   display: none;
   justify-content: space-between;
   gap: 12px;
@@ -379,7 +387,8 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 .ar-btn {
-  min-width: 64px;
+  flex: 1 1 52px;
+  min-width: 52px;
   min-height: 64px;
   padding: 0 14px;
   border: 1px solid var(--line);

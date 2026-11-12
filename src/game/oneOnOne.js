@@ -35,24 +35,34 @@ export const PLAYS = {
 const BASE = { dunk: 0.92, layup: 0.75, mid: 0.5, three: 0.38 }
 const CPU_BLOCK = { dunk: 0.35, layup: 0.5, mid: 0.55, three: 0.5 }
 
-export function shotKind(x) {
-  const d = HOOP_X - x
+// z = lateral position (0 = middle of the court, + toward the camera). The 2D version never leaves z = 0
+export function shotKind(x, z = 0) {
+  const d = Math.hypot(HOOP_X - x, z)
   if (d <= DUNK_D) return 'dunk'
   if (d <= LAYUP_D) return 'layup'
-  return x < THREE_X ? 'three' : 'mid'
+  return d > HOOP_X - THREE_X ? 'three' : 'mid'
+}
+export const Z_MAX = 400 // sideline
+const sep = (a, b) => Math.hypot(a.x - b.x, a.z - b.z)
+const hoopD = p => Math.hypot(HOOP_X - p.x, p.z)
+const toHoop = p => {
+  const d = hoopD(p) || 1
+  return [(HOOP_X - p.x) / d, -p.z / d]
 }
 
 /** Release timing quality for jump shots: 1 at the sweet spot (0.8 of the meter), 0 far from it */
 export const releaseQuality = m => 1 - Math.min(1, Math.abs(m - 0.8) / 0.4)
 
 const rand = (a, b) => a + Math.random() * (b - a)
-const player = (color, num, ai) => ({ x: 0, y: 0, vy: 0, vx: 0, stun: 0, fallen: false, color, num, ai, run: 0, hand: 1, handT: 1, crossCd: 0, stealCd: 0, shooting: null, blockAt: null, hang: 0 })
+const player = (color, num, ai) => ({ x: 0, z: 0, y: 0, vy: 0, vx: 0, vz: 0, dash: 0, dvx: 0, dvz: 0, stun: 0, fallen: false, color, num, ai, run: 0, hand: 1, handT: 1, crossCd: 0, stealCd: 0, shooting: null, blockAt: null, hang: 0 })
 
-export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, renderer = null, ballPhysics = null, onEvent = () => {} } = {}) {
+export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, renderer = null, ballPhysics = null, onEvent = () => {}, lateral = false } = {}) {
   const ctx = renderer ? null : canvas.getContext('2d')
   const you = player('#ff4f12', '7', false)
   const cpu = player('#2f6fde', '99', true)
-  const keys = { left: false, right: false }
+  const keys = { left: false, right: false, up: false, down: false }
+  let aiDir = 1 // CPU dribble: 1 attacks, -1 backs off
+  let aiSide = 1 // CPU lateral side when going around the defender
   let off, def, phase, ball, pauseT, nextOff, texts, buckets, points, possT, crossPaid, aiT, stealT, netT, raf, last
   let clock = 0
   let bounces = 0 // dribbles so far, one sound per floor touch
@@ -90,7 +100,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
   function possession() {
     off = nextOff
     def = off === you ? cpu : you
-    for (const p of [you, cpu]) Object.assign(p, { y: 0, vy: 0, vx: 0, stun: 0, fallen: false, shooting: null, blockAt: null, hand: 1, handT: 1, hang: 0 })
+    for (const p of [you, cpu]) Object.assign(p, { z: 0, y: 0, vy: 0, vx: 0, vz: 0, dash: 0, stun: 0, fallen: false, shooting: null, blockAt: null, hand: 1, handT: 1, hang: 0 })
     off.x = 300
     def.x = THREE_X + 40
     ball = null
@@ -117,11 +127,18 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
 
   function startShot(p, q = 0.8) {
     if (p.y > 0 || p.stun > 0 || p.shooting) return
-    const kind = shotKind(p.x)
+    const kind = shotKind(p.x, p.z)
     p.shooting = { kind, t: 0, meter: 0, held: true, q, released: false }
     jump(p)
-    p.vx = kind === 'dunk' ? (HOOP_X - 14 - p.x) / 0.4 : kind === 'layup' ? (HOOP_X - 60 - p.x) / 0.4 : 0
-    const d = Math.abs(def.x - p.x)
+    p.dash = 0
+    // dunks and layups glide to the rim along the line they came from
+    const o = kind === 'dunk' ? 14 : kind === 'layup' ? 60 : null
+    if (o != null) {
+      const [hx, hz] = toHoop(p)
+      p.vx = (HOOP_X - hx * o - p.x) / 0.4
+      p.vz = (-hz * o - p.z) / 0.4
+    }
+    const d = sep(def, p)
     if (def.ai && def.stun <= 0 && d < 130 && Math.random() < CPU_BLOCK[kind]) def.blockAt = rand(0.08, 0.26)
   }
 
@@ -133,6 +150,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
       p.hang = 0.4
       p.vy = 0
       p.vx = 0
+      p.vz = 0
     }
     let prob = BASE[s.kind]
     if (s.kind === 'three' || s.kind === 'mid') {
@@ -140,7 +158,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
       prob *= 0.5 + 0.65 * q
       if (!p.ai) say(q > 0.85 ? '¡PERFECTO!' : q > 0.5 ? 'BIEN' : 'TARDE/TEMPRANO', q > 0.85 ? '#8be28b' : '#a8a397', p.x, FLOOR - p.y - 190)
     }
-    const d = Math.abs(def.x - p.x)
+    const d = sep(def, p)
     const free = def.stun > 0
     if (!free && d < 95) prob *= 0.6 + (0.4 * d) / 95
     const blocked = !free && def.y > 35 && d < 75 && Math.random() < (s.kind === 'dunk' ? 0.35 : 0.65)
@@ -182,8 +200,14 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
     p.crossCd = 0.9
     p.hand *= -1
     p.handT = 0
-    const gap = d.x - p.x
-    if (d.stun > 0 || d.y > 0 || gap < 0 || gap > 90) return
+    if (lateral) {
+      // explosive side step toward the new hand, perpendicular to the line to the rim
+      const [hx, hz] = toHoop(p)
+      p.dash = 0.18
+      p.dvx = -hz * p.hand * 430
+      p.dvz = hx * p.hand * 430
+    }
+    if (d.stun > 0 || d.y > 0 || hoopD(d) > hoopD(p) || sep(d, p) > 90) return
     const r = Math.random()
     const [ankle, beat] = p.ai ? [0.12, 0.55] : [0.22, 0.75]
     const pay = !p.ai && !crossPaid // ponytail: one paid crossover per possession, so spamming X does not farm points
@@ -207,7 +231,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
   function steal(p, carrier) {
     if (p.stealCd > 0 || p.stun > 0 || p.y > 0) return
     p.stealCd = 1
-    if (Math.abs(carrier.x - p.x) < 65 && carrier.y === 0 && !carrier.shooting && Math.random() < 0.3) {
+    if (sep(carrier, p) < 65 && carrier.y === 0 && !carrier.shooting && Math.random() < 0.3) {
       say(p.ai ? 'TE ROBARON' : '¡ROBO!', p.ai ? '#7fa6f0' : '#8be28b', p.x)
       onEvent('steal', { byYou: !p.ai })
       endPossession(0.9)
@@ -216,7 +240,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
 
   // ---- input (keyboard and touch buttons call this) ----
   function input(name, down) {
-    if (name === 'left' || name === 'right') {
+    if (name in keys) {
       keys[name] = down
       return
     }
@@ -236,22 +260,39 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
   function cpuOffense(dt) {
     if (cpu.stun > 0 || cpu.y > 0 || cpu.shooting) return
     possT += dt
-    const gap = you.x - cpu.x
-    const open = you.stun > 0 || gap < 0 || gap > 110
-    const dist = HOOP_X - cpu.x
+    const gap = sep(you, cpu)
+    const open = you.stun > 0 || hoopD(you) > hoopD(cpu) || gap > 110
+    const dist = hoopD(cpu)
+    const [hx, hz] = toHoop(cpu)
     const q = rand(0.5, 1.05)
     if (dist <= DUNK_D) return startShot(cpu)
     if (dist <= LAYUP_D && (open || Math.random() < dt * 1.5)) return startShot(cpu)
     aiT -= dt
     if (aiT <= 0) {
       aiT = 0.35
-      cpu.vx = Math.random() < 0.15 ? -1 : 1 // vx doubles as dribble direction on the ground
-      if (cpu.x < THREE_X - 10 && open && Math.random() < 0.3) return startShot(cpu, q)
-      if (cpu.x >= THREE_X && open && Math.random() < 0.25) return startShot(cpu, q)
+      aiDir = Math.random() < 0.15 ? -1 : 1
+      // go around on the side the defender is not covering
+      const lean = (you.x - cpu.x) * -hz + (you.z - cpu.z) * hx
+      aiSide = Math.abs(lean) > 8 ? -Math.sign(lean) : Math.random() < 0.5 ? -1 : 1
+      const beyond = dist > HOOP_X - THREE_X + 10
+      if (beyond && open && Math.random() < 0.3) return startShot(cpu, q)
+      if (dist <= HOOP_X - THREE_X && open && Math.random() < 0.25) return startShot(cpu, q)
       if (!open && gap < 60 && Math.random() < 0.45) crossover(cpu, you)
       if (possT > 9) return startShot(cpu, q)
     }
-    cpu.x += (cpu.vx || 1) * 230 * dt
+    if (!lateral) cpu.x += aiDir * 230 * dt
+    else {
+      // toward the rim, sliding sideways while the defender is in the way
+      let mx = hx * aiDir
+      let mz = hz * aiDir
+      if (!open) {
+        mx += -hz * aiSide * 1.2
+        mz += hx * aiSide * 1.2
+      }
+      const m = Math.hypot(mx, mz) || 1
+      cpu.x += (mx / m) * 230 * dt
+      cpu.z += (mz / m) * 230 * dt
+    }
     cpu.run += dt * 12
   }
 
@@ -264,16 +305,24 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
       }
     }
     if (cpu.stun > 0 || cpu.y > 0) return
-    const sag = you.x < THREE_X - 80 ? 50 : 0
-    const target = Math.min(you.x + 52 + (you.x > cpu.x ? 0 : sag), HOOP_X - 20)
-    const dx = target - cpu.x
-    const step = Math.min(Math.abs(dx), (you.x > cpu.x ? 200 : 255) * dt)
-    cpu.x += Math.sign(dx) * step
+    // stay between the ball and the rim; sag off a little when the ball is far beyond the arc
+    const beaten = hoopD(cpu) > hoopD(you)
+    const sag = !beaten && hoopD(you) > HOOP_X - THREE_X + 80 ? 50 : 0
+    const [hx, hz] = toHoop(you)
+    const ahead = Math.min(52 + sag, hoopD(you) - 20)
+    const dx = you.x + hx * ahead - cpu.x
+    const dz = you.z + hz * ahead - cpu.z
+    const far = Math.hypot(dx, dz)
+    const step = Math.min(far, (beaten ? 200 : 255) * dt)
+    if (far > 0) {
+      cpu.x += (dx / far) * step
+      cpu.z += (dz / far) * step
+    }
     if (step > 1) cpu.run += dt * 12
     stealT -= dt
     if (stealT <= 0) {
       stealT = 1.1
-      if (Math.abs(you.x - cpu.x) < 60 && !you.shooting && Math.random() < 0.3) steal(cpu, you)
+      if (sep(you, cpu) < 60 && !you.shooting && Math.random() < 0.3) steal(cpu, you)
     }
   }
 
@@ -283,21 +332,31 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
     if (p.stun === 0) p.fallen = false
     p.crossCd = Math.max(0, p.crossCd - dt)
     p.stealCd = Math.max(0, p.stealCd - dt)
-    p.handT = Math.min(1, p.handT + dt / 0.18)
+    p.handT = Math.min(1, p.handT + dt / 0.26)
+    if (p.dash > 0) {
+      p.dash = Math.max(0, p.dash - dt)
+      if (p.y === 0 && p.stun <= 0) {
+        p.x += p.dvx * dt
+        p.z += p.dvz * dt
+      }
+    }
     if (p.hang > 0) p.hang = Math.max(0, p.hang - dt)
     else if (p.y > 0) {
       p.vy -= G * dt
       p.y += p.vy * dt
       p.x += p.vx * dt
+      p.z += p.vz * dt
       if (p.y <= 0) {
         p.y = 0
         p.vy = 0
         p.vx = 0
+        p.vz = 0
         if (p.shooting && !p.shooting.released && phase === 'play') release(p) // landed holding it: forced release
         p.shooting = null
       }
     }
     p.x = Math.max(50, Math.min(BOARD_X - 30, p.x))
+    p.z = Math.max(-Z_MAX, Math.min(Z_MAX, p.z))
   }
 
   function update(dt) {
@@ -311,14 +370,32 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
     const prevX = off.x
     if (phase === 'play') {
       if (you.stun <= 0 && you.y === 0 && !you.shooting) {
-        const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0)
-        you.x += dir * 300 * dt
-        if (dir) you.run += dt * 12
+        const dx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0)
+        const dz = lateral ? (keys.down ? 1 : 0) - (keys.up ? 1 : 0) : 0
+        const m = Math.hypot(dx, dz)
+        if (m) {
+          you.x += (dx / m) * 300 * dt
+          you.z += (dz / m) * 300 * dt
+          you.run += dt * 12
+        }
       }
       if (off === cpu) cpuOffense(dt)
       else cpuDefense(dt)
       // the defender's body stops the drive unless he is beaten or someone is in the air
-      if (off.y === 0 && def.y === 0 && def.stun <= 0 && prevX <= def.x - BODY && off.x > def.x - BODY) off.x = def.x - BODY
+      if (off.y === 0 && def.y === 0 && def.stun <= 0) {
+        if (!lateral) {
+          if (prevX <= def.x - BODY && off.x > def.x - BODY) off.x = def.x - BODY
+        } else {
+          // bodies are circles on the floor: the ball handler slides around the defender
+          const d = sep(off, def)
+          if (d < BODY) {
+            const ux = d ? (off.x - def.x) / d : -1
+            const uz = d ? (off.z - def.z) / d : 0
+            off.x = def.x + ux * BODY
+            off.z = def.z + uz * BODY
+          }
+        }
+      }
       const s = off.shooting
       if (s && !s.released) {
         s.t += dt

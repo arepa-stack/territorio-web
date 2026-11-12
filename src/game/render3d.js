@@ -10,6 +10,7 @@ const BASE_X = C.rim.toBaseline // baseline, world x
 const BOARD_X = C.rim.toBaseline - C.backboard.toBaseline // backboard face, world x
 const RIM = new THREE.Vector3(0, C.rim.height, 0)
 const wx = gx => (gx - HOOP_X) * C.logic.pxToMeters // logic x (px) → world x (rim at 0)
+const wz = gz => gz * C.logic.pxToMeters // logic z (px) → world z
 const jumpM = py => py * C.logic.jumpPxToMeters
 const rand = (a, b) => a + Math.random() * (b - a)
 const ease = (dt, k) => 1 - Math.exp(-dt * k)
@@ -165,7 +166,10 @@ function makePlayer({ jersey, shorts, skin, num, headband }) {
   }
   const number = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), new THREE.MeshBasicMaterial({ map: numberTexture(num, '#ffffff'), transparent: true }))
   number.position.set(0, 1.3, 0.245)
-  body.add(number)
+  const numberBack = number.clone()
+  numberBack.position.z = -0.245
+  numberBack.rotation.y = Math.PI
+  body.add(number, numberBack)
   const limb = (y, z, r, len, color) => {
     const pivot = new THREE.Group()
     pivot.position.set(0, y, z)
@@ -382,7 +386,6 @@ export function create3D(canvas, { onImpact } = {}) {
   const ballMesh = shadowed(new THREE.Mesh(new THREE.SphereGeometry(C.ball.radius, 28, 20), std('#ffffff', { map: ballTexture(), roughness: 0.65 })))
   scene.add(ballMesh)
   const rigs = new Map() // logic player object → capsule rig
-  const zs = new WeakMap() // current lateral position of each player
   const rigFor = p => {
     if (!rigs.has(p)) {
       const rig = p.ai
@@ -428,33 +431,43 @@ export function create3D(canvas, { onImpact } = {}) {
   // dunk choreography on the rules' timing: wind-up (0.4 s to the apex), slam, hang on the rim, drop
   const dunkT = new WeakMap() // seconds since the dunk release
   const handsOf = new Map() // where the dunker's hands hold the ball (also the physics start of the slam)
+  const facing = new WeakMap() // smoothed heading of each player (rotation.y)
   let rimBend = 0
   let rimVel = 0
   let shake = 0
   const smooth = t => t * t * (3 - 2 * t)
   const ARM = 0.62 // shoulder to hand
   const SHOULDER = 1.52
+  // player-local offset (forward, side) → world x/z for a heading ry
+  const local = (x, z, ry, fwd, side) => [x + fwd * Math.cos(ry) + side * Math.sin(ry), z - fwd * Math.sin(ry) + side * Math.cos(ry)]
 
   function poseRig(p, view, dt) {
     const rig = rigFor(p)
     const isOff = p === view.off
+    const other = p === view.you ? view.cpu : view.you
     const s = p.shooting
     const dunk = s?.kind === 'dunk'
-    const target = dunk ? 0.05 : isOff ? C.players.offenseZ : C.players.defenseZ
-    const cur = zs.get(p) ?? target
-    const z = cur + (target - cur) * ease(dt, dunk ? 12 : 6)
-    zs.set(p, z)
     let x = wx(p.x)
+    let z = wz(p.z)
     let lift = jumpM(p.y)
     const air = p.y > 0
     const swing = air ? 0 : Math.sin(p.run) * 0.65
     let legF = air ? 0.5 : swing
     let legB = air ? -0.25 : -swing
-    let lean = 0
+    let lean = 0 // forward/back
+    let tilt = 0 // sideways
+    let drop = 0
+    let spread = 0
     const [a0, a1] = rig.arms
     a0.rotation.set(0, 0, 0)
     a1.rotation.set(0, 0, 0)
     handsOf.delete(p)
+
+    // heading: the ball handler squares up to the rim, the defender to the ball handler
+    const goal = dunk ? 0 : isOff ? Math.atan2(z, -x) : Math.atan2(z - wz(other.z), wx(other.x) - x)
+    let ry = facing.get(p) ?? goal
+    ry += Math.atan2(Math.sin(goal - ry), Math.cos(goal - ry)) * ease(dt, dunk ? 16 : 10)
+    facing.set(p, ry)
 
     if (dunk) {
       lift *= 1.5 // hands must get above the rim: render-only boost of the rules' jump
@@ -463,12 +476,13 @@ export function create3D(canvas, { onImpact } = {}) {
         const u = smooth(Math.min(1, s.t / 0.4))
         const th = 1.6 + 1.9 * u
         a0.rotation.z = a1.rotation.z = th
-        lean = -0.12 * u
+        lean = 0.12 * u
         legF = 0.9
         legB = -0.6
         dunkT.delete(p)
         const reach = ARM + C.ball.radius * 0.8
-        handsOf.set(p, new THREE.Vector3(x + Math.sin(th) * reach, lift + SHOULDER - Math.cos(th) * reach, z))
+        const [hx, hz] = local(x, z, ry, Math.sin(th) * reach, 0)
+        handsOf.set(p, new THREE.Vector3(hx, lift + SHOULDER - Math.cos(th) * reach, hz))
       } else {
         if (!dunkT.has(p)) shake = 0.3 // first frame after the release is the slam
         const t = (dunkT.get(p) ?? 0) + dt
@@ -476,7 +490,7 @@ export function create3D(canvas, { onImpact } = {}) {
         if (t < 0.12) {
           // slam: arms whip from behind the head down through the rim
           a0.rotation.z = a1.rotation.z = 3.5 - 1.5 * smooth(t / 0.12)
-          lean = -0.2
+          lean = 0.2
         } else {
           // hanging from the front of the rim, legs swinging
           a0.rotation.z = a1.rotation.z = Math.PI - 0.15
@@ -487,27 +501,49 @@ export function create3D(canvas, { onImpact } = {}) {
         const hangLift = RIM.y - SHOULDER - Math.cos(0.15) * ARM - rimBend * (BOARD_X + C.rim.radius)
         const k = Math.min(1, t / 0.15)
         x += (hangX - x) * k
+        z += (0.05 - z) * k
         lift = p.hang > 0 ? lift + (hangLift - lift) * k : Math.min(lift, hangLift)
       }
     } else if (s && !s.released) {
       a0.rotation.z = a1.rotation.z = Math.PI * 0.92
     } else if (!isOff) {
+      // defensive stance: arms wide, knees bent; jumping to block: arms straight up
       a0.rotation.x = air ? -2.7 : -1.9
       a1.rotation.x = air ? 2.7 : 1.9
+      if (!air) {
+        drop = 0.1
+        spread = 0.25
+      }
+      if (p.stun > 0 && !p.fallen) {
+        // beaten by the crossover: stumbles back, off balance
+        tilt = Math.sin(p.stun * 14) * 0.3
+        lean = -0.25
+      }
     } else {
-      a0.rotation.z = 0.6
-      a1.rotation.z = 0.6
+      // dribbling; a crossover (handT 0 → 1) drops the hips, leans into the new side and widens the stance
+      const c = p.handT < 1 ? Math.sin(Math.PI * p.handT) : 0
+      drop = 0.2 * c
+      tilt = p.hand * 0.4 * c
+      spread = 0.55 * c
+      lean = 0.15 + 0.2 * c
+      const dribbleArm = p.hand > 0 ? a0 : a1
+      const offArm = p.hand > 0 ? a1 : a0
+      dribbleArm.rotation.z = 0.75
+      dribbleArm.rotation.x = -p.hand * 0.35 * (1 + c)
+      offArm.rotation.z = 0.35
+      offArm.rotation.x = p.hand * 0.5 // guards the ball
     }
-    rig.legs[0].rotation.z = legF
-    rig.legs[1].rotation.z = legB
+    rig.legs[0].rotation.set(-spread, 0, legF)
+    rig.legs[1].rotation.set(spread, 0, legB)
     rig.root.position.set(x, lift, z)
+    rig.root.rotation.y = ry
     // ankle breaker: on the floor, sitting back
-    rig.body.rotation.z = p.fallen ? Math.PI / 2 : lean
-    rig.body.position.set(p.fallen ? -0.3 : 0, p.fallen ? C.players.radius : 0, 0)
+    rig.body.rotation.set(p.fallen ? 0 : tilt, 0, p.fallen ? Math.PI / 2 : -lean)
+    rig.body.position.set(p.fallen ? -0.3 : 0, p.fallen ? C.players.radius : -drop, 0)
     return z
   }
 
-  const ballPhysics = createBallPhysics(p => zs.get(p) ?? C.players.offenseZ, onImpact, p => handsOf.get(p))
+  const ballPhysics = createBallPhysics(p => wz(p.z), onImpact, p => handsOf.get(p))
   const ball = ballPhysics.body
 
   const renderer = {
@@ -531,11 +567,22 @@ export function create3D(canvas, { onImpact } = {}) {
         ballMesh.quaternion.copy(ball.quaternion)
       } else if (!off.fallen) {
         const z = zByPlayer.get(off)
-        const hand = 0.3 * (off.hand * off.handT - off.hand * (1 - off.handT))
+        const x = wx(off.x)
+        const ry = facing.get(off) ?? 0
         const held = handsOf.get(off)
         if (held) ballMesh.position.copy(held)
-        else if (off.shooting && !off.shooting.released) ballMesh.position.set(wx(off.x) + 0.12, C.players.height + 0.5 + jumpM(off.y), z)
-        else ballMesh.position.set(wx(off.x) + 0.3, C.ball.radius + Math.abs(Math.sin(view.clock * 9)) * 0.75 + jumpM(off.y), z + hand)
+        else if (off.shooting && !off.shooting.released) {
+          const [bx, bz] = local(x, z, ry, 0.12, 0)
+          ballMesh.position.set(bx, C.players.height + 0.5 + jumpM(off.y), bz)
+        } else if (off.handT < 1) {
+          // crossover: one low, hard bounce in front of the body from the old hand to the new one
+          const u = smooth(off.handT)
+          const [bx, bz] = local(x, z, ry, 0.38, off.hand * 0.36 * (2 * u - 1))
+          ballMesh.position.set(bx, C.ball.radius + 0.5 * Math.abs(Math.cos(Math.PI * off.handT)), bz)
+        } else {
+          const [bx, bz] = local(x, z, ry, 0.3, off.hand * 0.36)
+          ballMesh.position.set(bx, C.ball.radius + Math.abs(Math.sin(view.clock * 9)) * 0.75 + jumpM(off.y), bz)
+        }
         ballMesh.rotation.z = -view.clock * 6
       }
 
@@ -554,8 +601,9 @@ export function create3D(canvas, { onImpact } = {}) {
       let focus = Math.min(-1.2, Math.max(-8.5, wx(off.x) * 0.55))
       if (view.ball) focus = focus * 0.5 + Math.min(0, ballMesh.position.x) * 0.5
       const dunk = off.shooting?.kind === 'dunk' || view.ball?.kind === 'dunk'
-      camTarget.set(focus - 0.6, C.camera.height - (dunk ? 0.5 : 0), dunk ? C.camera.dunkDistance : C.camera.distance)
-      lookTarget.set(focus + 0.9, dunk ? 2.4 : 1.7, 0)
+      const side = dunk ? 0 : wz(off.z)
+      camTarget.set(focus - 0.6, C.camera.height - (dunk ? 0.5 : 0), (dunk ? C.camera.dunkDistance : C.camera.distance) + Math.max(0, side) * 0.6)
+      lookTarget.set(focus + 0.9, dunk ? 2.4 : 1.7, side * 0.35)
       camPos.lerp(camTarget, ease(dt, 3))
       look.lerp(lookTarget, ease(dt, 3))
       camera.position.copy(camPos)
