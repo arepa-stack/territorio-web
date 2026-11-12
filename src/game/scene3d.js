@@ -94,10 +94,15 @@ function paintLines(g, pal) {
   g.fillStyle = pal.key
   g.fillRect(cx(keyX), cz(-C.key.width / 2), C.key.length * PPM, C.key.width * PPM)
   if (pal.logo) {
-    g.font = `${2.4 * PPM}px Anton, Impact, sans-serif`
+    g.save()
+    g.translate(cx(-8.7), cz(0))
+    g.rotate(Math.PI / 2) // letters run along z (screen right), their tops point to the hoop
+    g.font = `${1.6 * PPM}px Anton, Impact, sans-serif`
     g.textAlign = 'center'
+    g.textBaseline = 'middle'
     g.fillStyle = pal.logo
-    g.fillText('TURF.', cx(midX + 3.4), cz(5.2))
+    g.fillText('TURF.', 0, 0)
+    g.restore()
   }
   g.strokeStyle = pal.line
   g.lineWidth = C.lineWidth * PPM
@@ -345,6 +350,10 @@ function numberTexture(num) {
   return texOf(c)
 }
 
+// Proportions of a 1.95 m player: long legs (hip at 1.03), short tapered torso, wide shoulders, long arms.
+// render3d.js poses these joints and relies on RIG for reach and leg length.
+export const RIG = { shoulder: 1.6, arm: 0.72, leg: 1.0, thigh: 0.5 }
+
 export function makePlayer({ jersey, shorts, skin, num, headband, shoe = '#16181c' }) {
   const root = new THREE.Group()
   const body = new THREE.Group()
@@ -359,67 +368,68 @@ export function makePlayer({ jersey, shorts, skin, num, headband, shoe = '#16181
   }
   const lathe = (pts, mat) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 22), mat)
 
-  // sleeveless jersey: loose at the hem, wider at the chest, open at the shoulders
-  add(body, lathe([[0.2, 0.88], [0.235, 0.9], [0.215, 1.1], [0.225, 1.3], [0.245, 1.45], [0.2, 1.57], [0.105, 1.6]], jerseyMat))
-  const trim = add(body, new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.014, 8, 24), std('#ffffff')), 0, 1.6, 0)
+  // sleeveless jersey: loose hem, narrow waist, chest and shoulders wider (flattened front to back)
+  add(body, lathe([[0.17, 1.0], [0.2, 1.02], [0.178, 1.2], [0.2, 1.4], [0.235, 1.53], [0.2, 1.63], [0.085, 1.665]], jerseyMat)).scale.set(0.8, 1, 1.08)
+  const trim = add(body, new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.012, 8, 24), std('#ffffff')), 0, 1.665, 0)
   trim.rotation.x = Math.PI / 2
-  add(body, new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.12, 14), skinMat), 0, 1.65, 0) // neck
-  add(body, new THREE.Mesh(new THREE.SphereGeometry(0.125, 22, 18), skinMat), 0, 1.81, 0).scale.set(1, 1.12, 0.95)
-  add(body, new THREE.Mesh(new THREE.SphereGeometry(0.13, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.42), std('#17120e', { roughness: 0.95 })), -0.008, 1.83, 0).scale.set(1, 1.1, 0.96) // hair
+  add(body, new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.058, 0.15, 14), skinMat), 0, 1.73, 0) // neck
+  add(body, new THREE.Mesh(new THREE.SphereGeometry(0.105, 22, 18), skinMat), 0, 1.875, 0).scale.set(1, 1.16, 0.92)
+  add(body, new THREE.Mesh(new THREE.SphereGeometry(0.11, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.42), std('#17120e', { roughness: 0.95 })), -0.006, 1.895, 0).scale.set(1, 1.14, 0.93) // hair
   if (headband) {
-    const band = add(body, new THREE.Mesh(new THREE.TorusGeometry(0.124, 0.02, 8, 28), std(headband)), 0, 1.87, 0)
+    const band = add(body, new THREE.Mesh(new THREE.TorusGeometry(0.102, 0.018, 8, 28), std(headband)), 0, 1.93, 0)
     band.rotation.x = Math.PI / 2
   }
+  // number on the chest and on the back (the camera sits behind the ball handler)
   const numMat = new THREE.MeshBasicMaterial({ map: numberTexture(num), transparent: true, depthWrite: false })
   for (const side of [1, -1]) {
-    const n = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), numMat)
-    n.position.set(0, 1.3, side * 0.232)
-    n.rotation.y = side > 0 ? 0 : Math.PI
+    const n = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.26), numMat)
+    n.position.set(side * 0.172, 1.36, 0)
+    n.rotation.y = (side * Math.PI) / 2
     body.add(n)
   }
   // baggy shorts over the hips
-  add(body, lathe([[0.215, 0.98], [0.245, 0.9], [0.25, 0.74], [0.1, 0.74]], shortsMat))
+  add(body, lathe([[0.185, 1.09], [0.215, 1.02], [0.22, 0.84], [0.09, 0.84]], shortsMat)).scale.set(0.85, 1, 1.05)
 
   const legs = []
   const knees = []
   const arms = []
   const elbows = []
-  const THIGH = 0.43
-  const SHIN = 0.43
+  const THIGH = RIG.thigh
+  const SHIN = RIG.leg - RIG.thigh - 0.03 // the sole takes the rest
   for (const side of [1, -1]) {
-    // leg: hip pivot → thigh (shorts leg over it) → knee pivot → shin, sock and sneaker
+    // leg: hip pivot → thigh (shorts leg over it) → knee pivot → calf, sock and sneaker
     const hip = new THREE.Group()
-    hip.position.set(0, 0.92, side * 0.115)
+    hip.position.set(0, 1.03, side * 0.105)
     body.add(hip)
-    add(hip, new THREE.Mesh(new THREE.CapsuleGeometry(0.085, THIGH - 0.12, 4, 12), skinMat), 0, -THIGH / 2, 0)
-    add(hip, new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.135, 0.3, 14), shortsMat), 0, -0.17, 0)
+    add(hip, new THREE.Mesh(new THREE.CapsuleGeometry(0.082, THIGH - 0.12, 4, 12), skinMat), 0, -THIGH / 2, 0)
+    add(hip, new THREE.Mesh(new THREE.CylinderGeometry(0.108, 0.128, 0.32, 14), shortsMat), 0, -0.18, 0)
     const knee = new THREE.Group()
     knee.position.y = -THIGH
     hip.add(knee)
-    add(knee, new THREE.Mesh(new THREE.SphereGeometry(0.078, 12, 10), skinMat))
-    add(knee, new THREE.Mesh(new THREE.CapsuleGeometry(0.068, SHIN - 0.16, 4, 12), skinMat), 0, -SHIN / 2 + 0.02, 0)
-    add(knee, new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.058, 0.14, 12), std('#f1f1ee')), 0, -SHIN + 0.13, 0) // sock
+    add(knee, new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), skinMat))
+    add(knee, new THREE.Mesh(new THREE.CapsuleGeometry(0.062, SHIN - 0.2, 4, 12), skinMat), -0.012, -SHIN / 2 + 0.03, 0).scale.set(1.12, 1, 1) // calf
+    add(knee, new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.052, 0.15, 12), std('#f1f1ee')), 0, -SHIN + 0.14, 0) // sock
     // sneaker: white sole, upper, toe cap and a stripe
-    add(knee, new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.035, 0.125), std('#f4f4f0', { roughness: 0.5 })), 0.055, -SHIN - 0.03, 0)
-    add(knee, new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.112), std(shoe, { roughness: 0.6 })), 0.01, -SHIN + 0.035, 0)
-    add(knee, new THREE.Mesh(new THREE.SphereGeometry(0.062, 12, 8), std(shoe, { roughness: 0.6 })), 0.125, -SHIN + 0.02, 0).scale.set(1.35, 0.8, 0.9)
-    add(knee, new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.116), std(jersey)), 0.03, -SHIN + 0.04, 0)
+    add(knee, new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.035, 0.12), std('#f4f4f0', { roughness: 0.5 })), 0.055, -SHIN - 0.012, 0)
+    add(knee, new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.108), std(shoe, { roughness: 0.6 })), 0.01, -SHIN + 0.05, 0)
+    add(knee, new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), std(shoe, { roughness: 0.6 })), 0.125, -SHIN + 0.035, 0).scale.set(1.35, 0.8, 0.9)
+    add(knee, new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.03, 0.112), std(jersey)), 0.03, -SHIN + 0.055, 0)
     legs.push(hip)
     knees.push(knee)
 
     // arm: shoulder pivot → upper arm → elbow pivot → forearm and hand
     const shoulder = new THREE.Group()
-    shoulder.position.set(0, 1.52, side * 0.285)
+    shoulder.position.set(0, RIG.shoulder, side * 0.275)
     body.add(shoulder)
-    add(shoulder, new THREE.Mesh(new THREE.SphereGeometry(0.082, 14, 10), skinMat))
-    add(shoulder, new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.2, 4, 10), skinMat), 0, -0.16, 0)
+    add(shoulder, new THREE.Mesh(new THREE.SphereGeometry(0.085, 14, 10), skinMat)) // deltoid
+    add(shoulder, new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.23, 4, 10), skinMat), 0, -0.175, 0)
     const elbow = new THREE.Group()
-    elbow.position.y = -0.3
+    elbow.position.y = -0.34
     shoulder.add(elbow)
-    add(elbow, new THREE.Mesh(new THREE.SphereGeometry(0.054, 10, 8), skinMat))
-    add(elbow, new THREE.Mesh(new THREE.CapsuleGeometry(0.047, 0.18, 4, 10), skinMat), 0, -0.14, 0)
-    add(elbow, new THREE.Mesh(new THREE.SphereGeometry(0.058, 10, 8), skinMat), 0, -0.29, 0).scale.set(0.8, 1.15, 0.6)
-    add(elbow, new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 10), std(side > 0 ? jersey : '#f1f1ee')), 0, -0.2, 0) // wristband
+    add(elbow, new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), skinMat))
+    add(elbow, new THREE.Mesh(new THREE.CapsuleGeometry(0.043, 0.22, 4, 10), skinMat), 0, -0.16, 0)
+    add(elbow, new THREE.Mesh(new THREE.SphereGeometry(0.056, 10, 8), skinMat), 0, -0.34, 0).scale.set(0.8, 1.2, 0.6) // hand
+    add(elbow, new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.05, 10), std(side > 0 ? jersey : '#f1f1ee')), 0, -0.24, 0) // wristband
     arms.push(shoulder)
     elbows.push(elbow)
   }
@@ -529,35 +539,38 @@ export function buildEnvironment(scene) {
     }
   }
   fence(24, 3.8, -6, -9.5, 0)
+  fence(24, 3.8, -6, 9.5, 0)
   fence(19, 3.8, BASE_X + 2.6, 0, Math.PI / 2)
 
-  // two halogen street lamps: spot light with soft shadows, glowing head and a faint light shaft
-  for (const [x, tx, color] of [[-10.5, -8, '#ffd4a3'], [-1.5, -2.5, '#ffe2bd']]) {
+  // two halogen street lamps in the corners behind the baseline, leaning over the court:
+  // spot light with soft shadows, glowing head and a faint light shaft
+  for (const [z, color] of [[-7, '#ffd4a3'], [7, '#ffe2bd']]) {
+    const px = BASE_X + 2.2
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 7.8, 12), metal)
-    pole.position.set(x, 3.9, -9.2)
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.5), metal)
-    arm.position.set(x, 7.75, -8.5)
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.7), metal)
-    head.position.set(x, 7.72, -7.8)
-    const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.03, 0.56), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffe3bb').multiplyScalar(9) }))
-    bulb.position.set(x, 7.635, -7.8)
-    const from = new THREE.Vector3(x, 7.6, -7.8)
-    const to = new THREE.Vector3(tx, 0, -1)
-    const spot = new THREE.SpotLight(color, 620, 36, 0.92, 0.6, 1.6)
+    pole.position.set(px, 3.9, z)
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.08, 0.08), metal)
+    arm.position.set(px - 0.7, 7.75, z)
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.14, 0.5), metal)
+    head.position.set(px - 1.4, 7.72, z)
+    const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.03, 0.38), new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffe3bb').multiplyScalar(9) }))
+    bulb.position.set(px - 1.4, 7.635, z)
+    const from = new THREE.Vector3(px - 1.4, 7.6, z)
+    const to = new THREE.Vector3(-4.5, 0, z * 0.3)
+    const spot = new THREE.SpotLight(color, 620, 40, 0.95, 0.6, 1.6)
     spot.position.copy(from)
     spot.target.position.copy(to)
     spot.castShadow = true
     spot.shadow.mapSize.set(2048, 2048)
     spot.shadow.camera.near = 2
-    spot.shadow.camera.far = 32
+    spot.shadow.camera.far = 36
     spot.shadow.bias = -0.0005
     spot.shadow.normalBias = 0.03
-    scene.add(pole, arm, head, bulb, spot, spot.target, lightShaft(from, to, 5.2))
+    scene.add(pole, arm, head, bulb, spot, spot.target, lightShaft(from, to, 5.5))
   }
   // cold night ambience + a soft fill from the camera side so the players never go black
   scene.add(new THREE.HemisphereLight('#44528a', '#17130f', 0.55))
   const fill = new THREE.DirectionalLight('#a9b8ee', 0.95)
-  fill.position.set(-6, 9, 14)
+  fill.position.set(-18, 11, 3) // from behind the camera
   scene.add(fill)
 
   // city blocks behind the fences: dark boxes with random lit windows
@@ -570,16 +583,18 @@ export function buildEnvironment(scene) {
     m.position.set(x, h / 2, z)
     scene.add(m)
   }
-  for (let x = -34; x < 26; ) {
-    const w = rnd(6, 11)
-    block(x + w / 2, rnd(-24, -19), w, 8, rnd(5, 10))
-    if (Math.random() < 0.6) block(x + w / 2 + rnd(-2, 2), rnd(-36, -30), w * 1.3, 8, rnd(9, 17))
-    x += w + rnd(0.6, 2.5)
+  // main backdrop behind the hoop: a near row and a taller far row
+  for (let z = -42; z < 42; ) {
+    const d = rnd(6, 11)
+    block(rnd(13, 16), z + d / 2, 8, d, rnd(6, 13))
+    if (Math.random() < 0.7) block(rnd(27, 33), z + d / 2 + rnd(-2, 2), 9, d * 1.3, rnd(14, 28))
+    z += d + rnd(0.6, 2.2)
   }
-  for (let z = -14; z < 16; ) {
-    const d = rnd(6, 10)
-    block(rnd(16, 20), z + d / 2, 8, d, rnd(5, 11))
-    z += d + rnd(0.6, 2)
+  // both sides, closing the corners
+  for (const side of [-1, 1]) for (let x = -26; x < 10; ) {
+    const w = rnd(6, 11)
+    block(x + w / 2, side * rnd(17, 21), w, 8, rnd(5, 12))
+    x += w + rnd(0.6, 2.5)
   }
 }
 

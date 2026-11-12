@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import C from './court-config.json'
 import { FLOOR, HOOP_X } from './oneOnOne'
-import { BOARD_X, RIM, buildEnvironment, buildHoop, createComposer, makeBall, makePlayer } from './scene3d'
+import { BOARD_X, RIG, RIM, buildEnvironment, buildHoop, createComposer, makeBall, makePlayer } from './scene3d'
 
 const G = 9.82
 const wx = gx => (gx - HOOP_X) * C.logic.pxToMeters // logic x (px) → world x (rim at 0)
@@ -167,8 +167,8 @@ export function create3D(canvas, { onImpact } = {}) {
     node.style.transform = `translate(${sx}px, ${((1 - v3.y) / 2) * ch}px) translate(-50%, -100%)`
   }
 
-  const camPos = new THREE.Vector3(-5, C.camera.height, C.camera.distance)
-  const look = new THREE.Vector3(-4, 1.6, 0)
+  const camPos = new THREE.Vector3(-C.camera.back, C.camera.height, 0)
+  const look = new THREE.Vector3(-3, 1.7, 0)
   const camTarget = new THREE.Vector3()
   const lookTarget = new THREE.Vector3()
 
@@ -180,9 +180,9 @@ export function create3D(canvas, { onImpact } = {}) {
   let rimVel = 0
   let shake = 0
   const smooth = t => t * t * (3 - 2 * t)
-  const ARM = 0.62 // shoulder to hand
-  const SHOULDER = 1.52
-  const LEG = 0.86 // hip to sole
+  const ARM = RIG.arm // shoulder to hand
+  const SHOULDER = RIG.shoulder
+  const LEG = RIG.leg // hip to sole
   // player-local offset (forward, side) → world x/z for a heading ry
   const local = (x, z, ry, fwd, side) => [x + fwd * Math.cos(ry) + side * Math.sin(ry), z - fwd * Math.sin(ry) + side * Math.cos(ry)]
   const tmp = new THREE.Euler()
@@ -318,7 +318,7 @@ export function create3D(canvas, { onImpact } = {}) {
     })
     // hips drop by what the (eased) knee bend takes off the leg length, so the feet stay on the floor
     const bend = air ? 0 : Math.max(0, -(rig.knees[0].rotation.z + rig.knees[1].rotation.z) / 4)
-    const drop = p.fallen ? 0 : LEG * (1 - Math.cos(bend)) + 0.43 * (1 - Math.cos(Math.abs(rig.legs[0].rotation.x)))
+    const drop = p.fallen ? 0 : LEG * (1 - Math.cos(bend)) + RIG.thigh * (1 - Math.cos(Math.abs(rig.legs[0].rotation.x)))
     rig.root.position.set(x, lift, z)
     rig.root.rotation.y = ry
     rig.body.position.set(p.fallen ? -0.3 : 0, p.fallen ? C.players.radius : -drop, 0)
@@ -382,13 +382,18 @@ export function create3D(canvas, { onImpact } = {}) {
       rimBend += rimVel * dt
       flex.rotation.z = rimBend
 
-      // broadcast camera: follows the play, keeps the hoop in frame, pushes in on dunks
-      let focus = Math.min(-1.2, Math.max(-8.5, wx(off.x) * 0.55))
-      if (view.ball) focus = focus * 0.5 + Math.min(0, ballMesh.position.x) * 0.5
+      // 2K-style camera: behind the ball handler, facing the hoop, sliding sideways with him.
+      // Driving into the paint (or dunking) it moves in and drops for drama.
+      const K = C.camera
+      const px = wx(off.x)
+      const pz = wz(off.z)
       const dunk = off.shooting?.kind === 'dunk' || view.ball?.kind === 'dunk'
-      const side = dunk ? 0 : wz(off.z)
-      camTarget.set(focus - 0.6, C.camera.height - (dunk ? 0.5 : 0), (dunk ? C.camera.dunkDistance : C.camera.distance) + Math.max(0, side) * 0.6)
-      lookTarget.set(focus + 0.9, dunk ? 2.4 : 1.7, side * 0.35)
+      const drive = dunk || Math.hypot(px, pz) < K.driveRadius
+      camTarget.set(Math.min(drive ? -K.driveBack : -K.back, px - (drive ? K.driveFollow : K.follow)), drive ? K.driveHeight : K.height, pz * K.lateral)
+      // look between the play (ball in flight, otherwise the handler) and the rim, so the hoop never leaves the frame
+      const fx = view.ball ? ballMesh.position.x : px
+      const fz = view.ball ? ballMesh.position.z : pz
+      lookTarget.set(fx * 0.45, drive ? 2.3 : 1.7, fz * 0.45)
       camPos.lerp(camTarget, ease(dt, 3))
       look.lerp(lookTarget, ease(dt, 3))
       camera.position.copy(camPos)

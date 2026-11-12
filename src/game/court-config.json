@@ -17,5 +17,9 @@
     "jumpPxToMeters": 0.008,
     "textPxToMeters": 0.017
   },
-  "camera": { "height": 3.6, "distance": 10.5, "dunkDistance": 7, "fov": 42 }
+  "camera": {
+    "note": "2K-style: behind the ball handler, facing the hoop. drive* apply inside driveRadius of the rim or on a dunk",
+    "fov": 50, "height": 4.6, "back": 13.5, "follow": 6.5, "lateral": 0.45,
+    "driveRadius": 3.6, "driveHeight": 3.4, "driveBack": 8.5, "driveFollow": 5.5
+  }
 }

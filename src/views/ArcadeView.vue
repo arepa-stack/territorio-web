@@ -77,7 +77,7 @@
             </div>
           </div>
 
-          <p class="ar-keys mono">{{ is3d ? '← → ↑ ↓ moverse por toda la cancha' : '← → moverse' }} · Espacio tirar (mantén y suelta en la zona verde) / saltar a tapar · X crossover / robar</p>
+          <p class="ar-keys mono">{{ is3d ? '↑ atacar el aro · ↓ retroceder · ← → por el perímetro' : '← → moverse' }} · Espacio tirar (mantén y suelta en la zona verde) / saltar a tapar · X crossover / robar</p>
         </section>
 
         <aside class="ar-side-col">
@@ -122,8 +122,20 @@ import { createAudio } from '@/game/audio'
 
 const PENDING = 'turf:pendingGameScore'
 const KEYS = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ' ': 'shoot', ArrowUp: 'shoot', w: 'shoot', W: 'shoot', x: 'cross', X: 'cross', k: 'cross', K: 'cross' }
-// 3D: up/down walk across the court (away from / toward the camera); shooting stays on Space (and J)
-const KEYS_3D = { ...KEYS, ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down', j: 'shoot', J: 'shoot' }
+// 3D: the camera looks at the hoop from behind the player, so keys are camera-relative. The engine's axes are
+// right = toward the hoop, left = away, up/down = across the court; shooting stays on Space (and J)
+const TO_HOOP = 'right'
+const BACK = 'left'
+const SIDE_L = 'up'
+const SIDE_R = 'down'
+const KEYS_3D = {
+  ...KEYS,
+  ArrowUp: TO_HOOP, w: TO_HOOP, W: TO_HOOP,
+  ArrowDown: BACK, s: BACK, S: BACK,
+  ArrowLeft: SIDE_L, a: SIDE_L, A: SIDE_L,
+  ArrowRight: SIDE_R, d: SIDE_R, D: SIDE_R,
+  j: 'shoot', J: 'shoot'
+}
 
 const authStore = useAuthStore()
 const is3d = useRoute().meta.engine === '3d' // /jugar-v2: same rules and HUD, Three.js render + ball physics
@@ -135,11 +147,17 @@ const saveState = ref('')
 const leaders = ref([])
 const loadingBoard = ref(true)
 const playList = Object.values(PLAYS)
-const moveButtons = [
-  { name: 'left', label: 'Izquierda', icon: 'arrow_back' },
-  ...(is3d ? [{ name: 'up', label: 'Arriba', icon: 'arrow_upward' }, { name: 'down', label: 'Abajo', icon: 'arrow_downward' }] : []),
-  { name: 'right', label: 'Derecha', icon: 'arrow_forward' }
-]
+const moveButtons = is3d
+  ? [
+      { name: SIDE_L, label: 'Izquierda', icon: 'arrow_back' },
+      { name: TO_HOOP, label: 'Hacia el aro', icon: 'arrow_upward' },
+      { name: BACK, label: 'Atrás', icon: 'arrow_downward' },
+      { name: SIDE_R, label: 'Derecha', icon: 'arrow_forward' }
+    ]
+  : [
+      { name: 'left', label: 'Izquierda', icon: 'arrow_back' },
+      { name: 'right', label: 'Derecha', icon: 'arrow_forward' }
+    ]
 let game
 const MUTE_KEY = 'turf:arcadeMuted'
 const readMuted = () => {
@@ -217,9 +235,11 @@ const pad = name => ({
 
 const onKey = e => {
   const name = (is3d ? KEYS_3D : KEYS)[e.key]
-  if (!name || screen.value !== 'playing' || e.target.closest?.('input, textarea')) return
-  e.preventDefault() // space and arrows would scroll the page
-  if (!e.repeat) game?.input(name, e.type === 'keydown')
+  if (!name || e.target.closest?.('input, textarea, button, a')) return
+  // always, not only mid-game: Space or an arrow on the intro / result screen used to scroll the page and
+  // leave the title half hidden under the sticky header
+  e.preventDefault()
+  if (screen.value === 'playing' && !e.repeat) game?.input(name, e.type === 'keydown')
 }
 
 const resize = () => {
@@ -260,6 +280,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* room under the sticky header and a title that leaves the court on screen */
+.page {
+  gap: 24px;
+  padding-top: 64px;
+}
+.page__h1 {
+  font-size: clamp(48px, 5.4vw, 80px);
+  line-height: 1;
+}
 .ar-badge {
   margin-left: 0.25em;
   padding: 0 0.15em;
