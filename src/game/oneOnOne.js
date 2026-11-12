@@ -46,7 +46,7 @@ export function shotKind(x) {
 export const releaseQuality = m => 1 - Math.min(1, Math.abs(m - 0.8) / 0.4)
 
 const rand = (a, b) => a + Math.random() * (b - a)
-const player = (color, num, ai) => ({ x: 0, y: 0, vy: 0, vx: 0, stun: 0, fallen: false, color, num, ai, run: 0, hand: 1, handT: 1, crossCd: 0, stealCd: 0, shooting: null, blockAt: null })
+const player = (color, num, ai) => ({ x: 0, y: 0, vy: 0, vx: 0, stun: 0, fallen: false, color, num, ai, run: 0, hand: 1, handT: 1, crossCd: 0, stealCd: 0, shooting: null, blockAt: null, hang: 0 })
 
 export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, renderer = null, ballPhysics = null, onEvent = () => {} } = {}) {
   const ctx = renderer ? null : canvas.getContext('2d')
@@ -90,7 +90,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
   function possession() {
     off = nextOff
     def = off === you ? cpu : you
-    for (const p of [you, cpu]) Object.assign(p, { y: 0, vy: 0, vx: 0, stun: 0, fallen: false, shooting: null, blockAt: null, hand: 1, handT: 1 })
+    for (const p of [you, cpu]) Object.assign(p, { y: 0, vy: 0, vx: 0, stun: 0, fallen: false, shooting: null, blockAt: null, hand: 1, handT: 1, hang: 0 })
     off.x = 300
     def.x = THREE_X + 40
     ball = null
@@ -128,6 +128,12 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
   function release(p) {
     const s = p.shooting
     s.released = true
+    if (s.kind === 'dunk') {
+      // hangs on the rim for a moment after the slam, then drops
+      p.hang = 0.4
+      p.vy = 0
+      p.vx = 0
+    }
     let prob = BASE[s.kind]
     if (s.kind === 'three' || s.kind === 'mid') {
       const q = releaseQuality(p.ai ? s.q : s.meter)
@@ -278,7 +284,8 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
     p.crossCd = Math.max(0, p.crossCd - dt)
     p.stealCd = Math.max(0, p.stealCd - dt)
     p.handT = Math.min(1, p.handT + dt / 0.18)
-    if (p.y > 0) {
+    if (p.hang > 0) p.hang = Math.max(0, p.hang - dt)
+    else if (p.y > 0) {
       p.vy -= G * dt
       p.y += p.vy * dt
       p.x += p.vx * dt

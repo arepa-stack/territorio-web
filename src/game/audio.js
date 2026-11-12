@@ -112,7 +112,13 @@ export function createAudio({ physicsImpacts = false } = {}) {
   // game events from oneOnOne.js
   function event(name, d = {}) {
     if (name === 'dribble') play('dribble', 0.6)
-    else if (name === 'release') play('release')
+    else if (name === 'release') {
+      play('release')
+      if (d.kind === 'dunk') {
+        play('rim', 1) // hands slam the iron
+        play('board', 0.9)
+      }
+    }
     else if (name === 'make') {
       play('swish')
       play(d.byYou ? 'cheer' : 'groan', 1)
