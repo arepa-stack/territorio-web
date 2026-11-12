@@ -335,7 +335,19 @@ export function buildHoop(scene) {
   const net = makeNet()
   net.mesh.position.set(RIM.x - BOARD_X, 0, 0)
   flex.add(rim, neck, plate, net.mesh)
-  scene.add(pole, foot, arm, brace, glass, frame, marks, flex)
+  const support = new THREE.Group()
+  for (const side of [-1, 1]) {
+    const from = new THREE.Vector3(poleX, 3.38, 0)
+    const to = new THREE.Vector3(BOARD_X + b.thickness, cy + b.height / 2 - 0.05, side * (b.width / 2 - 0.08))
+    const strut = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, from.distanceTo(to), 8), metal))
+    strut.position.copy(from).lerp(to, 0.5)
+    strut.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize())
+    support.add(strut)
+  }
+  const backPlate = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.62), metal))
+  backPlate.position.set(BOARD_X + b.thickness + 0.02, RIM.y + 0.16, 0)
+  support.add(backPlate)
+  scene.add(pole, foot, arm, brace, glass, frame, marks, flex, support)
   return { net, flex }
 }
 
@@ -454,56 +466,146 @@ function fenceMaterial(w, h) {
   return new THREE.MeshStandardMaterial({ color: '#aab0b6', metalness: 0.8, roughness: 0.3, alphaMap: t, alphaTest: 0.35, side: THREE.DoubleSide })
 }
 
+// facade: floors of small windows, a few lit, so a block reads as a building and not as dots
 function windowsTexture() {
   const [c, g] = canvasOf(128, 256)
   g.fillStyle = '#000'
   g.fillRect(0, 0, 128, 256)
-  for (let row = 0; row < 16; row++) for (let col = 0; col < 8; col++) {
-    if (Math.random() > 0.13) continue
-    g.fillStyle = Math.random() < 0.7 ? `rgba(255,${rnd(190, 225) | 0},150,${rnd(0.35, 1)})` : `rgba(180,210,255,${rnd(0.3, 0.8)})`
-    g.fillRect(col * 16 + 4, row * 16 + 4, 8, 9)
+  for (let row = 0; row < 16; row++) {
+    const floorLit = Math.random() < 0.85
+    for (let col = 0; col < 8; col++) {
+      const lit = floorLit && Math.random() < 0.24
+      g.fillStyle = lit ? (Math.random() < 0.75 ? `rgba(255,${rnd(185, 225) | 0},140,${rnd(0.45, 1)})` : `rgba(170,205,255,${rnd(0.35, 0.8)})`) : 'rgba(70,80,110,0.10)'
+      g.fillRect(col * 16 + 4, row * 16 + 5, 8, 7)
+    }
   }
   const t = texOf(c)
   t.wrapS = t.wrapT = THREE.RepeatWrapping
   return t
 }
 
+// screen-space sky: the city glow sits where the horizon falls for the game camera (upper third)
 function skyTexture() {
   const [c, g] = canvasOf(1024, 512)
   const grad = g.createLinearGradient(0, 0, 0, 512)
-  grad.addColorStop(0, '#03040a')
-  grad.addColorStop(0.45, '#0a0f24')
-  grad.addColorStop(0.72, '#231a33')
-  grad.addColorStop(1, '#4a2f2a') // sodium-lamp glow of the city on the horizon
+  grad.addColorStop(0, '#04050c')
+  grad.addColorStop(0.07, '#0a1130')
+  grad.addColorStop(0.16, '#262345')
+  grad.addColorStop(0.25, '#57393a') // sodium-lamp haze over the city
+  grad.addColorStop(1, '#57393a')
   g.fillStyle = grad
   g.fillRect(0, 0, 1024, 512)
-  for (let i = 0; i < 220; i++) {
-    g.fillStyle = `rgba(255,255,255,${rnd(0.2, 0.9)})`
-    g.fillRect(Math.random() * 1024, Math.random() * 260, rnd(0.6, 1.6), rnd(0.6, 1.6))
+  for (let i = 0; i < 160; i++) {
+    g.fillStyle = `rgba(255,255,255,${rnd(0.2, 0.85)})`
+    g.fillRect(Math.random() * 1024, Math.random() * 50, rnd(0.6, 1.5), rnd(0.6, 1.5))
   }
   return texOf(c)
 }
 
+// lit night haze under a lamp: brightest along the axis, fading to nothing at the silhouette and toward the floor
 function lightShaft(from, to, radius) {
-  const [c, g] = canvasOf(8, 128)
-  const grad = g.createLinearGradient(0, 0, 0, 128)
-  grad.addColorStop(0, '#ffffff') // v = 1 at the apex (lamp), fading out toward the floor
-  grad.addColorStop(0.5, '#3a3a3a')
-  grad.addColorStop(1, '#000000')
-  g.fillStyle = grad
-  g.fillRect(0, 0, 8, 128)
   const len = from.distanceTo(to)
-  const geo = new THREE.ConeGeometry(radius, len, 32, 1, true)
+  const geo = new THREE.ConeGeometry(radius, len, 48, 1, true)
   geo.translate(0, -len / 2, 0) // apex at the origin
-  const cone = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#ffd9a8', alphaMap: texOf(c, false), transparent: true, opacity: 0.02, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }))
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { color: { value: new THREE.Color('#ffd9a8') }, opacity: { value: 0.1 } },
+    vertexShader: `
+      varying vec3 vN; varying vec3 vV; varying float vH;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        vH = uv.y; // 1 at the lamp, 0 at the floor
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform vec3 color; uniform float opacity;
+      varying vec3 vN; varying vec3 vV; varying float vH;
+      void main() {
+        float facing = abs(dot(normalize(vN), normalize(vV)));
+        float edge = smoothstep(0.0, 0.85, facing); // soft silhouette instead of a hard triangle
+        float fall = smoothstep(0.0, 0.55, vH) * (0.35 + 0.65 * vH);
+        gl_FragColor = vec4(color, opacity * edge * edge * fall);
+      }`,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  })
+  const cone = new THREE.Mesh(geo, mat)
   cone.position.copy(from)
   cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), to.clone().sub(from).normalize())
   return cone
 }
 
+// possession ring on the floor under the ball handler, with a chevron pointing at the hoop
+export function makeRing() {
+  const [c, g] = canvasOf(256)
+  g.strokeStyle = '#fff'
+  g.shadowColor = '#fff'
+  g.shadowBlur = 14
+  g.lineWidth = 9
+  g.beginPath()
+  g.arc(128, 128, 78, 0.5, Math.PI * 2 - 0.5) // open toward the chevron
+  g.stroke()
+  g.lineWidth = 8
+  g.lineJoin = 'round'
+  for (const x of [200, 222]) {
+    g.beginPath()
+    g.moveTo(x, 104)
+    g.lineTo(x + 22, 128)
+    g.lineTo(x, 152)
+    g.stroke()
+  }
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7), new THREE.MeshBasicMaterial({ map: texOf(c), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }))
+  mesh.rotation.x = -Math.PI / 2
+  const ring = new THREE.Group()
+  ring.add(mesh)
+  ring.position.y = 0.02
+  return { ring, material: mesh.material }
+}
+
+// burst of embers on the rim for a perfect-release make
+export function makeFire() {
+  const N = 70
+  const [c, g] = canvasOf(64)
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+  grad.addColorStop(0, 'rgba(255,255,255,1)')
+  grad.addColorStop(0.4, 'rgba(255,170,60,0.7)')
+  grad.addColorStop(1, 'rgba(255,60,0,0)')
+  g.fillStyle = grad
+  g.fillRect(0, 0, 64, 64)
+  const pos = new Float32Array(N * 3)
+  const vel = new Float32Array(N * 3)
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  const mat = new THREE.PointsMaterial({ map: texOf(c), size: 0.42, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color('#ff8a2a').multiplyScalar(3) })
+  const points = new THREE.Points(geo, mat)
+  points.frustumCulled = false
+  let life = 0
+  return {
+    points,
+    burst() {
+      life = 1
+      for (let i = 0; i < N; i++) {
+        const a = Math.random() * Math.PI * 2
+        pos.set([RIM.x + Math.cos(a) * C.rim.radius, RIM.y, RIM.z + Math.sin(a) * C.rim.radius], i * 3)
+        vel.set([Math.cos(a) * rnd(0.1, 0.9), rnd(1.2, 3.4), Math.sin(a) * rnd(0.1, 0.9)], i * 3)
+      }
+    },
+    update(dt) {
+      if (life <= 0) return
+      life = Math.max(0, life - dt / 0.9)
+      for (let i = 0; i < N * 3; i++) pos[i] += vel[i] * dt
+      geo.attributes.position.needsUpdate = true
+      mat.opacity = life
+    }
+  }
+}
+
 export function buildEnvironment(scene) {
   scene.background = skyTexture()
-  scene.fog = new THREE.FogExp2('#161624', 0.016)
+  scene.fog = new THREE.FogExp2('#221f33', 0.015) // haze: far blocks fade toward the sky glow
 
   const court = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), courtMaterial())
   court.rotation.x = -Math.PI / 2
@@ -573,28 +675,81 @@ export function buildEnvironment(scene) {
   fill.position.set(-18, 11, 3) // from behind the camera
   scene.add(fill)
 
-  // city blocks behind the fences: dark boxes with random lit windows
-  const wins = [windowsTexture(), windowsTexture(), windowsTexture()]
+  // city: real volumes at three depths; the haze makes the far ones paler, so the layers separate
+  const wins = [windowsTexture(), windowsTexture(), windowsTexture(), windowsTexture()]
+  const roofMat = std('#10121a', { roughness: 0.9 })
   const block = (x, z, w, d, h) => {
     const t = wins[(Math.random() * wins.length) | 0].clone()
-    t.repeat.set(Math.max(1, Math.round(w / 3)), Math.max(1, Math.round(h / 5)))
-    t.offset.set(Math.random(), Math.random())
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), std('#0c0e15', { roughness: 0.95, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.5 }))
+    t.repeat.set(Math.max(w, d) / 9, h / 34) // 8 windows every 9 m, one floor ≈ 2.1 m
+    t.offset.set(Math.floor(Math.random() * 8) / 8, Math.floor(Math.random() * 16) / 16)
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), std('#161a26', { roughness: 0.9, emissive: '#ffffff', emissiveMap: t, emissiveIntensity: 0.55 }))
     m.position.set(x, h / 2, z)
     scene.add(m)
+    // rooftop clutter: water tank, stair box, antenna
+    if (Math.random() < 0.7) {
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.6, 10), roofMat)
+      tank.position.set(x + rnd(-w / 4, w / 4), h + 0.8, z + rnd(-d / 4, d / 4))
+      scene.add(tank)
+    }
+    if (Math.random() < 0.6) {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(rnd(2, 3.5), rnd(1.5, 2.6), rnd(2, 3.5)), roofMat)
+      box.position.set(x + rnd(-w / 4, w / 4), h + 1, z + rnd(-d / 4, d / 4))
+      scene.add(box)
+    }
+    if (Math.random() < 0.35) {
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, rnd(3, 6), 5), roofMat)
+      mast.position.set(x, h + 2, z)
+      scene.add(mast)
+    }
   }
-  // main backdrop behind the hoop: a near row and a taller far row
-  for (let z = -42; z < 42; ) {
-    const d = rnd(6, 11)
-    block(rnd(13, 16), z + d / 2, 8, d, rnd(6, 13))
-    if (Math.random() < 0.7) block(rnd(27, 33), z + d / 2 + rnd(-2, 2), 9, d * 1.3, rnd(14, 28))
-    z += d + rnd(0.6, 2.2)
+  // heights chosen so every layer peeks over the one in front
+  for (const [x0, x1, hMin, hMax, gap] of [[17, 21, 4, 6.5, 5], [31, 39, 7, 10.5, 3], [52, 64, 9, 15, 2]]) {
+    for (let z = -60; z < 60; ) {
+      const d = rnd(7, 13)
+      if (Math.random() < 0.85) block(rnd(x0, x1), z + d / 2, rnd(8, 12), d, rnd(hMin, hMax))
+      z += d + rnd(0.8, gap)
+    }
   }
-  // both sides, closing the corners
-  for (const side of [-1, 1]) for (let x = -26; x < 10; ) {
-    const w = rnd(6, 11)
-    block(x + w / 2, side * rnd(17, 21), w, 8, rnd(5, 12))
-    x += w + rnd(0.6, 2.5)
+  for (const side of [-1, 1]) for (const [z0, z1, hMin, hMax] of [[19, 23, 4, 7], [33, 40, 8, 12]]) {
+    for (let x = -30; x < 12; ) {
+      const w = rnd(7, 12)
+      if (Math.random() < 0.85) block(x + w / 2, side * rnd(z0, z1), w, rnd(8, 12), rnd(hMin, hMax))
+      x += w + rnd(0.8, 3)
+    }
+  }
+
+  // street right behind the fence: tree silhouettes and utility poles with sagging cables
+  const leaf = std('#0b130d', { roughness: 1 })
+  const bark = std('#15100c', { roughness: 1 })
+  const tree = (x, z, s) => {
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14 * s, 0.2 * s, 3 * s, 7), bark)
+    trunk.position.set(x, 1.5 * s, z)
+    scene.add(trunk)
+    for (let i = 0; i < 4; i++) {
+      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(rnd(1.1, 1.7) * s, 1), leaf)
+      blob.position.set(x + rnd(-0.9, 0.9) * s, (3.2 + rnd(0, 1.6)) * s, z + rnd(-0.9, 0.9) * s)
+      scene.add(blob)
+    }
+  }
+  for (const z of [-13.5, -4.5, 5.5, 14]) tree(BASE_X + rnd(6, 9), z + rnd(-1, 1), rnd(1, 1.5))
+  for (const side of [-1, 1]) for (const x of [-9, -1]) tree(x + rnd(-1.5, 1.5), side * rnd(12, 14), rnd(1, 1.4))
+  const wire = new THREE.LineBasicMaterial({ color: '#05060a' })
+  const poleX = BASE_X + 5
+  const poleZ = [-33, -19, -6, 8, 22, 35]
+  for (const z of poleZ) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 8.4, 8), bark)
+    post.position.set(poleX, 4.2, z)
+    const cross = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1.8), bark)
+    cross.position.set(poleX, 7.9, z)
+    scene.add(post, cross)
+  }
+  for (let i = 0; i < poleZ.length - 1; i++) for (const [off, y] of [[-0.8, 7.95], [0, 7.95], [0.8, 7.95], [0, 6.9]]) {
+    const pts = []
+    for (let k = 0; k <= 16; k++) {
+      const u = k / 16
+      pts.push(new THREE.Vector3(poleX, y - Math.sin(Math.PI * u) * 0.7, poleZ[i] + off + (poleZ[i + 1] - poleZ[i]) * u))
+    }
+    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wire))
   }
 }
 

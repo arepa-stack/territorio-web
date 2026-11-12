@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import C from './court-config.json'
 import { FLOOR, HOOP_X } from './oneOnOne'
-import { BOARD_X, RIG, RIM, buildEnvironment, buildHoop, createComposer, makeBall, makePlayer } from './scene3d'
+import { BOARD_X, RIG, RIM, buildEnvironment, buildHoop, createComposer, makeBall, makeFire, makePlayer, makeRing } from './scene3d'
 
 const G = 9.82
 const wx = gx => (gx - HOOP_X) * C.logic.pxToMeters // logic x (px) → world x (rim at 0)
@@ -118,7 +118,11 @@ export function create3D(canvas, { onImpact } = {}) {
   buildEnvironment(scene)
   const { net, flex } = buildHoop(scene)
   const ballMesh = makeBall()
-  scene.add(ballMesh)
+  const { ring, material: ringMat } = makeRing()
+  const fire = makeFire()
+  scene.add(ballMesh, ring, fire.points)
+  const RING_YOU = new THREE.Color('#ff7a1e').multiplyScalar(2.2)
+  const RING_CPU = new THREE.Color('#4f8cff').multiplyScalar(2.2)
   const { composer } = createComposer(gl, scene, camera)
   // quality steps down by itself if the device cannot hold the frame rate: 0 full, 1 = 1x pixels, 2 = no bloom, 3 = small shadows
   let quality = 0
@@ -153,18 +157,25 @@ export function create3D(canvas, { onImpact } = {}) {
   }
   const textPool = Array.from({ length: 6 }, () => el('text-shadow:0 2px 0 #000,0 0 8px #000;letter-spacing:0.02em'))
   const tags = [el("font:12px 'Space Mono',monospace"), el("font:12px 'Space Mono',monospace")]
-  const meter = el('width:72px;height:10px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25)')
-  meter.innerHTML = '<i style="position:absolute;left:68%;width:24%;top:0;bottom:0;background:rgba(139,226,139,.5)"></i><b style="position:absolute;left:0;top:0;bottom:0;background:#f5b21b"></b>'
-  const meterFill = meter.querySelector('b')
+  const meter = el('width:34px;height:104px;filter:drop-shadow(0 0 4px rgba(0,0,0,.8))')
+  const ARC = 'M26 100 Q2 52 26 4'
+  meter.innerHTML = `<svg viewBox="0 0 34 104" width="34" height="104" fill="none" stroke-linecap="round">
+    <path d="${ARC}" stroke="rgba(0,0,0,.65)" stroke-width="9"/>
+    <path d="${ARC}" pathLength="100" stroke="rgba(120,235,140,.85)" stroke-width="7" stroke-dasharray="24 100" stroke-dashoffset="-68" stroke-linecap="butt"/>
+    <path id="fill" d="${ARC}" pathLength="100" stroke="#f5b21b" stroke-width="4" stroke-dasharray="0 100"/>
+  </svg>`
+  const meterFill = meter.querySelector('#fill')
+  let meterGlow = 0 // keeps the meter up, in green, for a moment after a perfect release
+  let glowDone = false
 
   const v3 = new THREE.Vector3()
   let cw = 0
   let ch = 0
-  const place = (node, x, y, z, show = true) => {
+  const place = (node, x, y, z, show = true, dx = 0, dy = 0) => {
     v3.set(x, y, z).project(camera)
     node.style.display = show && v3.z < 1 ? '' : 'none'
     const sx = Math.min(cw * 0.92, Math.max(cw * 0.08, ((v3.x + 1) / 2) * cw))
-    node.style.transform = `translate(${sx}px, ${((1 - v3.y) / 2) * ch}px) translate(-50%, -100%)`
+    node.style.transform = `translate(${sx + dx}px, ${((1 - v3.y) / 2) * ch + dy}px) translate(-50%, -100%)`
   }
 
   const camPos = new THREE.Vector3(-C.camera.back, C.camera.height, 0)
@@ -186,6 +197,8 @@ export function create3D(canvas, { onImpact } = {}) {
   // player-local offset (forward, side) → world x/z for a heading ry
   const local = (x, z, ry, fwd, side) => [x + fwd * Math.cos(ry) + side * Math.sin(ry), z - fwd * Math.sin(ry) + side * Math.cos(ry)]
   const tmp = new THREE.Euler()
+  const lastPos = new WeakMap() // previous floor position, for the lean into the direction of travel
+  const clamp1 = v => Math.max(-1, Math.min(1, v))
 
   function poseRig(p, view, dt) {
     const rig = rigFor(p)
@@ -220,6 +233,17 @@ export function create3D(canvas, { onImpact } = {}) {
     let ry = facing.get(p) ?? goal
     ry += Math.atan2(Math.sin(goal - ry), Math.cos(goal - ry)) * ease(dt, dunk ? 16 : 10)
     facing.set(p, ry)
+    // velocity in the player's own frame: forward (toward where he faces) and sideways
+    const was = lastPos.get(p)
+    lastPos.set(p, [x, z])
+    let vf = 0
+    let vs = 0
+    if (was && dt > 0) {
+      const vx = (x - was[0]) / dt
+      const vz = (z - was[1]) / dt
+      vf = clamp1((vx * Math.cos(ry) - vz * Math.sin(ry)) / 5.2)
+      vs = clamp1((vx * Math.sin(ry) + vz * Math.cos(ry)) / 5.2)
+    }
 
     if (dunk) {
       blend = 40 // the slam must snap
@@ -268,15 +292,32 @@ export function create3D(canvas, { onImpact } = {}) {
       a1.rotation.x = 0.2
       lean = -0.05
     } else if (!isOff) {
-      // defensive stance: knees bent, arms wide; jumping to block: arms straight up
-      a0.rotation.x = air ? -2.75 : -1.75
-      a1.rotation.x = air ? 2.75 : 1.75
-      e0.rotation.x = air ? 0 : -0.5
-      e1.rotation.x = air ? 0 : 0.5
-      if (!air) {
-        crouch = 0.42
-        spread = 0.22
-        lean = 0.12
+      const contest = air || !!view.ball || (other.shooting && !other.shooting.released)
+      if (contest) {
+        // shot contest: one arm straight up at the ball, the other out for balance
+        a0.rotation.z = Math.PI * 0.95
+        a1.rotation.x = 0.9
+        e1.rotation.x = 0.5
+        crouch = air ? 0 : 0.12
+        blend = 26
+      } else {
+        // real defensive stance: low and wide, the hand on the ball side down digging at the dribble,
+        // the other out in the lane, weight shifting from foot to foot
+        const mirror = other.hand > 0 ? -1 : 1 // he faces the handler, so the ball is on his opposite side
+        const [low, lowE, wide, wideE] = mirror > 0 ? [a0, e0, a1, e1] : [a1, e1, a0, e0]
+        const sway = Math.sin(view.clock * 5)
+        low.rotation.z = 0.95
+        low.rotation.x = -mirror * 0.2
+        lowE.rotation.z = 0.3
+        wide.rotation.x = -mirror * 1.1 // outward on his other side
+        wide.rotation.z = 0.25
+        wideE.rotation.x = -mirror * 0.45
+        crouch = 0.52 + 0.05 * sway
+        spread = 0.34
+        lean = 0.22
+        tilt = 0.07 * sway + vs * 0.2
+        legF += 0.12 * sway
+        legB -= 0.12 * sway
       }
       if (p.stun > 0 && !p.fallen) {
         // beaten by the crossover: stumbles back, off balance
@@ -284,21 +325,33 @@ export function create3D(canvas, { onImpact } = {}) {
         lean = -0.28
       }
     } else {
-      // dribbling; a crossover (handT 0 → 1) drops the hips, leans into the new side and widens the stance
-      const c = p.handT < 1 ? Math.sin(Math.PI * p.handT) : 0
+      // dribbling; a crossover (handT 0 → 1) drops the hips, leans into the new side and widens the stance.
+      // The torso also leans into wherever he is accelerating.
+      const cross = p.handT < 1
+      const c = cross ? Math.sin(Math.PI * p.handT) : 0
       crouch = 0.22 + 0.5 * c
-      tilt = p.hand * 0.4 * c
+      tilt = p.hand * 0.3 * c + vs * 0.25
       spread = 0.1 + 0.5 * c
-      lean = 0.16 + 0.2 * c
+      lean = 0.14 + 0.2 * c + vf * 0.22
       const [dArm, dElbow, oArm, oElbow] = p.hand > 0 ? [a0, e0, a1, e1] : [a1, e1, a0, e0]
-      // the dribbling hand pumps with the ball (same clock as the bounce)
-      const pump = Math.abs(Math.sin(view.clock * 9))
-      dArm.rotation.z = 0.35 + 0.25 * pump
-      dArm.rotation.x = -p.hand * 0.3 * (1 + c)
-      dElbow.rotation.z = 0.5 + 0.55 * pump
-      oArm.rotation.z = 0.3
-      oArm.rotation.x = p.hand * 0.45 // guards the ball
-      oElbow.rotation.z = 1.0
+      const pump = Math.abs(Math.sin(view.clock * 9)) // the dribbling hand rides the bounce
+      if (cross) {
+        // hand to hand: the old hand pushes the ball across low, the new one reaches in to catch it and carries it out
+        const u = p.handT
+        oArm.rotation.z = 0.55
+        oArm.rotation.x = -p.hand * 0.55 * (1 - u)
+        oElbow.rotation.z = 0.35 + 0.5 * u
+        dArm.rotation.z = 0.55
+        dArm.rotation.x = p.hand * (0.45 - 0.9 * u)
+        dElbow.rotation.z = 0.35
+      } else {
+        dArm.rotation.z = 0.35 + 0.25 * pump
+        dArm.rotation.x = -p.hand * 0.3
+        dElbow.rotation.z = 0.5 + 0.55 * pump
+        oArm.rotation.z = 0.3
+        oArm.rotation.x = p.hand * 0.45 // guards the ball
+        oElbow.rotation.z = 1.0
+      }
       blend = 22
     }
     if (air && !dunk) crouch = 0
@@ -372,7 +425,16 @@ export function create3D(canvas, { onImpact } = {}) {
       }
 
       // net: pulled down when the ball drops through (netT restarts on every make), then springs back
-      if (view.netT > netWas) net.swish()
+      if (view.netT > netWas) {
+        net.swish()
+        if (view.ball?.perfect) fire.burst() // green release that goes in: the rim catches fire
+      }
+      fire.update(dt)
+      ring.visible = view.phase !== 'over' && !view.ball
+      ring.position.set(wx(off.x), 0.02, zByPlayer.get(off))
+      ring.rotation.y = facing.get(off) ?? 0
+      ring.scale.setScalar(1 + Math.sin(view.clock * 5) * 0.05)
+      ringMat.color.copy(off.ai ? RING_CPU : RING_YOU)
       netWas = view.netT
       net.update(dt)
 
@@ -389,7 +451,8 @@ export function create3D(canvas, { onImpact } = {}) {
       const pz = wz(off.z)
       const dunk = off.shooting?.kind === 'dunk' || view.ball?.kind === 'dunk'
       const drive = dunk || Math.hypot(px, pz) < K.driveRadius
-      camTarget.set(Math.min(drive ? -K.driveBack : -K.back, px - (drive ? K.driveFollow : K.follow)), drive ? K.driveHeight : K.height, pz * K.lateral)
+      // off to one side of the handler's back so he never hides the defender: the duel reads on a diagonal
+      camTarget.set(Math.min(drive ? -K.driveBack : -K.back, px - (drive ? K.driveFollow : K.follow)), drive ? K.driveHeight : K.height, pz * K.lateral + K.shoulder)
       // look between the play (ball in flight, otherwise the handler) and the rim, so the hoop never leaves the frame
       const fx = view.ball ? ballMesh.position.x : px
       const fz = view.ball ? ballMesh.position.z : pz
@@ -448,9 +511,20 @@ export function create3D(canvas, { onImpact } = {}) {
         place(node, wx(p.x), p.fallen ? 0.9 : C.players.height + 0.25 + jumpM(p.y), zByPlayer.get(p))
       })
       const s = you.shooting
-      const showMeter = !!s && !s.released && (s.kind === 'three' || s.kind === 'mid')
-      place(meter, wx(you.x), C.players.height + 0.55 + jumpM(you.y), zByPlayer.get(you), showMeter)
-      if (showMeter) meterFill.style.width = `${s.meter * 100}%`
+      const charging = !!s && !s.released && (s.kind === 'three' || s.kind === 'mid')
+      if (charging) {
+        meterFill.setAttribute('stroke-dasharray', `${s.meter * 100} 100`)
+        meterFill.setAttribute('stroke', '#f5b21b')
+        meterGlow = 0
+        glowDone = false
+      } else if (view.ball?.perfect && !glowDone) {
+        glowDone = true // once per shot
+        meterGlow = 0.45
+        meterFill.setAttribute('stroke', '#7cf08e')
+      }
+      meterGlow = Math.max(0, meterGlow - dt)
+      // beside the shooting shoulder, in screen space
+      place(meter, wx(you.x), RIG.shoulder + 0.25 + jumpM(you.y), zByPlayer.get(you), charging || meterGlow > 0, cw * 0.045, 40)
     },
     destroy() {
       overlay.remove()

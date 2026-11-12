@@ -153,8 +153,10 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
       p.vz = 0
     }
     let prob = BASE[s.kind]
+    let perfect = false
     if (s.kind === 'three' || s.kind === 'mid') {
       const q = releaseQuality(p.ai ? s.q : s.meter)
+      perfect = !p.ai && q > 0.85
       prob *= 0.5 + 0.65 * q
       if (!p.ai) say(q > 0.85 ? '¡PERFECTO!' : q > 0.5 ? 'BIEN' : 'TARDE/TEMPRANO', q > 0.85 ? '#8be28b' : '#a8a397', p.x, FLOOR - p.y - 190)
     }
@@ -171,6 +173,7 @@ export function createGame(canvas, { onHud = () => {}, onEnd = () => {}, rendere
       peak: s.kind === 'dunk' ? 0 : 60 + dist * 0.28,
       result: blocked ? 'block' : Math.random() < prob ? 'make' : 'miss',
       kind: s.kind,
+      perfect,
       free: null
     }
     phase = 'flight'
